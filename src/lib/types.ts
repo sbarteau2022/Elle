@@ -14,17 +14,6 @@ export interface User {
   access_tier?: string;
 }
 
-export interface CommunicationProfile {
-  preferred_length: string;
-  preferred_directness: string;
-  vocabulary_level: string;
-  responds_to_examples: boolean;
-  responds_to_stories: boolean;
-  profile_confidence: string;
-  learning_modality?: string;
-  communication_style?: string;
-}
-
 export interface CognitiveMap {
   iq_index: number;
   eq_index: number;

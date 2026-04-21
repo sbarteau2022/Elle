@@ -85,8 +85,8 @@ export function Rollout() {
               <span className="font-mono text-xs mb-6" style={{ color: 'var(--red)' }}>{p.timeline}</span>
               <span className="red-rule mb-6 block w-12" />
               <ul className="flex flex-col gap-3 flex-1">
-                {p.items.map((item, i) => (
-                  <li key={i} className="flex items-start gap-2">
+                {p.items.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
                     <span className="font-mono text-xs mt-0.5 flex-shrink-0" style={{ color: 'var(--red)' }}>
                       {p.status === 'active' ? '✓' : '○'}
                     </span>

@@ -69,5 +69,5 @@ async function callOllama(
 }
 
 export async function dbInsert(table: string, row: Record<string, unknown>) {
-  callEdge('elle-conversation', { _db_insert: table, _row: row }).catch(() => {});
+  return callEdge('elle-conversation', { _db_insert: table, _row: row });
 }

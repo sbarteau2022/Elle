@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { User, Screen } from '../lib/types';
 import { SOVEREIGN } from '../lib/supabase';
 
@@ -6,6 +6,7 @@ interface Props {
   screen: Screen;
   setScreen: (s: Screen) => void;
   user: User;
+  onLogout: () => void;
 }
 
 const NAV: { id: Screen; label: string; mono: string }[] = [
@@ -17,7 +18,9 @@ const NAV: { id: Screen; label: string; mono: string }[] = [
   { id: 'profile', label: 'My Profile',     mono: '06' },
 ];
 
-export function Sidebar({ screen, setScreen, user }: Props) {
+export function Sidebar({ screen, setScreen, user, onLogout }: Props) {
+  const [hovered, setHovered] = useState<Screen | null>(null);
+
   return (
     <aside style={{
       width: 220,
@@ -49,10 +52,13 @@ export function Sidebar({ screen, setScreen, user }: Props) {
       <nav style={{ flex: 1, paddingTop: 16 }}>
         {NAV.map(n => {
           const isActive = screen === n.id;
+          const isHovered = hovered === n.id;
           return (
             <button
               key={n.id}
               onClick={() => setScreen(n.id)}
+              onMouseEnter={() => setHovered(n.id)}
+              onMouseLeave={() => setHovered(null)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -62,13 +68,11 @@ export function Sidebar({ screen, setScreen, user }: Props) {
                 background: isActive ? 'rgba(139,26,26,0.12)' : 'transparent',
                 border: 'none',
                 borderLeft: isActive ? '2px solid #8B1A1A' : '2px solid transparent',
-                color: isActive ? '#F5F0E8' : '#6a6a7a',
+                color: isActive || isHovered ? '#F5F0E8' : '#6a6a7a',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s ease',
               }}
-              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.color = '#F5F0E8'; }}
-              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.color = '#6a6a7a'; }}
             >
               <span style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.5rem', color: '#8B1A1A', width: 18, flexShrink: 0 }}>
                 {n.mono}
@@ -81,14 +85,20 @@ export function Sidebar({ screen, setScreen, user }: Props) {
         })}
       </nav>
 
-      {/* Status */}
+      {/* Status + Logout */}
       <div style={{ padding: 20, borderTop: '1px solid rgba(139,26,26,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B1A1A', display: 'inline-block', animation: 'ellePulse 2s infinite' }} />
           <span style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.5rem', color: '#6a6a7a', letterSpacing: '0.1em' }}>
             {SOVEREIGN ? 'LOCAL · API FREE' : 'ELLE ACTIVE'}
           </span>
         </div>
+        <button
+          onClick={onLogout}
+          style={{ width: '100%', background: 'transparent', border: '1px solid rgba(139,26,26,0.2)', color: '#6a6a7a', padding: '7px 12px', fontFamily: '"Space Mono", monospace', fontSize: '0.5rem', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer' }}
+        >
+          Sign Out
+        </button>
       </div>
     </aside>
   );

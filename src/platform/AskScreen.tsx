@@ -7,7 +7,7 @@ interface Props {
   token: string;
 }
 
-export function AskScreen({ user, token }: Props) {
+export function AskScreen({ user: _user, token }: Props) {
   const [messages, setMessages] = useState<Message[]>([{
     role: 'elle',
     content: "I'm here. What are you carrying right now?",
@@ -99,8 +99,8 @@ export function AskScreen({ user, token }: Props) {
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+        {messages.map((m) => (
+          <div key={m.ts} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={{
               maxWidth: '82%',
               padding: '16px 20px',

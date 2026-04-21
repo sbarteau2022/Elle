@@ -17,7 +17,7 @@ export function SignalsScreen({ user, token }: Props) {
       .then(d => setSignals((d.signals as CommunitySignal[]) || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [token]);
 
   const runAggregate = async () => {
     setRunning(true);
@@ -69,8 +69,8 @@ export function SignalsScreen({ user, token }: Props) {
         </div>
       )}
 
-      {signals.map((s, i) => (
-        <div key={i} style={{ padding: 24, background: '#13131f', border: '1px solid rgba(139,26,26,0.2)', marginBottom: 12 }}>
+      {signals.map((s) => (
+        <div key={s.id || s.computed_at} style={{ padding: 24, background: '#13131f', border: '1px solid rgba(139,26,26,0.2)', marginBottom: 12 }}>
           <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.5rem', color: '#8B1A1A', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 12, margin: '0 0 12px' }}>
             {new Date(s.computed_at).toLocaleString()} · {s.signal_count} signals
           </p>

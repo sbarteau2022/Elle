@@ -23,7 +23,7 @@ const SESSION_KEY = 'elle_session_v1';
 
 function loadSession(): { user: User; token: string } | null {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -32,7 +32,11 @@ function loadSession(): { user: User; token: string } | null {
 }
 
 function saveSession(user: User, token: string) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ user, token }));
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, token }));
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
 export function ELLEPlatform() {
@@ -71,14 +75,22 @@ export function ELLEPlatform() {
     fetchCogMap(u.id, t);
   };
 
-  // Don't flash auth screen on first render while checking localStorage
+  const handleLogout = () => {
+    clearSession();
+    setUser(null);
+    setToken('');
+    setCogMap(null);
+    setScreen('home');
+  };
+
+  // Don't flash auth screen on first render while checking sessionStorage
   if (!ready) return null;
 
   if (!user) return <AuthScreen onAuth={handleAuth} />;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0f0f1a', color: '#F5F0E8' }}>
-      <Sidebar screen={screen} setScreen={setScreen} user={user} />
+      <Sidebar screen={screen} setScreen={setScreen} user={user} onLogout={handleLogout} />
       <main style={{ flex: 1, overflowY: 'auto' }}>
         {screen === 'home'    && <HomeScreen    user={user} cogMap={cogMap} setScreen={setScreen} />}
         {screen === 'ask'     && <AskScreen     user={user} token={token} />}

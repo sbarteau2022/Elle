@@ -64,22 +64,8 @@ Deno.serve(async (req: Request) => {
 
 Look at that code. Which line feels most unfamiliar to you? Don't think about the answer. Just notice what your eye skips over.`;
 
-export function LearnScreen({ user, token, cogMap }: Props) {
-  const [messages, setMessages] = useState<Message[]>([{
-    role: 'elle',
-    content: FIRST_MESSAGE,
-    ts: Date.now(),
-  }]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [convId] = useState(() => crypto.randomUUID());
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const TEACH_SYSTEM = `You are Elle teaching ${user.display_name || 'Stewart'} to code — rigorously.
+function buildTeachSystem(user: Props['user'], cogMap: Props['cogMap']): string {
+  return `You are Elle teaching ${user.display_name || 'there'} to code — rigorously.
 
 Their cognitive profile:
 - Learning modality: ${cogMap?.learning_modality || 'intuitive'}
@@ -99,6 +85,22 @@ TEACHING PRINCIPLES:
 8. Rigor means: they can look at unfamiliar code and reason about it correctly.
 9. The goal is not syntax memorization. It is engineering thinking.
 10. If they ask why, always answer why before showing how.`;
+}
+
+export function LearnScreen({ user, token, cogMap }: Props) {
+  const [messages, setMessages] = useState<Message[]>([{
+    role: 'elle',
+    content: FIRST_MESSAGE,
+    ts: Date.now(),
+  }]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [convId] = useState(() => crypto.randomUUID());
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const send = async () => {
     const content = input.trim();
@@ -109,10 +111,14 @@ TEACHING PRINCIPLES:
     setInput('');
     setLoading(true);
 
-    const history = [...messages, userMsg].map(m => ({
-      role: m.role === 'elle' ? 'assistant' : 'user',
-      content: m.content,
-    }));
+    const MAX_HISTORY = 20;
+    const TEACH_SYSTEM = buildTeachSystem(user, cogMap);
+    const history = [...messages, userMsg]
+      .slice(-MAX_HISTORY)
+      .map(m => ({
+        role: m.role === 'elle' ? 'assistant' : 'user',
+        content: m.content,
+      }));
 
     try {
       let reply = '';
@@ -162,8 +168,8 @@ TEACHING PRINCIPLES:
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+        {messages.map((m) => (
+          <div key={m.ts} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={{
               maxWidth: '92%',
               padding: '16px 20px',
