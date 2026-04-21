@@ -97,11 +97,11 @@ export function AskScreen({ user: _user, token }: Props) {
           </p>
           {motionAvailable && motion && (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }} title={`pitch ${motion.pitch.toFixed(2)} · roll ${motion.roll.toFixed(2)} · yaw ${motion.yaw.toFixed(2)}`}>
-              {([
+              {[
                 { label: 'P', value: motion.pitch },
                 { label: 'R', value: motion.roll },
                 { label: 'Y', value: motion.yaw },
-              ] as const).map(({ label, value }) => (
+              ].map(({ label, value }) => (
                 <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                   <span style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.4rem', color: '#8B1A1A' }}>{label}</span>
                   <div style={{ width: 3, height: 16, background: 'rgba(245,240,232,0.05)', borderRadius: 2, overflow: 'hidden' }}>

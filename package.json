@@ -31,5 +31,28 @@
     "typescript": "^5.5.4",
     "vite": "^5.2.0",
     "wait-on": "^7.0.0"
+  },
+  "build": {
+    "appId": "org.observerfoundation.elleai",
+    "productName": "Elle",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/main.cjs",
+      "electron/preload.cjs",
+      "electron/addons/headphone-motion/build/Release/headphone_motion.node"
+    ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "minimumSystemVersion": "11.0",
+      "extendInfo": {
+        "NSMotionUsageDescription": "Elle uses AirPods Pro motion sensors to provide spatial presence context during conversations."
+      }
+    },
+    "dmg": {
+      "title": "Elle"
+    }
   }
 }

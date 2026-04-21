@@ -18,6 +18,9 @@ function getNative(): ElleNative | null {
   return w.elleNative?.isElectron ? w.elleNative : null;
 }
 
+const MOTION_HZ = 30;
+const MOTION_INTERVAL_MS = 1000 / MOTION_HZ;
+
 export function useHeadMotion() {
   const [motion, setMotion] = useState<HeadMotion | null>(null);
   const native = getNative();
@@ -25,7 +28,13 @@ export function useHeadMotion() {
 
   useEffect(() => {
     if (!native) return;
-    native.onHeadMotion(setMotion);
+    let lastTs = 0;
+    native.onHeadMotion((data: HeadMotion) => {
+      const now = Date.now();
+      if (now - lastTs < MOTION_INTERVAL_MS) return;
+      lastTs = now;
+      setMotion(data);
+    });
     return () => native.offHeadMotion();
   }, [native]);
 

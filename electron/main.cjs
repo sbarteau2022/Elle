@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -51,18 +51,14 @@ app.whenReady().then(() => {
   });
 });
 
+function cleanupMotion() {
+  if (!motionAddon) return;
+  try { motionAddon.stopMotion(); } catch { /* ignore */ }
+}
+
 app.on('window-all-closed', () => {
-  if (motionAddon) {
-    try { motionAddon.stopMotion(); } catch { /* ignore */ }
-  }
+  cleanupMotion();
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => {
-  if (motionAddon) {
-    try { motionAddon.stopMotion(); } catch { /* ignore */ }
-  }
-});
-
-// Unused but required to suppress Electron's default menu IPC warnings
-ipcMain.on('ping', (event) => { event.reply('pong'); });
+app.on('before-quit', cleanupMotion);
