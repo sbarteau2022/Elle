@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { callEdge, SOVEREIGN } from '../lib/supabase';
 import type { User, Message } from '../lib/types';
+import { useHeadMotion } from './hooks/useHeadMotion';
 
 interface Props {
   user: User;
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function AskScreen({ user: _user, token }: Props) {
+  const { motion, available: motionAvailable } = useHeadMotion();
   const [messages, setMessages] = useState<Message[]>([{
     role: 'elle',
     content: "I'm here. What are you carrying right now?",
@@ -36,7 +38,7 @@ export function AskScreen({ user: _user, token }: Props) {
     try {
       const data = await callEdge(
         SOVEREIGN ? 'elle-conversation' : 'elle-reasoning-engine',
-        { query: content, conversation_id: convId },
+        { query: content, conversation_id: convId, ...(motion ? { head_motion: motion } : {}) },
         token
       );
 
@@ -89,9 +91,38 @@ export function AskScreen({ user: _user, token }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', maxWidth: 800, padding: '48px 48px 0', animation: 'slideIn 0.4s ease forwards' }}>
 
       <div style={{ marginBottom: 24 }}>
-        <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.6rem', letterSpacing: '0.2em', color: '#8B1A1A', textTransform: 'uppercase', marginBottom: 4, margin: '0 0 4px' }}>
-          Ask Elle {SOVEREIGN ? '· Sovereign · Local' : '· Millennium Falcon · 17 Axes'}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.6rem', letterSpacing: '0.2em', color: '#8B1A1A', textTransform: 'uppercase', margin: '0 0 4px' }}>
+            Ask Elle {SOVEREIGN ? '· Sovereign · Local' : '· Millennium Falcon · 17 Axes'}
+          </p>
+          {motionAvailable && motion && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }} title={`pitch ${motion.pitch.toFixed(2)} · roll ${motion.roll.toFixed(2)} · yaw ${motion.yaw.toFixed(2)}`}>
+              {([
+                { label: 'P', value: motion.pitch },
+                { label: 'R', value: motion.roll },
+                { label: 'Y', value: motion.yaw },
+              ] as const).map(({ label, value }) => (
+                <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <span style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.4rem', color: '#8B1A1A' }}>{label}</span>
+                  <div style={{ width: 3, height: 16, background: 'rgba(245,240,232,0.05)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{
+                      width: '100%',
+                      height: `${Math.min(100, Math.abs(value / Math.PI) * 100)}%`,
+                      background: Math.abs(value) > 0.3 ? '#C9A84C' : '#8B1A1A',
+                      transition: 'height 0.1s ease',
+                      marginTop: value < 0 ? 'auto' : 0,
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {motionAvailable && !motion && (
+            <span style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.45rem', color: '#6a6a7a', letterSpacing: '0.1em' }}>
+              AIRPODS · WAITING
+            </span>
+          )}
+        </div>
         <p style={{ fontFamily: '"Barlow Condensed", sans-serif', color: '#6a6a7a', fontSize: '0.9rem', margin: 0 }}>
           Every query runs through full structural analysis. Bilateral suppression is always load-bearing.
         </p>

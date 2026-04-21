@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { callEdge } from '../lib/supabase';
+import { callEdge, SOVEREIGN } from '../lib/supabase';
 import type { User, CognitiveMap, Screen } from '../lib/types';
+
+const SOVEREIGN_USER: User = { id: 'sovereign', email: 'local@sovereign', display_name: 'Sovereign' };
 
 import { AuthScreen }    from './AuthScreen';
 import { Sidebar }       from './Sidebar';
@@ -48,6 +50,11 @@ export function ELLEPlatform() {
 
   // Load persisted session on mount
   useEffect(() => {
+    if (SOVEREIGN) {
+      setUser(SOVEREIGN_USER);
+      setReady(true);
+      return;
+    }
     const session = loadSession();
     if (session) {
       setUser(session.user);
