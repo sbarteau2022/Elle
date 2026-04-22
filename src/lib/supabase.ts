@@ -68,6 +68,22 @@ async function callOllama(
   return { content: data.message?.content || '', sovereign: true };
 }
 
+export async function authSignInAdmin(email: string, password: string) {
+  const data = await callEdge('elle-auth', { action: 'login', email, password });
+  if (data.error) throw new Error(data.error as string);
+  const auth = data as { access_token: string; user: { id: string; email: string } };
+
+  // Verify admin access — elle-admin edge function must return { admin: true }
+  const access = await callEdge(
+    'elle-admin',
+    { action: 'verify_access', user_id: auth.user.id },
+    auth.access_token
+  );
+  if (!access.admin) throw new Error('Access denied. Administrator credentials required.');
+
+  return auth;
+}
+
 export async function dbInsert(table: string, row: Record<string, unknown>) {
   callEdge('elle-conversation', { _db_insert: table, _row: row }).catch(() => {});
 }

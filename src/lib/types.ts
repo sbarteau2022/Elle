@@ -70,3 +70,10 @@ export interface CommunitySignal {
 export type Screen = 'home' | 'ask' | 'learn' | 'profile' | 'signals' | 'threads';
 
 export type AuthMode = 'login' | 'signup';
+
+export type AdminScreen = 'dashboard' | 'profile' | 'config';
+
+export interface AdminSession {
+  user: User;
+  token: string;
+}
