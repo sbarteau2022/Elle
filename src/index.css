@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Barlow+Condensed:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Barlow+Condensed:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -148,3 +148,17 @@ body::before {
   background: var(--red-dim);
   border-left-color: var(--red) !important;
 }
+
+/* ── Elle v2 platform animations ───────────────────────────── */
+@keyframes elle2Shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+@keyframes elle2Blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+@keyframes elle2Pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+@keyframes elle2SlideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes elle2Stream { from{opacity:0;filter:blur(3px)} to{opacity:1;filter:blur(0)} }
+.elle2-stream > * { animation: elle2Stream .4s ease-out both }
+.elle2-stream > *:nth-child(1){animation-delay:.05s}
+.elle2-stream > *:nth-child(2){animation-delay:.15s}
+.elle2-stream > *:nth-child(3){animation-delay:.25s}
+.elle2-stream > *:nth-child(4){animation-delay:.35s}
+.elle2-stream > *:nth-child(5){animation-delay:.45s}
+.elle2-stream > *:nth-child(6){animation-delay:.55s}

@@ -67,6 +67,96 @@ export interface CommunitySignal {
   reconstruction_methods?: Record<string, number>;
 }
 
-export type Screen = 'home' | 'ask' | 'learn' | 'profile' | 'signals' | 'threads';
+export type Screen = 'home' | 'warroom' | 'profile' | 'doctrine' | 'tutor' | 'replays' | 'cohort' | 'ask' | 'learn' | 'signals' | 'threads';
+
+// LSAT / War Room types
+export interface DuelTactic {
+  src: string;
+  ref: string;
+  name: string;
+  fallacy?: string;
+}
+
+export interface DuelTurn {
+  n: number;
+  side: 'u' | 'd';
+  text: string;
+  tactic?: DuelTactic;
+  composure?: number;
+  valence?: number;
+}
+
+export interface DuelScore {
+  composure: number;
+  recognition: number;
+  walkback: number;
+  framework: number;
+}
+
+export interface ActiveDuel {
+  id: string;
+  opp: string;
+  scenario: string;
+  elapsed: string;
+  turns: DuelTurn[];
+  score: DuelScore;
+}
+
+export interface PlanItem {
+  rank: number;
+  axis: string;
+  deficit: number;
+  drill: string;
+  eta: string;
+  prio: 'critical' | 'high' | 'med';
+}
+
+export interface CogAxis {
+  k: string;
+  v: number;
+  d: number;
+}
+
+export interface ReplayRow {
+  id: string;
+  opp: string;
+  result: string;
+  turns: number;
+  comp: number;
+  scene: string;
+}
+
+export interface DoctrineItem {
+  n: number | string;
+  name: string;
+  mastery: number;
+  ctx?: string;
+}
+
+export interface CohortRow {
+  rank: number;
+  name: string;
+  idx: number;
+  streak: number;
+  delta: string;
+  you?: boolean;
+}
+
+export interface TutorChoice {
+  k: string;
+  text: string;
+  correct?: boolean;
+}
+
+export interface TutorQuestion {
+  id: string;
+  type: string;
+  qNum: number;
+  qTotal: number;
+  stimulus: string;
+  question: string;
+  choices: TutorChoice[];
+  scaffolding: string;
+}
 
 export type AuthMode = 'login' | 'signup';
