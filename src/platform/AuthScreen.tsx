@@ -12,6 +12,7 @@ export function AuthScreen({ onAuth }: Props) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailConfirmPending, setEmailConfirmPending] = useState(false);
 
   const submit = async () => {
     if (!email || !password) return;
@@ -22,6 +23,11 @@ export function AuthScreen({ onAuth }: Props) {
       const result = mode === 'login'
         ? await authSignIn(email, password)
         : await authSignUp(email, password);
+
+      if (mode === 'signup' && result.user && !result.access_token) {
+        setEmailConfirmPending(true);
+        return;
+      }
 
       if (!result.access_token || !result.user) {
         setError('No session returned. Check your credentials.');
@@ -49,6 +55,30 @@ export function AuthScreen({ onAuth }: Props) {
     fontSize: '1rem',
     boxSizing: 'border-box',
   };
+
+  if (emailConfirmPending) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}>
+          <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.6rem', letterSpacing: '0.25em', color: '#8B1A1A', textTransform: 'uppercase', marginBottom: 16 }}>
+            ELLEai Platform
+          </p>
+          <h1 style={{ fontFamily: '"Playfair Display", serif', fontSize: '2rem', color: '#F5F0E8', fontWeight: 400, margin: '0 0 16px' }}>
+            Check your email.
+          </h1>
+          <p style={{ fontFamily: '"Barlow Condensed", sans-serif', color: '#6a6a7a', fontSize: '1rem', margin: '0 0 24px' }}>
+            A confirmation link was sent to <strong style={{ color: '#F5F0E8' }}>{email}</strong>. Click it to activate your account, then come back to sign in.
+          </p>
+          <button
+            onClick={() => { setEmailConfirmPending(false); setMode('login'); }}
+            style={{ background: 'transparent', border: '1px solid rgba(139,26,26,0.4)', color: '#6a6a7a', padding: '10px 24px', fontFamily: '"Barlow Condensed", sans-serif', fontSize: '0.85rem', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>

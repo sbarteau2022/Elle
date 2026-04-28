@@ -1,5 +1,15 @@
 node_modules/
 dist/
+dist-electron/
+
+# Electron native addon build artifacts
+electron/addons/*/build/
+
 .env
 .env.local
+.env.*.local
+*.log
 .DS_Store
+.vscode/
+.idea/
+*.tsbuildinfo

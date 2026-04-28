@@ -1,66 +1,116 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from './ThemeProvider';
-import { Glass, Chip, H, Btn, Meter } from './primitives';
+import { Glass, Chip, H, Sparkle, Btn } from './primitives';
+import { callEdge } from '../../lib/supabase';
+import type { User } from '../../lib/types';
 
-const ROWS = [
-  { rank: 1, name: 'J. Okafor',   idx: 142, streak: 91, delta: '+6',  you: false },
-  { rank: 2, name: 'R. Patel',    idx: 138, streak: 63, delta: '+3',  you: false },
-  { rank: 3, name: 'M. Laurent',  idx: 134, streak: 48, delta: '+2',  you: false },
-  { rank: 4, name: 'Stewart B.',  idx: 127, streak: 37, delta: '+12', you: true  },
-  { rank: 5, name: 'A. Yamamoto', idx: 126, streak: 29, delta: '+1',  you: false },
-  { rank: 6, name: 'T. Kowalski', idx: 124, streak: 44, delta: '-2',  you: false },
-  { rank: 7, name: 'L. Osei',     idx: 121, streak: 52, delta: '+4',  you: false },
-];
+interface Row {
+  rank: number;
+  user_id: string;
+  name: string;
+  idx: number;
+  streak: number;
+  delta: string;
+  you: boolean;
+}
 
-export function CohortView() {
+interface Props { user: User; token: string; }
+
+export function CohortView({ user, token }: Props) {
   const t = useTheme();
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [your_rank, setYourRank] = useState<number | null>(null);
+  const [total, setTotal] = useState(0);
+  const [challenging, setChallenging] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await callEdge('elle-cohort', { action: 'leaderboard', user_id: user.id, limit: 20 }, token);
+      setRows((data.rows as Row[]) || []);
+      setYourRank((data.your_rank as number) ?? null);
+      setTotal((data.total as number) ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  }, [user.id, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const challenge = async (oppId: string) => {
+    setChallenging(oppId);
+    try {
+      await callEdge('elle-cohort', { action: 'challenge', user_id: user.id, opponent_user_id: oppId }, token);
+      // In a fuller impl, this would route to WarRoom — for now, just confirm
+    } finally {
+      setChallenging(null);
+    }
+  };
+
   return (
-    <div style={{ padding: '28px 48px 64px', maxWidth: 1100, margin: '0 auto', fontFamily: t.fonts.sans }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18 }}>
-        <H level={2}>Cohort · Cycle 14</H>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <Chip>4,218 members</Chip>
-          <Chip tone="accent">Top 12%</Chip>
+    <div style={{ padding: '28px 48px 64px', maxWidth: 1000, margin: '0 auto', fontFamily: t.fonts.sans }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+        <div>
+          <H level={2} style={{ marginBottom: 6 }}>Cohort</H>
+          <div style={{ fontSize: 13, color: t.ink3 }}>
+            Cognitive index across all Elle users. {total > 0 && `${total} ranked.`}
+            {your_rank && ` You are #${your_rank}.`}
+          </div>
         </div>
       </div>
-      <Glass padding={0} style={{ overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '48px 1fr 100px 80px 100px 80px',
-          padding: '10px 20px', borderBottom: `1px solid ${t.border}`,
-          fontSize: 11, color: t.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          <div>#</div><div>Name</div><div>Cog-Idx</div><div>Streak</div><div>Δ Cycle</div><div></div>
-        </div>
-        {ROWS.map(r => (
-          <div key={r.rank} style={{ display: 'grid', gridTemplateColumns: '48px 1fr 100px 80px 100px 80px',
-            padding: '14px 20px', alignItems: 'center', borderBottom: `1px solid ${t.border}`,
-            background: r.you ? t.accentSoft : 'transparent',
-            borderLeft: r.you ? `3px solid ${t.accent}` : '3px solid transparent' }}>
-            <div style={{ fontFamily: t.fonts.serif, fontSize: 22, color: r.rank <= 3 ? t.accent : t.ink3, letterSpacing: -0.5 }}>
-              {r.rank}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 9, background: r.you ? t.accent : t.surfaceSoft,
-                color: r.you ? '#fff' : t.ink2, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: t.fonts.sans, fontSize: 11, fontWeight: 600 }}>
-                {r.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
+
+      {loading && <Glass padding={28} style={{ textAlign: 'center', color: t.ink3, fontStyle: 'italic' }}>Loading leaderboard…</Glass>}
+
+      {!loading && rows.length === 0 && (
+        <Glass padding={48} style={{ textAlign: 'center' }}>
+          <H level={3} style={{ marginBottom: 8 }}>No cohort data yet</H>
+          <div style={{ fontSize: 13, color: t.ink3 }}>Cohort populates as users complete cognitive mapping.</div>
+        </Glass>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {rows.map(r => (
+          <Glass key={r.user_id} padding={14} style={{
+            background: r.you ? t.accentSoft : t.bgElev,
+            borderColor: r.you ? t.accent : t.border,
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 90px 70px 70px 100px', alignItems: 'center', gap: 14 }}>
+              <div style={{
+                fontFamily: t.fonts.mono, fontSize: 14,
+                color: r.rank <= 3 ? t.accent : t.ink2,
+                fontWeight: r.rank <= 3 ? 700 : 500,
+              }}>
+                #{r.rank}
               </div>
-              <span style={{ fontSize: 14, color: t.ink, fontWeight: r.you ? 600 : 400 }}>{r.name}</span>
-              {r.you && <Chip tone="accent" style={{ fontSize: 10 }}>you</Chip>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8,
+                  background: r.you ? t.accent : t.surfaceSoft,
+                  color: r.you ? '#fff' : t.ink2,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: t.fonts.sans, fontSize: 11, fontWeight: 600 }}>
+                  {r.name.slice(0, 2).toUpperCase()}
+                </div>
+                <span style={{ fontSize: 13, color: t.ink, fontWeight: r.you ? 600 : 500 }}>
+                  {r.name}{r.you && ' (you)'}
+                </span>
+              </div>
+              <div style={{ fontFamily: t.fonts.mono, fontSize: 13, color: t.ink, fontWeight: 500 }}>{r.idx}</div>
+              <div style={{ fontFamily: t.fonts.mono, fontSize: 12, color: t.success }}>{r.delta}</div>
+              <div style={{ fontFamily: t.fonts.mono, fontSize: 12, color: t.ink3 }}>{r.streak}🔥</div>
+              {!r.you ? (
+                <Btn variant="ghost" size="sm" onClick={() => challenge(r.user_id)}
+                  style={{ opacity: challenging === r.user_id ? 0.5 : 1 }}
+                  icon={<Sparkle size={9} />}>
+                  {challenging === r.user_id ? '…' : 'Challenge'}
+                </Btn>
+              ) : (
+                <Chip tone="accent">You</Chip>
+              )}
             </div>
-            <div>
-              <div style={{ fontFamily: t.fonts.mono, fontSize: 14, color: t.ink, marginBottom: 3 }}>{r.idx}</div>
-              <Meter value={r.idx} max={180} h={2} />
-            </div>
-            <div style={{ fontFamily: t.fonts.mono, fontSize: 13, color: t.ink2 }}>{r.streak}d</div>
-            <div style={{ fontFamily: t.fonts.mono, fontSize: 13,
-              color: r.delta.startsWith('+') ? t.success : t.danger }}>{r.delta}</div>
-            {r.you ? (
-              <Chip tone="accent">Active</Chip>
-            ) : (
-              <Btn variant="ghost" size="sm">Challenge</Btn>
-            )}
-          </div>
+          </Glass>
         ))}
-      </Glass>
+      </div>
     </div>
   );
 }

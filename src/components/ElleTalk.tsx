@@ -41,10 +41,13 @@ export function ElleTalk() {
     setInput('');
     setLoading(true);
 
-    const history = [...messages, userMsg].map(m => ({
-      role: m.role === 'elle' ? 'assistant' : 'user',
-      content: m.content,
-    }));
+    const MAX_HISTORY = 20;
+    const history = [...messages, userMsg]
+      .slice(-MAX_HISTORY)
+      .map(m => ({
+        role: m.role === 'elle' ? 'assistant' : 'user',
+        content: m.content,
+      }));
 
     try {
       const data = await callEdge('elle-conversation', {
@@ -105,8 +108,8 @@ export function ElleTalk() {
           className="flex flex-col gap-4 p-6 mb-4 overflow-y-auto"
           style={{ minHeight: 400, maxHeight: 600, background: 'var(--ink)', border: '1px solid rgba(139,26,26,0.3)' }}
         >
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          {messages.map((m) => (
+            <div key={m.ts} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] px-5 py-4 ${m.role === 'elle' ? 'bubble-elle' : 'bubble-user'}`}>
                 {m.role === 'elle' && (
                   <div className="flex items-center gap-2 mb-2">

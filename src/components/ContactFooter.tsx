@@ -3,17 +3,23 @@ import { dbInsert } from '../lib/supabase';
 
 export function Contact() {
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', message: '', interest: 'general' });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await dbInsert('elle_outreach_log', {
-      outreach_type: 'contact_form',
-      thought: `FROM: ${form.name} <${form.email}>\nINTEREST: ${form.interest}\n\n${form.message}`,
-      initiated_by: 'public_visitor',
-      needs_response: true,
-    }).catch(() => {});
-    setSubmitted(true);
+    setSubmitError(false);
+    try {
+      await dbInsert('elle_outreach_log', {
+        outreach_type: 'contact_form',
+        thought: `FROM: ${form.name} <${form.email}>\nINTEREST: ${form.interest}\n\n${form.message}`,
+        initiated_by: 'public_visitor',
+        needs_response: true,
+      });
+      setSubmitted(true);
+    } catch {
+      setSubmitError(true);
+    }
   };
 
   const interests = [
@@ -122,6 +128,11 @@ export function Contact() {
                   />
                 </div>
 
+                {submitError && (
+                  <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.6rem', color: '#8B1A1A', padding: '8px 12px', background: 'rgba(139,26,26,0.1)', border: '1px solid rgba(139,26,26,0.25)', margin: 0 }}>
+                    Something went wrong. Please try again.
+                  </p>
+                )}
                 <button
                   type="submit"
                   className="font-body text-sm tracking-widest uppercase px-8 py-4 transition-all duration-200"

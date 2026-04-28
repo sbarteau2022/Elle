@@ -7,6 +7,8 @@ import { ThemeProvider }   from './v2/ThemeProvider';
 import { TopBar }          from './v2/TopBar';
 import { CommandPalette }  from './v2/CommandPalette';
 import { TweaksDrawer }    from './v2/TweaksDrawer';
+import { FaceProvider, useFace } from './v2/FaceContext';
+
 import { HomeScreenV2 }    from './v2/HomeScreenV2';
 import { WarRoomView }     from './v2/WarRoomView';
 import { ProfileViewV2 }   from './v2/ProfileViewV2';
@@ -14,13 +16,23 @@ import { DoctrineView }    from './v2/DoctrineView';
 import { TutorView }       from './v2/TutorView';
 import { ReplaysView }     from './v2/ReplaysView';
 import { CohortView }      from './v2/CohortView';
+import { AskScreenV2 }     from './v2/AskScreenV2';
+import { LearnScreenV2 }   from './v2/LearnScreenV2';
+import { SignalsScreenV2 } from './v2/SignalsScreenV2';
+import { ThreadsScreenV2 } from './v2/ThreadsScreenV2';
 
-// Legacy screens still available via Screen type
-import { AskScreen }       from './AskScreen';
-import { LearnScreen }     from './LearnScreen';
-import { ProfileScreen }   from './ProfileScreen';
-import { SignalsScreen }   from './SignalsScreen';
-import { ThreadsScreen }   from './ThreadsScreen';
+// ============================================================
+// Elle Platform — single shell, multi-face
+//
+// /app          → core face (ethical intelligence)
+// /app/edu      → Elle EDU
+// /app/law      → Elle Law (LSAT)
+// /app/med      → Elle Med
+// /app/fin      → Elle Fin
+//
+// Auth: Supabase JWT via elle-auth edge function
+// Session: localStorage (survives refresh)
+// ============================================================
 
 const SESSION_KEY = 'elle_session_v1';
 
@@ -38,11 +50,15 @@ function saveSession(user: User, token: string) {
   localStorage.setItem(SESSION_KEY, JSON.stringify({ user, token }));
 }
 
-function PlatformShell({ user, token, cogMap, setCogMap }: {
-  user: User; token: string; cogMap: CognitiveMap | null;
-  setCogMap: (m: CognitiveMap) => void;
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function PlatformShell({ user, token, cogMap, onLogout }: {
+  user: User; token: string; cogMap: CognitiveMap | null; onLogout: () => void;
 }) {
-  const [screen, setScreen]       = useState<Screen>('home');
+  const face = useFace();
+  const [screen, setScreen]       = useState<Screen>(face.defaultScreen as Screen);
   const [paletteOpen, setPalette] = useState(false);
   const [tweaksOpen, setTweaks]   = useState(false);
 
@@ -66,19 +82,20 @@ function PlatformShell({ user, token, cogMap, setCogMap }: {
         onOpenPalette={() => setPalette(true)}
         onOpenTweaks={() => setTweaks(true)}
         user={user}
+        onLogout={onLogout}
       />
       <main style={{ flex: 1, overflowY: 'auto' }}>
-        {screen === 'home'     && <HomeScreenV2  user={user} cogMap={cogMap} setScreen={setScreen} />}
-        {screen === 'warroom'  && <WarRoomView />}
-        {screen === 'profile'  && <ProfileViewV2 user={user} cogMap={cogMap} setScreen={setScreen} />}
-        {screen === 'doctrine' && <DoctrineView />}
-        {screen === 'tutor'    && <TutorView />}
-        {screen === 'replays'  && <ReplaysView />}
-        {screen === 'cohort'   && <CohortView />}
-        {screen === 'ask'      && <AskScreen     user={user} token={token} />}
-        {screen === 'learn'    && <LearnScreen   user={user} token={token} cogMap={cogMap} />}
-        {screen === 'signals'  && <SignalsScreen  user={user} token={token} />}
-        {screen === 'threads'  && <ThreadsScreen  user={user} token={token} />}
+        {screen === 'home'     && <HomeScreenV2    user={user} cogMap={cogMap} setScreen={setScreen} />}
+        {screen === 'warroom'  && <WarRoomView    user={user} token={token} />}
+        {screen === 'profile'  && <ProfileViewV2   user={user} cogMap={cogMap} setScreen={setScreen} />}
+        {screen === 'doctrine' && <DoctrineView   user={user} token={token} />}
+        {screen === 'tutor'    && <TutorView      user={user} token={token} />}
+        {screen === 'replays'  && <ReplaysView    user={user} token={token} />}
+        {screen === 'cohort'   && <CohortView     user={user} token={token} />}
+        {screen === 'ask'      && <AskScreenV2     user={user} token={token} />}
+        {screen === 'learn'    && <LearnScreenV2   user={user} token={token} cogMap={cogMap} />}
+        {screen === 'signals'  && <SignalsScreenV2 user={user} token={token} />}
+        {screen === 'threads'  && <ThreadsScreenV2 user={user} token={token} />}
       </main>
       <CommandPalette open={paletteOpen} onClose={() => setPalette(false)} setScreen={setScreen} />
       <TweaksDrawer   open={tweaksOpen}  onClose={() => setTweaks(false)} />
@@ -120,12 +137,30 @@ export function ELLEPlatform() {
     fetchCogMap(u.id, t);
   };
 
+  const handleLogout = () => {
+    clearSession();
+    setUser(null);
+    setToken('');
+    setCogMap(null);
+  };
+
   if (!ready) return null;
   if (!user)  return <AuthScreen onAuth={handleAuth} />;
 
   return (
-    <ThemeProvider>
-      <PlatformShell user={user} token={token} cogMap={cogMap} setCogMap={setCogMap} />
+    <FaceProvider>
+      <ThemedShell user={user} token={token} cogMap={cogMap} onLogout={handleLogout} />
+    </FaceProvider>
+  );
+}
+
+function ThemedShell({ user, token, cogMap, onLogout }: {
+  user: User; token: string; cogMap: CognitiveMap | null; onLogout: () => void;
+}) {
+  const face = useFace();
+  return (
+    <ThemeProvider initialAccent={face.accent}>
+      <PlatformShell user={user} token={token} cogMap={cogMap} onLogout={onLogout} />
     </ThemeProvider>
   );
 }
