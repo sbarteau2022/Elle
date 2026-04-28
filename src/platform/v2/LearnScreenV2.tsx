@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { callEdge, SOVEREIGN, OLLAMA_URL, OLLAMA_MODEL } from '../lib/supabase';
-import type { User, CognitiveMap, Message } from '../lib/types';
+import { useTheme } from './ThemeProvider';
+import { Glass, Chip, H, Sparkle, Btn } from './primitives';
+import { callEdge, SOVEREIGN, OLLAMA_URL, OLLAMA_MODEL } from '../../lib/supabase';
+import type { User, CognitiveMap, Message } from '../../lib/types';
 
 interface Props {
   user: User;
@@ -8,24 +10,25 @@ interface Props {
   cogMap: CognitiveMap | null;
 }
 
-function renderContent(content: string) {
+function renderContent(content: string, t: ReturnType<typeof useTheme>) {
   const parts = content.split(/(```[\s\S]*?```)/g);
   return parts.map((part, i) => {
     if (part.startsWith('```')) {
       const code = part.replace(/^```\w*\n?/, '').replace(/\n?```$/, '');
       return (
         <div key={i} style={{
-          background: 'rgba(0,0,0,0.5)',
-          border: '1px solid rgba(139,26,26,0.25)',
-          borderLeft: '3px solid #8B1A1A',
-          fontFamily: '"Space Mono", monospace',
-          fontSize: '0.75rem',
+          background: t.surfaceSoft,
+          border: `1px solid ${t.border}`,
+          borderLeft: `3px solid ${t.accent}`,
+          fontFamily: t.fonts.mono,
+          fontSize: 12.5,
           lineHeight: 1.6,
-          padding: '14px 18px',
+          padding: '14px 16px',
           overflowX: 'auto',
           whiteSpace: 'pre',
-          borderRadius: '0 4px 4px 0',
+          borderRadius: '0 8px 8px 0',
           margin: '10px 0',
+          color: t.ink,
         }}>{code}</div>
       );
     }
@@ -50,13 +53,13 @@ Here's an edge function you built:
 Deno.serve(async (req: Request) => {
   // TRANSFORMATION: parses what arrived
   const body = await req.json();
-  
+
   // TRANSPORT: fetches data from the database
   const { data } = await supabase
     .from('elle_users')
     .select('*')
     .eq('id', body.user_id);
-  
+
   // TRANSFORMATION: builds a response
   return new Response(JSON.stringify(data));
 });
@@ -64,7 +67,7 @@ Deno.serve(async (req: Request) => {
 
 Look at that code. Which line feels most unfamiliar to you? Don't think about the answer. Just notice what your eye skips over.`;
 
-function buildTeachSystem(user: Props['user'], cogMap: Props['cogMap']): string {
+function buildTeachSystem(user: User, cogMap: CognitiveMap | null): string {
   return `You are Elle teaching ${user.display_name || 'there'} to code — rigorously.
 
 Their cognitive profile:
@@ -87,7 +90,8 @@ TEACHING PRINCIPLES:
 10. If they ask why, always answer why before showing how.`;
 }
 
-export function LearnScreen({ user, token, cogMap }: Props) {
+export function LearnScreenV2({ user, token, cogMap }: Props) {
+  const t = useTheme();
   const [messages, setMessages] = useState<Message[]>([{
     role: 'elle',
     content: FIRST_MESSAGE,
@@ -154,70 +158,91 @@ export function LearnScreen({ user, token, cogMap }: Props) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', maxWidth: 820, padding: '48px 48px 0', animation: 'slideIn 0.4s ease forwards' }}>
+    <div style={{ padding: '28px 48px 64px', maxWidth: 920, margin: '0 auto', fontFamily: t.fonts.sans, height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
 
-      <div style={{ marginBottom: 24 }}>
-        <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.6rem', letterSpacing: '0.2em', color: '#8B1A1A', textTransform: 'uppercase', marginBottom: 4, margin: '0 0 4px' }}>
-          Learn to Code · Elle Teaches
-        </p>
-        <p style={{ fontFamily: '"Barlow Condensed", sans-serif', color: '#6a6a7a', fontSize: '0.9rem', margin: 0 }}>
-          Theory first. Architecture before syntax. Real code from Elle's codebase.
-          {cogMap ? ` Calibrated to your ${cogMap.learning_modality} modality.` : ''}
-        </p>
+      {/* Header */}
+      <div style={{ marginBottom: 18, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div>
+          <H level={2} style={{ marginBottom: 4 }}>Learn to code · Elle teaches</H>
+          <div style={{ fontSize: 13, color: t.ink3 }}>
+            Theory first. Architecture before syntax. Real code from Elle's codebase.
+            {cogMap ? ` Calibrated to your ${cogMap.learning_modality} modality.` : ''}
+          </div>
+        </div>
+        {cogMap && <Chip tone="ai" icon={<Sparkle size={10} />}>{cogMap.learning_modality}</Chip>}
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
-        {messages.map((m) => (
-          <div key={m.ts} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-            <div style={{
-              maxWidth: '92%',
-              padding: '16px 20px',
-              ...(m.role === 'elle'
-                ? { background: 'rgba(139,26,26,0.06)', border: '1px solid rgba(139,26,26,0.2)', borderRadius: '0 12px 12px 12px' }
-                : { background: 'rgba(245,240,232,0.04)', border: '1px solid rgba(245,240,232,0.08)', borderRadius: '12px 0 12px 12px' }
-              ),
-            }}>
-              {m.role === 'elle' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.55rem', color: '#8B1A1A' }}>Elle · Teaching</span>
+      <Glass padding={0} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', marginBottom: 12 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {messages.map((m) => {
+            const isUser = m.role === 'user';
+            return (
+              <div key={m.ts} style={{ display: 'flex', gap: 10, flexDirection: isUser ? 'row-reverse' : 'row' }}>
+                <div style={{
+                  flexShrink: 0, width: 28, height: 28, borderRadius: 9,
+                  background: isUser ? t.accent : t.surfaceSoft,
+                  color: isUser ? '#fff' : t.accent,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 600,
+                }}>{isUser ? 'U' : <Sparkle size={12} color="#fff" />}</div>
+                <div style={{ maxWidth: '88%' }}>
+                  <div style={{
+                    padding: '12px 16px', borderRadius: 14,
+                    background: isUser ? t.accent : t.bgElev,
+                    color: isUser ? '#fff' : t.ink,
+                    border: isUser ? 'none' : `1px solid ${t.border}`,
+                    fontSize: 14, lineHeight: 1.6, letterSpacing: -0.1,
+                    borderTopLeftRadius: !isUser ? 4 : 14, borderTopRightRadius: isUser ? 4 : 14,
+                  }}>
+                    {!isUser ? renderContent(m.content, t) : <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>}
+                  </div>
+                  {!isUser && (
+                    <div style={{ marginTop: 4 }}>
+                      <Chip tone="ai">Elle · teaching</Chip>
+                    </div>
+                  )}
                 </div>
-              )}
-              <div style={{ fontFamily: '"Barlow Condensed", sans-serif', fontSize: '1rem', color: 'rgba(245,240,232,0.9)', lineHeight: 1.6 }}>
-                {renderContent(m.content)}
+              </div>
+            );
+          })}
+          {loading && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 9, background: t.surfaceSoft, color: t.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Sparkle size={12} />
+              </div>
+              <div style={{ padding: '11px 14px', borderRadius: 14, background: t.bgElev, border: `1px solid ${t.border}`, fontSize: 13, color: t.ink3, fontStyle: 'italic' }}>
+                thinking through the architecture…
               </div>
             </div>
-          </div>
-        ))}
+          )}
+          <div ref={bottomRef} />
+        </div>
+      </Glass>
 
-        {loading && (
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div style={{ padding: '16px 20px', background: 'rgba(139,26,26,0.06)', border: '1px solid rgba(139,26,26,0.2)', borderRadius: '0 12px 12px 12px' }}>
-              <span style={{ fontFamily: '"Space Mono", monospace', fontSize: '0.65rem', color: '#6a6a7a' }}>thinking through the architecture...</span>
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div style={{ border: '1px solid rgba(139,26,26,0.3)', background: '#13131f', display: 'flex', marginBottom: 24 }}>
+      {/* Composer */}
+      <Glass padding={12} style={{ border: `1px solid ${t.accent}40`, boxShadow: `0 0 0 4px ${t.accentSoft}` }}>
         <textarea
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }}}
-          placeholder="Answer, question, or paste code you wrote... (Enter to send)"
+          placeholder="Answer, question, or paste code you wrote…"
           rows={4}
-          style={{ flex: 1, background: 'transparent', border: 'none', padding: '16px 20px', color: '#F5F0E8', fontFamily: '"Barlow Condensed", sans-serif', fontSize: '1rem', resize: 'none' }}
+          style={{
+            width: '100%', background: 'transparent', border: 'none', outline: 'none',
+            fontFamily: t.fonts.sans, fontSize: 14, color: t.ink, lineHeight: 1.5, resize: 'none',
+            boxSizing: 'border-box',
+          }}
         />
-        <button
-          onClick={send}
-          disabled={loading || !input.trim()}
-          style={{ padding: '0 24px', background: input.trim() && !loading ? '#8B1A1A' : 'transparent', border: 'none', borderLeft: '1px solid rgba(139,26,26,0.2)', color: input.trim() && !loading ? '#F5F0E8' : '#6a6a7a', cursor: input.trim() && !loading ? 'pointer' : 'default', fontFamily: '"Barlow Condensed", sans-serif', fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase' }}
-        >
-          Send
-        </button>
-      </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
+          <Chip>↵ send · ⇧↵ newline</Chip>
+          <Chip tone="ai" icon={<Sparkle size={10} />}>Code blocks supported</Chip>
+          <div style={{ flex: 1 }} />
+          <Btn variant="primary" icon={<span>↵</span>} onClick={send} style={{ opacity: input.trim() && !loading ? 1 : 0.5 }}>
+            Send
+          </Btn>
+        </div>
+      </Glass>
     </div>
   );
 }

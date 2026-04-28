@@ -9,9 +9,9 @@ export function useTheme(): Theme {
   return ctx;
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children, initialAccent }: { children: React.ReactNode; initialAccent?: string }) {
   const [mode, setMode] = useState('dark');
-  const [acc, setAcc] = useState('#ff6a42');
+  const [acc, setAcc] = useState(initialAccent ?? '#ff6a42');
   const [den, setDen] = useState('medium');
 
   useEffect(() => {

@@ -16,10 +16,14 @@ import { ELLEPlatform } from './platform/ELLEPlatform';
 // ============================================================
 // ROUTE LOGIC
 //
-// /       → Observer Foundation public site
-// /app    → ELLEai authenticated platform
+// /             → Observer Foundation public site
+// /app          → ELLEai platform (core face)
+// /app/edu      → Elle EDU
+// /app/law      → Elle Law
+// /app/med      → Elle Med
+// /app/fin      → Elle Fin
 //
-// No router library needed — pathname check is sufficient.
+// Face is parsed inside ELLEPlatform via FaceProvider.
 // vercel.json rewrites all paths to index.html.
 // ============================================================
 
