@@ -40,7 +40,13 @@ function loadSession(): { user: User; token: string } | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Validate shape — reject malformed sessions written by old code or tampered storage
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!parsed.user || typeof parsed.user !== 'object') return null;
+    if (typeof parsed.user.email !== 'string' || !parsed.user.email) return null;
+    if (typeof parsed.token !== 'string' || !parsed.token) return null;
+    return parsed;
   } catch {
     return null;
   }

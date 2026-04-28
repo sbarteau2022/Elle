@@ -90,7 +90,7 @@ export function TopBar({ screen, setScreen, onOpenPalette, onOpenTweaks, user, o
             </svg>
           </button>
           <button onClick={() => setMenuOpen(o => !o)} style={{ width:30, height:30, borderRadius:9, background:`linear-gradient(135deg,${accent} 0%,${accent}cc 50%,${accent}88 100%)`, color:'#fff', border:'none', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:t.fonts.sans, fontSize:11, fontWeight:600, cursor:'pointer' }}>
-            {user ? (user.display_name || user.email).slice(0,2).toUpperCase() : 'EL'}
+            {((user?.display_name || user?.email || 'EL')).slice(0,2).toUpperCase()}
           </button>
           {menuOpen && (
             <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:30, minWidth:180, background:t.surface, border:`1px solid ${t.borderStrong}`, borderRadius:12, boxShadow:'0 10px 30px rgba(0,0,0,0.2)', overflow:'hidden' }}>

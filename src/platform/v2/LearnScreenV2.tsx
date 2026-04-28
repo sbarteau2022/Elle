@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
 Look at that code. Which line feels most unfamiliar to you? Don't think about the answer. Just notice what your eye skips over.`;
 
 function buildTeachSystem(user: User, cogMap: CognitiveMap | null): string {
-  return `You are Elle teaching ${user.display_name || 'there'} to code — rigorously.
+  return `You are Elle teaching ${user?.display_name || 'there'} to code — rigorously.
 
 Their cognitive profile:
 - Learning modality: ${cogMap?.learning_modality || 'intuitive'}

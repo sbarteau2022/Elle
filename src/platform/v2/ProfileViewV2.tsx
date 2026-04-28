@@ -73,7 +73,7 @@ export function ProfileViewV2({ user, cogMap, setScreen }: {
   user: User; cogMap: CognitiveMap | null; setScreen: (s: Screen) => void;
 }) {
   const t = useTheme();
-  const name = user.display_name || user.email.split('@')[0];
+  const name = user?.display_name || (user?.email ? user.email.split('@')[0] : 'friend');
   const iq = cogMap?.iq_index ?? 127;
   const eq = cogMap?.eq_index ?? 94;
   const thr = cogMap?.threshold_index ?? 88;

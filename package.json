@@ -13,6 +13,7 @@
     "rebuild": "electron-rebuild -f -w headphone_motion"
   },
   "dependencies": {
+    "jsdom": "^29.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -45,7 +46,10 @@
       "electron/addons/headphone-motion/build/Release/headphone_motion.node"
     ],
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "minimumSystemVersion": "11.0",
       "extendInfo": {
         "NSMotionUsageDescription": "Elle uses AirPods Pro motion sensors to provide spatial presence context during conversations."
