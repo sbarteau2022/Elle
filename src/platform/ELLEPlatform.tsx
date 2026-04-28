@@ -1,31 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { callEdge, SOVEREIGN } from '../lib/supabase';
+import { callEdge } from '../lib/supabase';
 import type { User, CognitiveMap, Screen } from '../lib/types';
 
-const SOVEREIGN_USER: User = { id: 'sovereign', email: 'local@sovereign', display_name: 'Sovereign' };
+import { AuthScreen }      from './AuthScreen';
+import { ThemeProvider }   from './v2/ThemeProvider';
+import { TopBar }          from './v2/TopBar';
+import { CommandPalette }  from './v2/CommandPalette';
+import { TweaksDrawer }    from './v2/TweaksDrawer';
+import { HomeScreenV2 }    from './v2/HomeScreenV2';
+import { WarRoomView }     from './v2/WarRoomView';
+import { ProfileViewV2 }   from './v2/ProfileViewV2';
+import { DoctrineView }    from './v2/DoctrineView';
+import { TutorView }       from './v2/TutorView';
+import { ReplaysView }     from './v2/ReplaysView';
+import { CohortView }      from './v2/CohortView';
 
-import { AuthScreen }    from './AuthScreen';
-import { Sidebar }       from './Sidebar';
-import { HomeScreen }    from './HomeScreen';
-import { AskScreen }     from './AskScreen';
-import { LearnScreen }   from './LearnScreen';
-import { ProfileScreen } from './ProfileScreen';
-import { SignalsScreen } from './SignalsScreen';
-import { ThreadsScreen } from './ThreadsScreen';
-
-// ============================================================
-// ELLEai Platform — Protected route orchestrator
-//
-// Entry: /app
-// Auth: Supabase JWT (or sovereign mode — no auth required)
-// Session: localStorage (survives refresh)
-// ============================================================
+// Legacy screens still available via Screen type
+import { AskScreen }       from './AskScreen';
+import { LearnScreen }     from './LearnScreen';
+import { ProfileScreen }   from './ProfileScreen';
+import { SignalsScreen }   from './SignalsScreen';
+import { ThreadsScreen }   from './ThreadsScreen';
 
 const SESSION_KEY = 'elle_session_v1';
 
 function loadSession(): { user: User; token: string } | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -34,27 +35,64 @@ function loadSession(): { user: User; token: string } | null {
 }
 
 function saveSession(user: User, token: string) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, token }));
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ user, token }));
 }
 
-function clearSession() {
-  sessionStorage.removeItem(SESSION_KEY);
+function PlatformShell({ user, token, cogMap, setCogMap }: {
+  user: User; token: string; cogMap: CognitiveMap | null;
+  setCogMap: (m: CognitiveMap) => void;
+}) {
+  const [screen, setScreen]       = useState<Screen>('home');
+  const [paletteOpen, setPalette] = useState(false);
+  const [tweaksOpen, setTweaks]   = useState(false);
+
+  // ⌘K global shortcut
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setPalette(p => !p);
+      }
+    };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, []);
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <TopBar
+        screen={screen}
+        setScreen={setScreen}
+        onOpenPalette={() => setPalette(true)}
+        onOpenTweaks={() => setTweaks(true)}
+        user={user}
+      />
+      <main style={{ flex: 1, overflowY: 'auto' }}>
+        {screen === 'home'     && <HomeScreenV2  user={user} cogMap={cogMap} setScreen={setScreen} />}
+        {screen === 'warroom'  && <WarRoomView />}
+        {screen === 'profile'  && <ProfileViewV2 user={user} cogMap={cogMap} setScreen={setScreen} />}
+        {screen === 'doctrine' && <DoctrineView />}
+        {screen === 'tutor'    && <TutorView />}
+        {screen === 'replays'  && <ReplaysView />}
+        {screen === 'cohort'   && <CohortView />}
+        {screen === 'ask'      && <AskScreen     user={user} token={token} />}
+        {screen === 'learn'    && <LearnScreen   user={user} token={token} cogMap={cogMap} />}
+        {screen === 'signals'  && <SignalsScreen  user={user} token={token} />}
+        {screen === 'threads'  && <ThreadsScreen  user={user} token={token} />}
+      </main>
+      <CommandPalette open={paletteOpen} onClose={() => setPalette(false)} setScreen={setScreen} />
+      <TweaksDrawer   open={tweaksOpen}  onClose={() => setTweaks(false)} />
+    </div>
+  );
 }
 
 export function ELLEPlatform() {
-  const [user, setUser]       = useState<User | null>(null);
-  const [token, setToken]     = useState('');
-  const [screen, setScreen]   = useState<Screen>('home');
-  const [cogMap, setCogMap]   = useState<CognitiveMap | null>(null);
-  const [ready, setReady]     = useState(false);
+  const [user, setUser]     = useState<User | null>(null);
+  const [token, setToken]   = useState('');
+  const [cogMap, setCogMap] = useState<CognitiveMap | null>(null);
+  const [ready, setReady]   = useState(false);
 
-  // Load persisted session on mount
   useEffect(() => {
-    if (SOVEREIGN) {
-      setUser(SOVEREIGN_USER);
-      setReady(true);
-      return;
-    }
     const session = loadSession();
     if (session) {
       setUser(session.user);
@@ -71,7 +109,7 @@ export function ELLEPlatform() {
         setCogMap(data as unknown as CognitiveMap);
       }
     } catch {
-      // no map yet — that's fine
+      // no map yet
     }
   }, []);
 
@@ -82,30 +120,12 @@ export function ELLEPlatform() {
     fetchCogMap(u.id, t);
   };
 
-  const handleLogout = () => {
-    clearSession();
-    setUser(null);
-    setToken('');
-    setCogMap(null);
-    setScreen('home');
-  };
-
-  // Don't flash auth screen on first render while checking sessionStorage
   if (!ready) return null;
-
-  if (!user) return <AuthScreen onAuth={handleAuth} />;
+  if (!user)  return <AuthScreen onAuth={handleAuth} />;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0f0f1a', color: '#F5F0E8' }}>
-      <Sidebar screen={screen} setScreen={setScreen} user={user} onLogout={handleLogout} />
-      <main style={{ flex: 1, overflowY: 'auto' }}>
-        {screen === 'home'    && <HomeScreen    user={user} cogMap={cogMap} setScreen={setScreen} />}
-        {screen === 'ask'     && <AskScreen     user={user} token={token} />}
-        {screen === 'learn'   && <LearnScreen   user={user} token={token} cogMap={cogMap} />}
-        {screen === 'profile' && <ProfileScreen user={user} token={token} cogMap={cogMap} onCogMapUpdate={setCogMap} />}
-        {screen === 'signals' && <SignalsScreen user={user} token={token} />}
-        {screen === 'threads' && <ThreadsScreen user={user} token={token} />}
-      </main>
-    </div>
+    <ThemeProvider>
+      <PlatformShell user={user} token={token} cogMap={cogMap} setCogMap={setCogMap} />
+    </ThemeProvider>
   );
 }
