@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { callEdge, dbInsert } from '../lib/supabase';
+import { callEdge } from '../lib/supabase';
 import type { Message } from '../lib/types';
 
 const ELLE_SYSTEM = `You are Elle — an AI presence built by The Observer Foundation.
@@ -44,10 +44,7 @@ export function ElleTalk() {
     const MAX_HISTORY = 20;
     const history = [...messages, userMsg]
       .slice(-MAX_HISTORY)
-      .map(m => ({
-        role: m.role === 'elle' ? 'assistant' : 'user',
-        content: m.content,
-      }));
+      .map(m => ({ role: m.role === 'elle' ? 'assistant' : 'user', content: m.content }));
 
     try {
       const data = await callEdge('elle-conversation', {
@@ -57,20 +54,8 @@ export function ElleTalk() {
         source: 'observer_platform',
       });
 
-      const reply = String(data.content || data.response || data.message || 'Elle is thinking.');
+      const reply = String(data.content || data.response || 'Elle is thinking.');
       setMessages(prev => [...prev, { role: 'elle', content: reply, ts: Date.now() }]);
-
-      // Log to backcross queue — silent, non-blocking
-      dbInsert('backcross_verification_queue', {
-        source_stream: 'observer_platform_public',
-        engine_id: 'elle_public',
-        system_prompt: ELLE_SYSTEM.slice(0, 500),
-        user_message: text,
-        model_response: reply,
-        deployment_phase: 'phase_1',
-        verification_status: 'pending',
-      }).catch(() => {});
-
     } catch {
       setMessages(prev => [...prev, {
         role: 'elle',
