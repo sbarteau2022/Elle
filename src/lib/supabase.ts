@@ -78,3 +78,22 @@ async function callOllama(
   const data = await res.json() as { message?: { content?: string } };
   return { content: data.message?.content || '', sovereign: true };
 }
+// ------------------------------------------------------------
+// dbInsert — public contact/outreach logging.
+// Posts to the elle worker's public /api/contact endpoint.
+// NOTE: worker must expose POST /api/contact (public, no auth)
+// writing to the named table. Until then this resolves but the
+// row is not persisted; the UI degrades gracefully.
+// ------------------------------------------------------------
+export async function dbInsert(
+  table: string,
+  row: Record<string, unknown>
+): Promise<{ success: boolean }> {
+  const res = await fetch(`${ELLE_WORKER}/api/contact`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ table, row }),
+  });
+  if (!res.ok) throw new Error(`contact failed: ${res.status}`);
+  return res.json();
+}
