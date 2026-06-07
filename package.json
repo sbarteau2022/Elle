@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "ELECTRON=true vite build && electron-builder",
-    "rebuild": "electron-rebuild -f -w headphone_motion"
+    "rebuild": "electron-rebuild -f -w headphone_motion",
+    "build:web": "vite build"
   },
   "dependencies": {
     "jsdom": "^29.1.0",
