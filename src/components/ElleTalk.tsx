@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { callEdge } from '../lib/supabase';
+import { ELLE_WORKER } from '../lib/supabase';
 import type { Message } from '../lib/types';
 
 const ELLE_SYSTEM = `You are Elle — an AI presence built by The Observer Foundation.
@@ -47,12 +47,18 @@ export function ElleTalk() {
       .map(m => ({ role: m.role === 'elle' ? 'assistant' : 'user', content: m.content }));
 
     try {
-      const data = await callEdge('elle-conversation', {
-        messages: history,
-        system: ELLE_SYSTEM,
-        session_id: sessionId,
-        source: 'observer_platform',
+      const res = await fetch(`${ELLE_WORKER}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: history,
+          system: ELLE_SYSTEM,
+          session_id: sessionId,
+          source: 'public_site',
+        }),
       });
+      if (!res.ok) throw new Error(`chat failed: ${res.status}`);
+      const data = await res.json() as Record<string, unknown>;
 
       const reply = String(data.content || data.response || 'Elle is thinking.');
       setMessages(prev => [...prev, { role: 'elle', content: reply, ts: Date.now() }]);
