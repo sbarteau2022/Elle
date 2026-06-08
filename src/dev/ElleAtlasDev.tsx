@@ -85,12 +85,9 @@ async function askElle(
     .slice(-20)
     .map(m => ({ role: m.role === 'elle' ? 'assistant' : 'user', content: m.content }))
 
-  const res = await fetch(`${WORKER}/api/elle-conversation`, {
+  const res = await fetch(`${WORKER}/api/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SVC_KEY}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, messages, session_id: sessionId, source: 'elle_dev_ui' }),
     signal,
   })
