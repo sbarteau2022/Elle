@@ -85,17 +85,22 @@ async function askElle(
     .slice(-20)
     .map(m => ({ role: m.role === 'elle' ? 'assistant' : 'user', content: m.content }))
 
-  const key = sessionStorage.getItem('elle_svc_key') || ''
   const res = await fetch(`${WORKER}/api/elle-conversation`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(key ? { 'Authorization': `Bearer ${key}` } : {}),
+      'Authorization': `Bearer ${sessionStorage.getItem('elle_dev_token') || localStorage.getItem('elle_dev_token') || ''}`,
     },
     body: JSON.stringify({ query, messages, session_id: sessionId, source: 'elle_dev_ui' }),
     signal,
   })
 
+  if (res.status === 401) {
+    localStorage.removeItem('elle_dev_token')
+    sessionStorage.removeItem('elle_dev_token')
+    setToken('')
+    throw new Error('Session expired — please log in again')
+  }
   if (!res.ok) {
     const txt = await res.text()
     throw new Error(`${res.status}: ${txt.slice(0, 200)}`)
@@ -306,8 +311,11 @@ export default function ElleAtlasDev() {
   const [loading, setLoading] = useState(false)
   const [health, setHealth] = useState<{ papers?: number; chunks?: number; status?: string } | null>(null)
   const [sessionId] = useState(() => crypto.randomUUID())
-  const [keyInput, setKeyInput] = useState('')
-  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem('elle_svc_key'))
+  const [token, setToken] = useState(() => localStorage.getItem('elle_dev_token') || '')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPass, setAuthPass]   = useState('')
+  const [authErr, setAuthErr]     = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -371,38 +379,54 @@ export default function ElleAtlasDev() {
     }
   }, [loading, messages, sessionId])
 
-  if (!authed) {
+  const doLogin = async () => {
+    if (!authEmail.trim() || !authPass.trim() || authLoading) return
+    setAuthLoading(true); setAuthErr('')
+    try {
+      const res = await fetch(`${WORKER}/api/elle-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', email: authEmail.trim(), password: authPass }),
+      })
+      const data = await res.json() as { access_token?: string; error?: string }
+      if (!res.ok || !data.access_token) { setAuthErr(data.error || 'Invalid credentials'); return }
+      localStorage.setItem('elle_dev_token', data.access_token)
+      setToken(data.access_token)
+    } catch (e) {
+      setAuthErr((e as Error).message)
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  if (!token) {
     return (
-      <div style={{ width:'100vw', height:'100vh', background:'var(--void)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
+      <div style={{ width:'100vw', height:'100vh', background:'var(--void)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:14 }}>
         <ElleMark size={36} pulse />
-        <div style={{ fontSize:13, color:'var(--t3)', fontFamily:'var(--font-mono)', marginBottom:8 }}>elle · dev access</div>
+        <div style={{ fontSize:12, color:'var(--t3)', fontFamily:'var(--font-mono)', marginBottom:4, letterSpacing:'0.08em' }}>elle · dev</div>
+        <input
+          type="email"
+          placeholder="email"
+          value={authEmail}
+          onChange={e => setAuthEmail(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && doLogin()}
+          autoFocus
+          style={{ background:'var(--raised)', border:'0.5px solid var(--b1)', borderRadius:'var(--r-md)', color:'var(--t1)', fontFamily:'var(--font-mono)', fontSize:13, padding:'9px 14px', width:260, outline:'none' }}
+        />
         <input
           type="password"
-          placeholder="service key"
-          value={keyInput}
-          onChange={e => setKeyInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && keyInput.trim()) {
-              sessionStorage.setItem('elle_svc_key', keyInput.trim())
-              setAuthed(true)
-            }
-          }}
-          autoFocus
-          style={{
-            background:'var(--raised)', border:'0.5px solid var(--b1)', borderRadius:'var(--r-md)',
-            color:'var(--t1)', fontFamily:'var(--font-mono)', fontSize:13,
-            padding:'10px 16px', width:280, outline:'none',
-          }}
+          placeholder="password"
+          value={authPass}
+          onChange={e => setAuthPass(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && doLogin()}
+          style={{ background:'var(--raised)', border:'0.5px solid var(--b1)', borderRadius:'var(--r-md)', color:'var(--t1)', fontFamily:'var(--font-mono)', fontSize:13, padding:'9px 14px', width:260, outline:'none' }}
         />
+        {authErr && <div style={{ fontSize:11, color:'var(--red)', fontFamily:'var(--font-mono)' }}>{authErr}</div>}
         <button
-          onClick={() => { if (keyInput.trim()) { sessionStorage.setItem('elle_svc_key', keyInput.trim()); setAuthed(true) } }}
-          style={{
-            background:'rgba(95,214,232,0.15)', border:'0.5px solid var(--cyan-d)',
-            borderRadius:'var(--r-md)', color:'var(--cyan-l)',
-            fontFamily:'var(--font-mono)', fontSize:12,
-            padding:'8px 24px', cursor:'pointer',
-          }}
-        >unlock</button>
+          onClick={doLogin}
+          disabled={authLoading || !authEmail.trim() || !authPass.trim()}
+          style={{ background:'rgba(95,214,232,0.15)', border:'0.5px solid var(--cyan-d)', borderRadius:'var(--r-md)', color: authLoading ? 'var(--t4)' : 'var(--cyan-l)', fontFamily:'var(--font-mono)', fontSize:12, padding:'8px 24px', cursor:'pointer', width:260 }}
+        >{authLoading ? 'signing in…' : 'sign in'}</button>
       </div>
     )
   }
@@ -435,6 +459,10 @@ export default function ElleAtlasDev() {
             background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px',
           }}
         >clear</button>
+        <button
+          onClick={() => { localStorage.removeItem('elle_dev_token'); setToken('') }}
+          style={{ fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+        >sign out</button>
       </div>
 
       {/* Status */}
