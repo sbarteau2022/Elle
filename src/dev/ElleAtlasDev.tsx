@@ -85,9 +85,13 @@ async function askElle(
     .slice(-20)
     .map(m => ({ role: m.role === 'elle' ? 'assistant' : 'user', content: m.content }))
 
-  const res = await fetch(`${WORKER}/api/chat`, {
+  const key = sessionStorage.getItem('elle_svc_key') || ''
+  const res = await fetch(`${WORKER}/api/elle-conversation`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(key ? { 'Authorization': `Bearer ${key}` } : {}),
+    },
     body: JSON.stringify({ query, messages, session_id: sessionId, source: 'elle_dev_ui' }),
     signal,
   })
@@ -302,6 +306,8 @@ export default function ElleAtlasDev() {
   const [loading, setLoading] = useState(false)
   const [health, setHealth] = useState<{ papers?: number; chunks?: number; status?: string } | null>(null)
   const [sessionId] = useState(() => crypto.randomUUID())
+  const [keyInput, setKeyInput] = useState('')
+  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem('elle_svc_key'))
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -364,6 +370,42 @@ export default function ElleAtlasDev() {
       setLoading(false)
     }
   }, [loading, messages, sessionId])
+
+  if (!authed) {
+    return (
+      <div style={{ width:'100vw', height:'100vh', background:'var(--void)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
+        <ElleMark size={36} pulse />
+        <div style={{ fontSize:13, color:'var(--t3)', fontFamily:'var(--font-mono)', marginBottom:8 }}>elle · dev access</div>
+        <input
+          type="password"
+          placeholder="service key"
+          value={keyInput}
+          onChange={e => setKeyInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && keyInput.trim()) {
+              sessionStorage.setItem('elle_svc_key', keyInput.trim())
+              setAuthed(true)
+            }
+          }}
+          autoFocus
+          style={{
+            background:'var(--raised)', border:'0.5px solid var(--b1)', borderRadius:'var(--r-md)',
+            color:'var(--t1)', fontFamily:'var(--font-mono)', fontSize:13,
+            padding:'10px 16px', width:280, outline:'none',
+          }}
+        />
+        <button
+          onClick={() => { if (keyInput.trim()) { sessionStorage.setItem('elle_svc_key', keyInput.trim()); setAuthed(true) } }}
+          style={{
+            background:'rgba(95,214,232,0.15)', border:'0.5px solid var(--cyan-d)',
+            borderRadius:'var(--r-md)', color:'var(--cyan-l)',
+            fontFamily:'var(--font-mono)', fontSize:12,
+            padding:'8px 24px', cursor:'pointer',
+          }}
+        >unlock</button>
+      </div>
+    )
+  }
 
   return (
     <div style={{
