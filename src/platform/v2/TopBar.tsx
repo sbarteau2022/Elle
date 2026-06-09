@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from './ThemeProvider';
 import { Chip, Sparkle } from './primitives';
-import { useFace } from './FaceContext';
+import { useFace, FACES, type FaceKey } from './FaceContext';
 import type { Screen, User } from '../../lib/types';
 
 const ALL_TABS: Record<string, { k: Screen; label: string }> = {
@@ -18,11 +18,12 @@ const ALL_TABS: Record<string, { k: Screen; label: string }> = {
   threads:  { k: 'threads',  label: 'Threads' },
 };
 
-export function TopBar({ screen, setScreen, onOpenPalette, onOpenTweaks, user, onLogout }: {
+export function TopBar({ screen, setScreen, onOpenPalette, onOpenTweaks, user, onLogout, setFace }: {
   screen: Screen; setScreen: (s: Screen) => void;
   onOpenPalette: () => void; onOpenTweaks: () => void;
   user: User | null;
   onLogout?: () => void;
+  setFace?: (f: FaceKey) => void;
 }) {
   const t = useTheme();
   const face = useFace();
@@ -50,6 +51,27 @@ export function TopBar({ screen, setScreen, onOpenPalette, onOpenTweaks, user, o
           </div>
           <Chip tone="ai" style={{ marginLeft:4 }}>{face.tagline}</Chip>
         </div>
+
+        {/* Superadmin face switcher — jump across in-house faces */}
+        {user?.access_tier === 'superadmin' && setFace && (
+          <div title="Superadmin · switch face" style={{
+            display:'flex', gap:3, marginLeft:4, padding:3, borderRadius:9,
+            background:t.border+'44', border:`1px solid ${t.border}`,
+          }}>
+            {(['core','edu','law','med','fin'] as FaceKey[]).map(fk => {
+              const on = face.key===fk;
+              return (
+                <button key={fk} onClick={() => setFace(fk)} style={{
+                  padding:'4px 9px', borderRadius:6, border:'none', cursor:'pointer',
+                  background: on ? FACES[fk].accent : 'transparent',
+                  color: on ? '#fff' : t.ink2,
+                  fontFamily:t.fonts.sans, fontSize:11, fontWeight: on?700:600,
+                  letterSpacing:0.3, textTransform:'uppercase', transition:'all .12s',
+                }}>{fk==='core' ? 'main' : fk}</button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Tabs */}
         <nav style={{ display:'flex', gap:2, marginLeft:14 }}>

@@ -35,7 +35,7 @@ export function AuthScreen({ onAuth }: Props) {
       }
 
       onAuth(
-        { id: result.user.id, email: result.user.email || email },
+        { id: result.user.id, email: result.user.email || email, access_tier: (result.user as { tier?: string }).tier },
         result.access_token
       );
     } catch (err) {

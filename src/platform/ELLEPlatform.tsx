@@ -7,7 +7,7 @@ import { ThemeProvider }   from './v2/ThemeProvider';
 import { TopBar }          from './v2/TopBar';
 import { CommandPalette }  from './v2/CommandPalette';
 import { TweaksDrawer }    from './v2/TweaksDrawer';
-import { FaceProvider, useFace } from './v2/FaceContext';
+import { FaceProvider, useFace, parseFaceFromPath, type FaceKey } from './v2/FaceContext';
 
 import { HomeScreenV2 }    from './v2/HomeScreenV2';
 import { WarRoomView }     from './v2/WarRoomView';
@@ -60,11 +60,12 @@ function clearSession() {
   localStorage.removeItem(SESSION_KEY);
 }
 
-function PlatformShell({ user, token, cogMap, onLogout }: {
-  user: User; token: string; cogMap: CognitiveMap | null; onLogout: () => void;
+function PlatformShell({ user, token, cogMap, onLogout, setFace }: {
+  user: User; token: string; cogMap: CognitiveMap | null; onLogout: () => void; setFace: (f: FaceKey) => void;
 }) {
   const face = useFace();
   const [screen, setScreen]       = useState<Screen>(face.defaultScreen as Screen);
+  useEffect(() => { setScreen(face.defaultScreen as Screen); }, [face.key]);
   const [paletteOpen, setPalette] = useState(false);
   const [tweaksOpen, setTweaks]   = useState(false);
 
@@ -89,6 +90,7 @@ function PlatformShell({ user, token, cogMap, onLogout }: {
         onOpenTweaks={() => setTweaks(true)}
         user={user}
         onLogout={onLogout}
+        setFace={setFace}
       />
       <main style={{ flex: 1, overflowY: 'auto' }}>
         {screen === 'home'     && <HomeScreenV2    user={user} cogMap={cogMap} setScreen={setScreen} />}
@@ -111,6 +113,7 @@ function PlatformShell({ user, token, cogMap, onLogout }: {
 
 export function ELLEPlatform() {
   const [user, setUser]     = useState<User | null>(null);
+  const [face, setFace]     = useState<FaceKey>(parseFaceFromPath());
   const [token, setToken]   = useState('');
   const [cogMap, setCogMap] = useState<CognitiveMap | null>(null);
   const [ready, setReady]   = useState(false);
@@ -154,19 +157,19 @@ export function ELLEPlatform() {
   if (!user)  return <AuthScreen onAuth={handleAuth} />;
 
   return (
-    <FaceProvider>
-      <ThemedShell user={user} token={token} cogMap={cogMap} onLogout={handleLogout} />
+    <FaceProvider face={face}>
+      <ThemedShell user={user} token={token} cogMap={cogMap} onLogout={handleLogout} setFace={setFace} />
     </FaceProvider>
   );
 }
 
-function ThemedShell({ user, token, cogMap, onLogout }: {
-  user: User; token: string; cogMap: CognitiveMap | null; onLogout: () => void;
+function ThemedShell({ user, token, cogMap, onLogout, setFace }: {
+  user: User; token: string; cogMap: CognitiveMap | null; onLogout: () => void; setFace: (f: FaceKey) => void;
 }) {
   const face = useFace();
   return (
     <ThemeProvider initialAccent={face.accent}>
-      <PlatformShell user={user} token={token} cogMap={cogMap} onLogout={onLogout} />
+      <PlatformShell user={user} token={token} cogMap={cogMap} onLogout={onLogout} setFace={setFace} />
     </ThemeProvider>
   );
 }
