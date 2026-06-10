@@ -310,7 +310,13 @@ export default function ElleAtlasDev() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [health, setHealth] = useState<{ papers?: number; chunks?: number; status?: string } | null>(null)
-  const [sessionId] = useState(() => crypto.randomUUID())
+  const [sessionId] = useState(() => {
+    try {
+      let s = localStorage.getItem('elle_dev_session')
+      if (!s) { s = crypto.randomUUID(); localStorage.setItem('elle_dev_session', s) }
+      return s
+    } catch { return crypto.randomUUID() }
+  })
   const [token, setToken] = useState(() => localStorage.getItem('elle_dev_token') || '')
   const [authEmail, setAuthEmail] = useState('')
   const [authPass, setAuthPass]   = useState('')
