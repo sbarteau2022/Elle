@@ -13,7 +13,6 @@ import { worker, getToken, clearToken } from './lib/elle'
 const ACCENT = '#C9A84C'
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--void:#07080C;--base:#0C0D14;--raised:#11121B;--float:#171824;--ov:#1E1F2E;
 --t1:#DDE5EE;--t2:#8896A8;--t3:#52606E;--t4:#363F4A;--b1:rgba(255,255,255,.08);--b2:rgba(255,255,255,.04);
