@@ -3,29 +3,31 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently -k -n vite,electron -c cyan,magenta \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "cross-env ELECTRON=1 vite build"
   },
-
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
-
   "devDependencies": {
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
-
     "@vitejs/plugin-react": "^4.4.1",
-    "vite": "^6.4.3",
-
-    "typescript": "^5.8.3",
-
-    "tailwindcss": "^3.4.17",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.3",
+    "cross-env": "^7.0.3",
+    "electron": "^33.4.11",
     "postcss": "^8.5.3",
-    "autoprefixer": "^10.4.21"
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3",
+    "vite": "^6.4.3",
+    "wait-on": "^8.0.5"
   }
 }
