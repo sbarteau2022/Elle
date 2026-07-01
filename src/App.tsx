@@ -2,13 +2,13 @@
 // Direct access to Elle's deep intel core: the unified router surface, the
 // Optimus phase-state journal, the code engine, and the eval/training bench.
 // Local only — no public deploy. Per-user JWT against elle-worker.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import EllePanel from './components/EllePanel'
 import OptimusPanel from './components/OptimusPanel'
 import CodePanel from './components/CodePanel'
 import Evals from './components/Evals'
 import Login from './components/Login'
-import { worker, getToken, clearToken } from './lib/elle'
+import { worker, getEmail, clearAuth, verifyToken } from './lib/elle'
 
 const ACCENT = '#C9A84C'
 
@@ -27,8 +27,25 @@ type Tab = 'elle' | 'optimus' | 'code' | 'evals'
 const TABS: [Tab, string][] = [['elle', 'Elle'], ['optimus', 'Optimus'], ['code', 'Code'], ['evals', 'Evals']]
 
 export function App() {
-  const [authed, setAuthed] = useState(!!getToken())
+  // Gate on a network-backed verify — same as the dev console's _authenticated
+  // route. A revoked-but-present token is caught, not just an empty one, so the
+  // workbench opens only for a live superadmin session.
+  const [authed, setAuthed] = useState<boolean | null>(null)
   const [tab, setTab] = useState<Tab>('elle')
+
+  useEffect(() => {
+    let active = true
+    verifyToken().then(ok => { if (active) setAuthed(ok) })
+    return () => { active = false }
+  }, [])
+
+  if (authed === null) return (
+    <><style>{CSS}</style>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--void)', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 11 }}>
+        verifying session…
+      </div>
+    </>
+  )
 
   if (!authed) return (<><style>{CSS}</style><Login onAuth={() => setAuthed(true)} /></>)
 
@@ -51,8 +68,8 @@ export function App() {
             ))}
           </nav>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, ...( { WebkitAppRegion: 'no-drag' } as any) }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t4)' }}>{worker.label}</span>
-            <button onClick={() => { clearToken(); setAuthed(false) }}
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t4)' }}>{getEmail() || worker.label}</span>
+            <button onClick={() => { clearAuth(); setAuthed(false) }}
               style={{ background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10, padding: '4px 9px' }}>
               sign out
             </button>

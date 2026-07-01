@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { WORKER, setToken } from '../lib/elle'
+import { WORKER, setAuth } from '../lib/elle'
 
 export default function Login({ onAuth }: { onAuth: () => void }) {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
@@ -12,13 +12,14 @@ export default function Login({ onAuth }: { onAuth: () => void }) {
     if (busy || !email.trim() || !pw) return
     setBusy(true); setErr('')
     try {
+      const em = email.trim().toLowerCase()
       const r = await fetch(WORKER + '/api/elle-auth', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: mode, email: email.trim().toLowerCase(), password: pw }),
+        body: JSON.stringify({ action: mode, email: em, password: pw }),
       })
       const d = await r.json()
       if (!r.ok || !d.access_token) throw new Error(d.error || `HTTP ${r.status}`)
-      setToken(d.access_token as string)
+      setAuth(d.access_token as string, (d.user?.email as string) || em)
       onAuth()
     } catch (e: any) { setErr(String(e.message || e)) } finally { setBusy(false) }
   }
