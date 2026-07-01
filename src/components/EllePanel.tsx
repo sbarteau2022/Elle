@@ -1,7 +1,7 @@
 // ============================================================
 // ELLE — unified conversation surface
 // Collapses the old chat / ask / corpus tabs into one window. Every turn goes
-// to /api/elle-router (the 16-tool ReAct loop): she picks the tools, executes,
+// to /api/elle-router (the full-scope ReAct loop): she picks the tools, executes,
 // cross-references, and answers. Corpus retrieval, D1 SQL, the live web, the
 // code engine, trading, RAPID²AI, and the Optimus journal are all reachable
 // from here — the user just talks; the router decides. Per-turn tool trace is
@@ -11,6 +11,16 @@ import { useState, useRef, useEffect } from 'react'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
+// Stable per-browser session id so the router loads prior turns and persists
+// this exchange — without it every message was a cold start and she forgot
+// who you told her to be one turn ago.
+const SID_KEY = 'elle_router_session'
+const sid = () => {
+  let s = localStorage.getItem(SID_KEY)
+  if (!s) { s = crypto.randomUUID(); localStorage.setItem(SID_KEY, s) }
+  return s
+}
+
 // Inventory mirrors the router's system-prompt tool set (worker/src/router.ts).
 const TOOLS: [string, string][] = [
   ['search_corpus', '70+ papers · semantic'],
@@ -19,9 +29,12 @@ const TOOLS: [string, string][] = [
   ['fetch_url', 'read a page'],
   ['fetch_document', 'R2 documents'],
   ['recall_memory', 'prior sessions'],
+  ['self_state', 'her own phase · introspection'],
+  ['remember', 'deliberate long-term memory'],
   ['code_engine', 'run code'],
   ['diagnose', 'root-cause this stack'],
   ['query_rapid2ai', 'restaurant intel bridge'],
+  ['rapid_data', 'structured POS/invoice figures'],
   ['ingest_paper', 'add to corpus'],
   ['trigger_dream', 'libre sweep'],
   ['trade_execute', 'Alpaca · paper'],
@@ -53,7 +66,7 @@ export default function EllePanel({ worker, accent }: any) {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: question }),
+        body: JSON.stringify({ q: question, session_id: sid() }),
       })
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
@@ -72,7 +85,7 @@ export default function EllePanel({ worker, accent }: any) {
       <div>
         <button onClick={() => setShowTools(s => !s)}
           style={{ background: 'none', border: 'none', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10.5, cursor: 'pointer', padding: 0 }}>
-          {(showTools ? '▾ ' : '▸ ') + '16 tools she can reach'}
+          {(showTools ? '▾ ' : '▸ ') + TOOLS.length + ' tools she can reach'}
         </button>
         {showTools && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
