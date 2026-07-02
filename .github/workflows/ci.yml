@@ -1,0 +1,28 @@
+# CI — the judge Elle's forge iterates against (frontend).
+# --ignore-scripts skips the Electron binary download; the typecheck is the
+# signal that matters for workbench changes.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ['elle/**']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    name: Typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - name: Typecheck
+        run: npx tsc --noEmit
