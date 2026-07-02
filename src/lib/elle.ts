@@ -14,25 +14,39 @@
 export const WORKER = import.meta.env.VITE_ELLE_WORKER_URL || 'https://elle-worker.sbarteau2022.workers.dev'
 export const TOKEN_KEY = 'elle_dev_jwt'
 export const EMAIL_KEY = 'elle_dev_email'
+export const TIER_KEY = 'elle_dev_tier'
 export const getToken = () => localStorage.getItem(TOKEN_KEY) || ''
 export const getEmail = () => localStorage.getItem(EMAIL_KEY) || ''
-export const setAuth = (t: string, email: string) => {
+export const getTier = () => localStorage.getItem(TIER_KEY) || ''
+// The workbench is the superadmin console: only admin-tier sessions may open
+// it. Standard accounts are valid for the public surfaces, not for this.
+export const tierAllowed = (tier: string) => tier === 'superadmin' || tier === 'admin'
+export const setAuth = (t: string, email: string, tier = '') => {
   localStorage.setItem(TOKEN_KEY, t)
   localStorage.setItem(EMAIL_KEY, email)
+  if (tier) localStorage.setItem(TIER_KEY, tier)
 }
+
+// Backends the health panel watches — the same set the old dev console did.
+export const HEALTH_TARGETS = [
+  { key: 'elle-worker',     label: 'elle-worker',     url: 'https://elle-worker.sbarteau2022.workers.dev/health' },
+  { key: 'rapid2ai-ai',     label: 'rapid2ai-ai',     url: 'https://rapid2ai-ai-worker.sbarteau2022.workers.dev/health' },
+  { key: 'rapid2ai-ingest', label: 'rapid2ai-ingest', url: 'https://rapid2ai-ingestion.sbarteau2022.workers.dev/health' },
+]
 // setToken kept for callers that only carry a token; prefer setAuth.
 export const setToken = (t: string) => localStorage.setItem(TOKEN_KEY, t)
 export const clearAuth = () => {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(EMAIL_KEY)
+  localStorage.removeItem(TIER_KEY)
 }
 // Backwards-compatible alias — clears the whole session.
 export const clearToken = clearAuth
 export const worker = { url: WORKER, label: 'elle-worker' }
 
-// Cheap, network-backed token check — the worker revokes by jti, so a stored
-// token can be valid-looking yet revoked. Used to gate the workbench on mount,
-// exactly like the dev console's _authenticated route.
+// Network-backed token check — the worker revokes by jti, so a stored token
+// can be valid-looking yet revoked. ALSO enforces the tier gate: this is the
+// superadmin console, and a valid standard-tier session does not open it.
 export async function verifyToken(): Promise<boolean> {
   const token = getToken()
   if (!token) return false
@@ -44,7 +58,9 @@ export async function verifyToken(): Promise<boolean> {
     })
     if (!r.ok) return false
     const d = await r.json().catch(() => ({}))
-    return !!d.valid
+    const tier = String(d.user?.tier || '')
+    if (tier) localStorage.setItem(TIER_KEY, tier)
+    return !!d.valid && tierAllowed(tier)
   } catch {
     return false
   }
