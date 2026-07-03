@@ -14,6 +14,9 @@ import CodePanel from './components/CodePanel'
 import Evals from './components/Evals'
 import DiagnosePanel from './components/DiagnosePanel'
 import HealthPanel from './components/HealthPanel'
+import ConductorPanel from './components/ConductorPanel'
+import TradingPanel from './components/TradingPanel'
+import LibraryPanel from './components/LibraryPanel'
 import Login from './components/Login'
 import { worker, getEmail, getTier, clearAuth, verifyToken, WORKER } from './lib/elle'
 
@@ -42,15 +45,20 @@ letter-spacing:.02em;transition:background .12s,color .12s}
 .navbtn .glyph{width:14px;display:inline-block;text-align:center;opacity:.8}
 `
 
-type Tab = 'elle' | 'optimus' | 'code' | 'evals' | 'diagnose' | 'health'
-const NAV: [Tab, string, string][] = [
-  ['elle',     '◈', 'elle'],
-  ['optimus',  'φ', 'optimus'],
-  ['code',     '{}', 'code'],
-  ['evals',    '▤', 'evals'],
-  ['diagnose', '✚', 'diagnose'],
-  ['health',   '●', 'health'],
+type Tab = 'elle' | 'conductor' | 'library' | 'optimus' | 'trading' | 'code' | 'evals' | 'diagnose' | 'health'
+// [tab, glyph, label, section] — nav is grouped by what she's doing there.
+const NAV: [Tab, string, string, string][] = [
+  ['elle',      '◈', 'elle',      'mind'],
+  ['conductor', '∞', 'conductor', 'mind'],
+  ['library',   '▣', 'library',   'mind'],
+  ['optimus',   'φ', 'optimus',   'work'],
+  ['trading',   '$', 'trading',   'work'],
+  ['code',      '{}', 'code',     'work'],
+  ['evals',     '▤', 'evals',     'work'],
+  ['diagnose',  '✚', 'diagnose',  'ops'],
+  ['health',    '●', 'health',    'ops'],
 ]
+const SECTIONS = ['mind', 'work', 'ops']
 
 // One quiet dot: is she alive right now. Polls /health at 30s.
 function Heartbeat() {
@@ -120,10 +128,15 @@ export function App() {
             </div>
 
             <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {NAV.map(([t, glyph, label]) => (
-                <button key={t} className={'navbtn' + (tab === t ? ' on' : '')} onClick={() => setTab(t)}>
-                  <span className="glyph">{glyph}</span>{label}
-                </button>
+              {SECTIONS.map(sec => (
+                <div key={sec} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--t4)', letterSpacing: '.18em', textTransform: 'uppercase', padding: '4px 12px 2px' }}>{sec}</div>
+                  {NAV.filter(([, , , s]) => s === sec).map(([t, glyph, label]) => (
+                    <button key={t} className={'navbtn' + (tab === t ? ' on' : '')} onClick={() => setTab(t)}>
+                      <span className="glyph">{glyph}</span>{label}
+                    </button>
+                  ))}
+                </div>
               ))}
             </nav>
 
@@ -143,6 +156,9 @@ export function App() {
           {/* ── instrument panel ── */}
           <main className="rise" key={tab} style={{ flex: 1, display: 'flex', minWidth: 0, background: 'var(--void)' }}>
             {tab === 'elle' && <EllePanel worker={worker} accent={ACCENT} />}
+            {tab === 'conductor' && <ConductorPanel accent={ACCENT} />}
+            {tab === 'library' && <LibraryPanel accent={ACCENT} />}
+            {tab === 'trading' && <TradingPanel accent={ACCENT} />}
             {tab === 'optimus' && <OptimusPanel worker={worker} accent={ACCENT} />}
             {tab === 'code' && <CodePanel worker={worker} accent={ACCENT} />}
             {tab === 'evals' && <Evals worker={worker} accent={ACCENT} />}

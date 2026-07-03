@@ -1,9 +1,43 @@
 # Elle · Workbench
 
 Local superadmin desktop workbench for Elle — a React + Vite renderer running
-inside Electron. Direct access to the unified router surface, the Optimus
-phase-state journal, the code engine, and the eval/training bench. Local only,
-no public deploy; per-user JWT against `elle-worker`.
+inside Electron. This is **the** console: the cloud dev console is deprecated,
+and everything it did lives here. Local only, no public deploy; per-user JWT
+against `elle-worker`, and **gated to admin/superadmin tier** at both login
+and session-verify (a valid standard-tier session is refused at the door).
+
+The workbench is a window onto the `elle-worker` backend — see that repo's
+README for the full mind/router/conductor architecture. This one is the glass.
+
+## Surfaces (left rail, grouped)
+
+**mind**
+- **elle** — the unified conversation. Every turn runs the full-scope router
+  (~35 tools; she picks tool *and* model per step). The κ header above the
+  thread is her live coherence readout; each answer shows its folded tool
+  timeline.
+- **conductor** — her autonomous work. Left: the intent queue (standing goals
+  the clock runs — yours file active, hers arrive as proposals to activate).
+  Right: the run log — every unprompted run with outcome + full trace, so the
+  morning shows what she did overnight.
+- **library** — the corpus and everything she writes. Describe a document and
+  press Enter to pull the whole thing by meaning (no title needed); filter by
+  series; toggle to her dream/libre artifacts.
+
+**work**
+- **optimus** — the phase-state journal (κ · reserve · velocity · accel).
+- **trading** — her desk: live account, positions, recent trades *with her
+  reasoning*, active theses, and her trading journal (read-only; she trades
+  on the cron).
+- **code** — the code engine bench.
+- **evals** — the eval/training bench.
+
+**ops**
+- **diagnose** — paste an error, get the on-stack fix.
+- **health** — live status of `elle-worker` + both RAPID²AI workers.
+
+A breathing gold heartbeat dot in the rail polls `/health` — the room tells
+you she's alive before you say anything.
 
 ## Requirements
 
