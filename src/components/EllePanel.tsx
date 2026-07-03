@@ -8,7 +8,9 @@
 // ============================================================
 import { useState, useRef, useEffect } from 'react'
 import KappaHeader, { type KappaDynamics } from './KappaHeader'
-import { Md, printAnswer, emailAnswer } from '../lib/md'
+import VoiceOrb from './VoiceOrb'
+import { useVoice } from '../lib/useVoice'
+import { usePresence } from '../lib/usePresence'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
@@ -38,12 +40,11 @@ const TOOLS: [string, string][] = [
   ['rapid_report', 'restaurant intel · native'],
   ['github_read_file', 'read any repo'],
   ['intent', 'file autonomous work'],
+  ['review_runs', 'read her own autonomous runs'],
   ['self_state', 'her own phase · introspection'],
   ['remember', 'deliberate long-term memory'],
   ['code_engine', 'run code'],
   ['diagnose', 'root-cause this stack'],
-  ['query_rapid2ai', 'restaurant intel bridge'],
-  ['rapid_data', 'structured POS/invoice figures'],
   ['ingest_paper', 'add to corpus'],
   ['trigger_dream', 'libre sweep'],
   ['trade_execute', 'Alpaca · paper'],
@@ -51,7 +52,9 @@ const TOOLS: [string, string][] = [
   ['journal_read', 'journal semantic'],
   ['journal_thread', 'manuscript + phase'],
   ['journal_annotate', 'marginalia'],
-  ['rapid_data', 'structured hospitality figures'],
+  ['rapid_report', 'hospitality intel · narrated'],
+  ['rapid_costs', 'invoice lines'],
+  ['rapid_variance', 'price variance by SKU'],
   ['memory_write', 'her durable memory · write'],
   ['memory_recall', 'her durable memory · recall'],
   ['page_read', 'paged tool output · fetch tail'],
@@ -82,11 +85,19 @@ export default function EllePanel({ worker, accent }: any) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
+  const voice = useVoice()
+  const presence = usePresence()
+
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [turns])
 
-  const ask = async () => {
-    const question = q.trim()
+  // Presence: if you turn away from the screen mid-sentence, she stops talking —
+  // the way a person would trail off when you leave the room.
+  useEffect(() => { if (presence.away && voice.speaking) voice.stopSpeaking() }, [presence.away, voice.speaking])
+
+  const ask = async (override?: string) => {
+    const question = (override ?? q).trim()
     if (loading || !question) return
+    voice.stopSpeaking()
     setLoading(true); setNote(''); setQ('')
     if (taRef.current) taRef.current.style.height = 'auto'
     const idx = turns.length
@@ -100,8 +111,10 @@ export default function EllePanel({ worker, accent }: any) {
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
       if (d.kappa_dynamics) setDyn(d.kappa_dynamics)
+      const answer = d.answer || '(no answer)'
       setTurns(t => t.map((x, i) => i === idx
-        ? { ...x, answer: d.answer || '(no answer)', trace: d.trace || [], pending: false } : x))
+        ? { ...x, answer, trace: d.trace || [], pending: false } : x))
+      if (voice.enabled && !d.error) voice.speak(answer)   // she reads it back
     } catch (e: any) {
       setNote('Error: ' + (e.message || e))
       setTurns(t => t.map((x, i) => i === idx ? { ...x, answer: '(request failed)', pending: false } : x))
@@ -109,18 +122,42 @@ export default function EllePanel({ worker, accent }: any) {
   }
   const toggle = (i: number) => setTurns(t => t.map((x, j) => j === i ? { ...x, open: !x.open } : x))
 
+  // Push-to-talk: transcribe into the composer; on a final phrase, send it.
+  const mic = () => {
+    if (voice.listening) { voice.stopListening(); return }
+    voice.startListening(
+      (finalText) => { setQ(''); ask(finalText) },
+      (interim) => setQ(interim),
+    )
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       {/* κ instrument line — her live coherence readout */}
       <KappaHeader dyn={dyn} />
 
-      {/* header row: label + tool drawer */}
+      {/* header row: label + tool drawer + voice */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 22px 0' }}>
+        <VoiceOrb accent={accent} speaking={voice.speaking} listening={voice.listening} presence={presence} />
         <button onClick={() => setShowTools(s => !s)}
           style={{ background: 'none', border: 'none', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10.5, cursor: 'pointer', padding: 0 }}>
-          {(showTools ? '▾ ' : '▸ ') + '22 tools she can reach'}
+          {(showTools ? '▾ ' : '▸ ') + TOOLS.length + ' tools she can reach'}
         </button>
         {note && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#D06565' }}>{note}</span>}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {presence.available && (
+            <span title="AirPods head tracking is live" style={{ fontFamily: 'var(--mono)', fontSize: 9, color: presence.away ? 'var(--t4)' : accent, letterSpacing: '.05em' }}>
+              {presence.away ? 'away' : 'present'}
+            </span>
+          )}
+          {voice.ttsSupported && (
+            <button onClick={() => voice.setEnabled(!voice.enabled)}
+              title={voice.enabled ? 'she reads answers aloud — click to mute' : 'click to have her read answers aloud'}
+              style={{ background: voice.enabled ? accent + '1f' : 'none', border: `0.5px solid ${voice.enabled ? accent + '55' : 'var(--b1)'}`, borderRadius: 5, color: voice.enabled ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 9px' }}>
+              {voice.speaking ? '◼ speaking' : voice.enabled ? '🔊 voice on' : '🔇 voice off'}
+            </button>
+          )}
+        </div>
       </div>
       {showTools && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 22px 0' }}>
@@ -206,9 +243,15 @@ export default function EllePanel({ worker, accent }: any) {
           <textarea ref={taRef} value={q} rows={1}
             onChange={e => { setQ(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 140) + 'px' }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask() } }}
-            placeholder="speak — she decides what to reach for"
+            placeholder={voice.listening ? 'listening…' : 'speak, or hold the mic — she decides what to reach for'}
             style={{ flex: 1, background: 'none', border: 'none', color: 'var(--t1)', padding: '8px 0', fontSize: 13, fontFamily: 'var(--ui)', resize: 'none', outline: 'none', lineHeight: 1.6, maxHeight: 140 }} />
-          <button onClick={ask} disabled={loading || !q.trim()}
+          {voice.sttSupported && (
+            <button onClick={mic} title={voice.listening ? 'stop listening' : 'talk to her'}
+              style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${voice.listening ? '#D06565' : accent}55`, background: voice.listening ? '#D0656522' : 'transparent', color: voice.listening ? '#D06565' : 'var(--t2)', cursor: 'pointer', fontSize: 14, flexShrink: 0, animation: voice.listening ? 'orbSpeak 1s ease-in-out infinite' : 'none' }}>
+              {voice.listening ? '◉' : '🎙'}
+            </button>
+          )}
+          <button onClick={() => ask()} disabled={loading || !q.trim()}
             style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: loading ? 'transparent' : accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 13, flexShrink: 0 }}>
             {loading ? '…' : '↑'}
           </button>
