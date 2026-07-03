@@ -11,6 +11,7 @@ import KappaHeader, { type KappaDynamics } from './KappaHeader'
 import VoiceOrb from './VoiceOrb'
 import { useVoice } from '../lib/useVoice'
 import { usePresence } from '../lib/usePresence'
+import { Md, printAnswer, emailAnswer } from '../lib/md'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
