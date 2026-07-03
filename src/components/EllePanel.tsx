@@ -50,6 +50,12 @@ const TOOLS: [string, string][] = [
   ['journal_read', 'journal semantic'],
   ['journal_thread', 'manuscript + phase'],
   ['journal_annotate', 'marginalia'],
+  ['rapid_data', 'structured hospitality figures'],
+  ['memory_write', 'her durable memory · write'],
+  ['memory_recall', 'her durable memory · recall'],
+  ['page_read', 'paged tool output · fetch tail'],
+  ['delegate', 'fork a bounded sub-run'],
+  ['self_schedule', 'note to her future self'],
   ['repo_read', 'her own source · any file'],
   ['repo_search', 'code search her repos'],
   ['forge_open', 'cut a work branch'],
@@ -110,8 +116,8 @@ export default function EllePanel({ worker, accent }: any) {
       {/* header row: label + tool drawer */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 22px 0' }}>
         <button onClick={() => setShowTools(s => !s)}
-          style={{ background: 'none', border: 'none', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10, cursor: 'pointer', padding: 0, letterSpacing: '.05em' }}>
-          {(showTools ? '▾' : '▸') + ' ' + TOOLS.length + ' tools in reach'}
+          style={{ background: 'none', border: 'none', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10.5, cursor: 'pointer', padding: 0 }}>
+          {(showTools ? '▾ ' : '▸ ') + '22 tools she can reach'}
         </button>
         {note && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#D06565' }}>{note}</span>}
       </div>
