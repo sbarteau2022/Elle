@@ -8,7 +8,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 // Stripped to the one surface that matters here: conversation.
 // ============================================================
 
-const WORKER = import.meta.env.VITE_ELLE_WORKER_URL || 'https://elle.sbarteau2022.workers.dev'
+const WORKER = import.meta.env.VITE_ELLE_WORKER_URL || 'https://elle-worker.sbarteau2022.workers.dev'
 
 // site palette (mirrors :root in index.css so this stays in lockstep with the site)
 const INK = 'var(--ink)', CARD = 'var(--card)', GOLD = 'var(--gold)', CREAM = 'var(--cream)'
