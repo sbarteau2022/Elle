@@ -8,6 +8,7 @@
 // ============================================================
 import { useState, useRef, useEffect } from 'react'
 import KappaHeader, { type KappaDynamics } from './KappaHeader'
+import { Md, printAnswer, emailAnswer } from '../lib/md'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
@@ -154,9 +155,22 @@ export default function EllePanel({ worker, accent }: any) {
                 <span style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }}>{t.q}</span>
               </div>
               {/* her answer — prose on the page, one gold hairline */}
-              <div style={{ borderLeft: `2px solid ${t.pending ? 'var(--b1)' : accent + '99'}`, paddingLeft: 16, fontSize: 13.5, color: 'var(--t1)', whiteSpace: 'pre-wrap', lineHeight: 1.75, opacity: t.pending ? 0.45 : 1, transition: 'opacity .2s' }}>
-                {t.pending ? 'thinking…' : t.answer}
+              <div style={{ borderLeft: `2px solid ${t.pending ? 'var(--b1)' : accent + '99'}`, paddingLeft: 16, fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.75, opacity: t.pending ? 0.45 : 1, transition: 'opacity .2s' }}>
+                {t.pending ? 'thinking…' : <Md text={t.answer} />}
               </div>
+              {/* export rail — print/PDF via the browser dialog, email via mailto, copy */}
+              {!t.pending && t.answer && (
+                <div style={{ paddingLeft: 18, display: 'flex', gap: 12 }}>
+                  {([['⎙ print / pdf', () => printAnswer(t.q.slice(0, 80) || 'Elle', t.answer)],
+                     ['✉ email', () => emailAnswer('Elle — ' + (t.q.slice(0, 60) || 'notes'), t.answer)],
+                     ['⧉ copy', () => { navigator.clipboard?.writeText(t.answer) }]] as [string, () => void][]).map(([label, fn]) => (
+                    <button key={label} onClick={fn}
+                      style={{ background: 'none', border: 'none', color: 'var(--t4)', fontFamily: 'var(--mono)', fontSize: 9.5, cursor: 'pointer', padding: 0, letterSpacing: '.05em' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* tool trace — a timeline, folded by default */}
               {t.trace.length > 0 && (
                 <div style={{ paddingLeft: 18 }}>

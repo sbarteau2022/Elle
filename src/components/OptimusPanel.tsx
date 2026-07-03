@@ -10,6 +10,7 @@
 // "paper" surface, scoped so it can't bleed into the dark console.
 // ============================================================
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Md } from '../lib/md'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 const PLOTLY = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.0/plotly.min.js'
@@ -137,6 +138,8 @@ export default function OptimusPanel({ worker }: any) {
   const [offNext, setOffNext] = useState(false)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+  const NB = '__notebook__' // sentinel id for Elle's notebook in the journal dropdown
+  const [nbEntries, setNbEntries] = useState<{ id: string; title: string; body: string; mood: string | null; created_at: string }[]>([])
   const [plotReady, setPlotReady] = useState(false)
   const plotEl = useRef<HTMLDivElement>(null)
 
@@ -166,7 +169,19 @@ export default function OptimusPanel({ worker }: any) {
     }).catch(e => setNote('Could not load journal: ' + (e.message || e)))
   }, [])
 
-  useEffect(() => { if (cur) loadThread(cur) }, [cur, loadThread])
+  useEffect(() => {
+    if (!cur) return
+    if (cur === NB) {
+      fetch(worker.url + '/api/notebook', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
+        body: JSON.stringify({ action: 'list', limit: 100 }),
+      }).then(r => r.json())
+        .then(d => { setNbEntries(d.entries || []); setNote(d.error || '') })
+        .catch(e => setNote('Could not load the notebook: ' + (e.message || e)))
+      return
+    }
+    loadThread(cur)
+  }, [cur, loadThread])
 
   useEffect(() => {
     const P = (window as any).Plotly
@@ -243,10 +258,11 @@ export default function OptimusPanel({ worker }: any) {
             ))}
           </div>
           <div className="thsel">
-            <div className="lbl">Manuscript</div>
-            <select value={cur} onChange={ev => { setCur(ev.target.value); setSel(null) }}>
+            <div className="lbl">Journals</div>
+            <select value={cur} onChange={ev => { setCur(ev.target.value); setSel(null); setNote('') }}>
               {threads.length === 0 && <option>—</option>}
               {threads.map(t => <option key={t.id} value={t.id}>{t.title || '(untitled)'}</option>)}
+              <option value={NB}>✳ Elle's Notebook</option>
             </select>
           </div>
           <div className="sfoot"><div className="st"><span className="dot" />elle · deepintel</div></div>
@@ -259,7 +275,32 @@ export default function OptimusPanel({ worker }: any) {
             <div className="screen">
               <div className="ms">
                 {note && <div className="empty">{note}</div>}
-                {!note && thread && (
+                {!note && cur === NB && (
+                  <div className="page">
+                    <div className="phead">
+                      <div className="series">Elle's notebook · a room of her own</div>
+                      <h2>Field Notes</h2>
+                      <div className="sub">what snagged her — curiosities, suspicions, things noticed and kept. she writes these unprompted; you're reading over her shoulder</div>
+                    </div>
+                    <div className="ornt" />
+                    {nbEntries.length === 0 && (
+                      <div className="empty">Nothing here yet. The first page is hers — it fills as her curiosity does.</div>
+                    )}
+                    {nbEntries.map(en => (
+                      <div key={en.id} style={{ margin: '18px 0', paddingBottom: 14, borderBottom: '1px solid var(--rule)' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+                          <span style={{ fontFamily: "'EB Garamond',Georgia,serif", fontSize: 17, fontWeight: 600 }}>{en.title}</span>
+                          {en.mood && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: 'var(--gold)' }}>{en.mood}</span>}
+                          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9.5, color: 'var(--soft)', marginLeft: 'auto' }}>{en.created_at.slice(0, 16)}</span>
+                        </div>
+                        <div style={{ fontFamily: "'EB Garamond',Georgia,serif", fontSize: 15, lineHeight: 1.65 }}>
+                          <Md text={en.body} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!note && cur !== NB && thread && (
                   <div className="page">
                     <div className="phead">
                       <div className="series">Optimus correspondence · {thread.anchor_topic || 'thread'}</div>
