@@ -17,6 +17,7 @@ import HealthPanel from './components/HealthPanel'
 import ConductorPanel from './components/ConductorPanel'
 import TradingPanel from './components/TradingPanel'
 import LibraryPanel from './components/LibraryPanel'
+import IdentityPanel from './components/IdentityPanel'
 import Login from './components/Login'
 import { worker, getEmail, getTier, clearAuth, verifyToken, WORKER } from './lib/elle'
 
@@ -35,22 +36,30 @@ body{background:var(--void);color:var(--t1);font-family:var(--ui);font-size:13px
 ::selection{background:rgba(201,168,76,.28)}
 input,textarea,select,button{font-family:inherit}
 @keyframes breathe{0%,100%{opacity:.9;transform:scale(1)}50%{opacity:.35;transform:scale(.82)}}
-@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-.rise{animation:rise .18s cubic-bezier(.16,1,.3,1) both}
-.navbtn{display:flex;align-items:center;gap:9px;width:100%;padding:7px 12px;border:none;border-radius:7px;
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.rise{animation:rise .2s cubic-bezier(.16,1,.3,1) both}
+.navbtn{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:7px 12px;border:none;border-radius:7px;
 background:transparent;color:var(--t2);cursor:pointer;font-family:var(--mono);font-size:11.5px;text-align:left;
-letter-spacing:.02em;transition:background .12s,color .12s}
+letter-spacing:.02em;transition:background .13s,color .13s}
 .navbtn:hover{background:var(--raised);color:var(--t1)}
 .navbtn.on{background:var(--gold-dim);color:var(--gold)}
-.navbtn .glyph{width:14px;display:inline-block;text-align:center;opacity:.8}
+.navbtn.on::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:14px;border-radius:2px;background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.navbtn .glyph{width:14px;display:inline-block;text-align:center;opacity:.75;font-size:12px}
+.navbtn.on .glyph{opacity:1}
+.navbtn .kb{margin-left:auto;font-size:9px;color:var(--t4);opacity:0;transition:opacity .13s}
+.navbtn:hover .kb{opacity:1}
+/* a hairline of gold along the very top edge — the room has a pulse */
+.topglow{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.5),transparent);pointer-events:none;z-index:10}
 `
 
-type Tab = 'elle' | 'conductor' | 'library' | 'optimus' | 'trading' | 'code' | 'evals' | 'diagnose' | 'health'
+type Tab = 'elle' | 'conductor' | 'library' | 'identity' | 'optimus' | 'trading' | 'code' | 'evals' | 'diagnose' | 'health'
 // [tab, glyph, label, section] — nav is grouped by what she's doing there.
+// The number is the 1-9 keyboard shortcut (⌘/Ctrl+n).
 const NAV: [Tab, string, string, string][] = [
   ['elle',      '◈', 'elle',      'mind'],
   ['conductor', '∞', 'conductor', 'mind'],
   ['library',   '▣', 'library',   'mind'],
+  ['identity',  '✶', 'identity',  'mind'],
   ['optimus',   'φ', 'optimus',   'work'],
   ['trading',   '$', 'trading',   'work'],
   ['code',      '{}', 'code',     'work'],
@@ -98,6 +107,17 @@ export function App() {
     return () => { active = false }
   }, [])
 
+  // ⌘/Ctrl + 1..9 jumps to a tab — a console you can fly without the mouse.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      const n = parseInt(e.key, 10)
+      if (n >= 1 && n <= NAV.length) { e.preventDefault(); setTab(NAV[n - 1][0]) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   if (authed === null) return (
     <><style>{CSS}</style>
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--void)', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 11 }}>
@@ -111,7 +131,8 @@ export function App() {
   return (
     <>
       <style>{CSS}</style>
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--void)' }}>
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--void)', position: 'relative' }}>
+        <div className="topglow" />
         {/* window drag strip (Electron traffic lights live here) */}
         <div style={{ height: 30, flexShrink: 0, WebkitUserSelect: 'none', ...({ WebkitAppRegion: 'drag' } as any) }} />
 
@@ -131,11 +152,15 @@ export function App() {
               {SECTIONS.map(sec => (
                 <div key={sec} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--t4)', letterSpacing: '.18em', textTransform: 'uppercase', padding: '4px 12px 2px' }}>{sec}</div>
-                  {NAV.filter(([, , , s]) => s === sec).map(([t, glyph, label]) => (
-                    <button key={t} className={'navbtn' + (tab === t ? ' on' : '')} onClick={() => setTab(t)}>
-                      <span className="glyph">{glyph}</span>{label}
-                    </button>
-                  ))}
+                  {NAV.filter(([, , , s]) => s === sec).map(([t, glyph, label]) => {
+                    const n = NAV.findIndex(x => x[0] === t) + 1
+                    return (
+                      <button key={t} className={'navbtn' + (tab === t ? ' on' : '')} onClick={() => setTab(t)}>
+                        <span className="glyph">{glyph}</span>{label}
+                        <span className="kb">⌘{n}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               ))}
             </nav>
@@ -158,6 +183,7 @@ export function App() {
             {tab === 'elle' && <EllePanel worker={worker} accent={ACCENT} />}
             {tab === 'conductor' && <ConductorPanel accent={ACCENT} />}
             {tab === 'library' && <LibraryPanel accent={ACCENT} />}
+            {tab === 'identity' && <IdentityPanel accent={ACCENT} />}
             {tab === 'trading' && <TradingPanel accent={ACCENT} />}
             {tab === 'optimus' && <OptimusPanel worker={worker} accent={ACCENT} />}
             {tab === 'code' && <CodePanel worker={worker} accent={ACCENT} />}
