@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -11,6 +11,9 @@ try {
 } catch {
   // addon not built yet or not on macOS — head motion unavailable
 }
+
+// The renderer asks whether presence features can light up at all.
+ipcMain.handle('head-motion-available', () => !!motionAddon);
 
 function createWindow() {
   const win = new BrowserWindow({
