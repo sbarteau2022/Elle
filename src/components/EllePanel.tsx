@@ -29,6 +29,12 @@ const TOOLS: [string, string][] = [
   ['journal_read', 'journal semantic'],
   ['journal_thread', 'manuscript + phase'],
   ['journal_annotate', 'marginalia'],
+  ['rapid_data', 'structured hospitality figures'],
+  ['memory_write', 'her durable memory · write'],
+  ['memory_recall', 'her durable memory · recall'],
+  ['page_read', 'paged tool output · fetch tail'],
+  ['delegate', 'fork a bounded sub-run'],
+  ['self_schedule', 'note to her future self'],
 ]
 
 type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean }
@@ -72,7 +78,7 @@ export default function EllePanel({ worker, accent }: any) {
       <div>
         <button onClick={() => setShowTools(s => !s)}
           style={{ background: 'none', border: 'none', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10.5, cursor: 'pointer', padding: 0 }}>
-          {(showTools ? '▾ ' : '▸ ') + '16 tools she can reach'}
+          {(showTools ? '▾ ' : '▸ ') + '22 tools she can reach'}
         </button>
         {showTools && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
