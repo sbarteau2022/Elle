@@ -27,52 +27,67 @@ const sid = () => {
 }
 
 // Inventory mirrors the router's system-prompt tool set (worker/src/router.ts).
+// The real full-scope catalog, grouped as the worker renders it (router.ts
+// TOOL_LINES). Keep this list in step with the worker — every chip here is a
+// tool the router can actually dispatch.
 const TOOLS: [string, string][] = [
-  ['search_corpus', '70+ papers · semantic'],
+  // mind & memory
+  ['search_corpus', 'published corpus + papers · semantic'],
   ['find_document', 'pull a full doc by description'],
-  ['read_sql', 'SELECT over every D1 table'],
-  ['web_search', 'live web'],
-  ['fetch_url', 'read a page'],
-  ['fetch_document', 'R2 documents'],
-  ['recall_memory', 'prior sessions'],
-  ['run_code', 'real execution · sandbox'],
+  ['fetch_document', 'one corpus paper by id'],
+  ['read_sql', 'SELECT-only over every D1 table'],
+  ['recall_memory', 'semantic search of prior sessions'],
+  ['remember', 'deliberate long-term memory · write'],
+  ['self_state', 'her own phase · one-call introspection'],
+  ['scratchpad_write', 'short-TTL working memory · write'],
+  ['scratchpad_read', 'short-TTL working memory · read'],
+  // world
+  ['web_search', 'live web · grounded'],
+  ['fetch_url', 'read one http(s) page'],
+  ['calc', 'exact deterministic arithmetic'],
+  ['diagnose', 'root-cause a stack/build error'],
+  ['code_engine', 'analyze·generate·debug·refactor code'],
+  // real execution
+  ['run_code', 'ACTUALLY execute · python/js/ts'],
   ['run_shell', 'shell in the sandbox'],
-  ['calc', 'exact arithmetic'],
-  ['scratchpad_write', 'working memory'],
-  ['rapid_report', 'restaurant intel · native'],
-  ['github_read_file', 'read any repo'],
-  ['intent', 'file autonomous work'],
-  ['review_runs', 'read her own autonomous runs'],
-  ['self_state', 'her own phase · introspection'],
-  ['remember', 'deliberate long-term memory'],
-  ['code_engine', 'run code'],
-  ['diagnose', 'root-cause this stack'],
-  ['ingest_paper', 'add to corpus'],
-  ['trigger_dream', 'libre sweep'],
-  ['trade_execute', 'Alpaca · paper'],
-  ['journal_write', 'Optimus entry'],
-  ['journal_read', 'journal semantic'],
-  ['journal_thread', 'manuscript + phase'],
-  ['journal_annotate', 'marginalia'],
-  ['rapid_report', 'hospitality intel · narrated'],
-  ['rapid_costs', 'invoice lines'],
-  ['rapid_variance', 'price variance by SKU'],
-  ['memory_write', 'her durable memory · write'],
-  ['memory_recall', 'her durable memory · recall'],
-  ['page_read', 'paged tool output · fetch tail'],
-  ['delegate', 'fork a bounded sub-run'],
-  ['self_schedule', 'note to her future self'],
+  // reasoning about herself
+  ['constraint_analyzer', 'find the one binding constraint'],
+  // her codebase & the forge
   ['repo_read', 'her own source · any file'],
   ['repo_search', 'code search her repos'],
-  ['forge_open', 'cut a work branch'],
-  ['forge_write', 'commit to the sandbox branch'],
+  ['github_read_file', 'read any GitHub repo'],
+  ['github_list_files', 'list any repo directory'],
+  ['github_search_code', 'search code in any repo'],
+  ['forge_open', 'cut an elle/* work branch'],
+  ['forge_write', 'commit one file to the branch'],
   ['forge_check', 'CI verdict + failing logs'],
   ['forge_pr', 'request acceptance · never merges'],
-  ['skill_read', 'her distilled procedures'],
-  ['skill_write', 'she authors new skills'],
+  // skills
+  ['skill_list', 'her skill library index'],
+  ['skill_read', 'load a distilled procedure'],
+  ['skill_write', 'author/refine a skill'],
+  // mcp
+  ['mcp_add', 'mount an MCP server by URL'],
   ['mcp_tools', 'mounted external tool servers'],
   ['mcp_call', 'call any MCP tool · HF pre-mounted'],
-  ['mcp_add', 'mount a new MCP server by URL'],
+  // autonomy
+  ['intent', 'file standing work for the conductor'],
+  ['review_runs', 'read her own autonomous runs'],
+  // journal
+  ['journal_read', 'journal · semantic'],
+  ['journal_thread', 'manuscript + phase series'],
+  ['journal_write', 'Optimus entry · κ computed'],
+  ['journal_annotate', 'marginalia on a paragraph'],
+  // hospitality (native rapid2ai-db)
+  ['rapid_report', 'hospitality intel · narrated'],
+  ['rapid_costs', 'invoice lines · per-unit'],
+  ['rapid_variance', 'price variance by SKU'],
+  ['rapid_pos', 'POS daily close · 14d'],
+  ['rapid_menu', 'menu performance · 30d'],
+  // writes / sensitive
+  ['ingest_paper', 'add to corpus · 2-check gate'],
+  ['trigger_dream', 'run one libre/dream cycle'],
+  ['trade_execute', 'Alpaca · buy/sell/close'],
 ]
 
 type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean }

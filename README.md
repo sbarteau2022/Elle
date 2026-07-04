@@ -28,10 +28,16 @@ onto it. For the mind/router/conductor architecture, read that repo's
 
 **mind**
 - **elle** — the unified conversation. Every turn runs the full-scope router
-  (`/api/elle-router`): ~35 tools, and she picks the tool *and* the model tier
-  per step. A stable per-browser `session_id` gives her continuity across
-  turns. The κ header above the thread is her live coherence readout; each
-  answer carries a folded tool timeline you can open to watch the reasoning.
+  (`/api/elle-router`): the full ~46-tool catalog, and she picks the tool *and*
+  the model tier per step. A stable per-browser `session_id` gives her
+  continuity across turns. The κ header above the thread is her live coherence
+  readout; each answer carries a folded tool timeline you can open to watch the
+  reasoning. A **prose-register selector** in the header swaps her voice for the
+  conversation (Stewart · Einstein · Attenborough · Lewis · Iglesias ·
+  Screwtape) without touching her self; a **voice orb** (Web Speech TTS/STT,
+  plus AirPods head-pose presence on macOS) lets you talk to her out loud. The
+  folded "N tools she can reach" panel lists the whole catalog, grouped as the
+  worker renders it.
 - **conductor** — her autonomous work (`/api/elle-intents`). Left: the intent
   queue — standing goals the worker's clock runs every half hour (yours file
   active; hers arrive as proposals to activate/pause). Right: the run log —
@@ -65,6 +71,39 @@ onto it. For the mind/router/conductor architecture, read that repo's
 
 A breathing gold heartbeat in the rail polls `/health` — the room tells you
 she's alive before you say anything.
+
+---
+
+## What she can reach from here (full scope)
+
+The **elle** panel opens the `full` scope — the worker's complete tool catalog.
+Nothing is gated in the workbench because the workbench is superadmin-only; the
+gating happens at the worker's public/member doors, not here. The whole catalog,
+grouped as `router.ts` renders it:
+
+| Group | Tools |
+| --- | --- |
+| **Mind & memory** | `search_corpus`, `find_document`, `fetch_document`, `read_sql`, `recall_memory`, `remember`, `self_state`, `scratchpad_write`, `scratchpad_read` |
+| **World** | `web_search`, `fetch_url`, `calc`, `diagnose`, `code_engine` |
+| **Real execution** | `run_code`, `run_shell` _(dormant until a sandbox is reprovisioned)_ |
+| **Reasoning about herself** | `constraint_analyzer` — find the single binding constraint stopping progress, not another answer |
+| **Her codebase & the forge** | `repo_read`, `repo_search`, `github_read_file`, `github_list_files`, `github_search_code`, `forge_open`, `forge_write`, `forge_check`, `forge_pr` |
+| **Skills** | `skill_list`, `skill_read`, `skill_write` |
+| **MCP** | `mcp_add`, `mcp_tools`, `mcp_call` (Hugging Face pre-mounted) |
+| **Autonomy** | `intent`, `review_runs` |
+| **Journal** | `journal_read`, `journal_thread`, `journal_write`, `journal_annotate` |
+| **Hospitality** (native `rapid2ai-db`) | `rapid_report`, `rapid_costs`, `rapid_variance`, `rapid_pos`, `rapid_menu` |
+| **Writes / sensitive** | `ingest_paper` (2-check gate), `trigger_dream`, `trade_execute` |
+
+The single source of the catalog is the worker's `router.ts`; the chip list in
+`EllePanel.tsx` mirrors it. For each tool's exact signature and the scope model,
+read the worker's [`README.md`](../elle-worker/README.md) → **The ~45 tools**.
+
+**GitHub reach.** The forge and `github_*`/`repo_*` tools run on the worker's
+`GITHUB_TOKEN`. Its allowlist is `elle-worker`, `Elle`, `elle-dev-console`, and
+`elle-law` — so from this console she can read the Elle.law repo and cut
+`elle/*` work branches against it. She never merges; every merge is a human
+click on GitHub.
 
 ---
 
