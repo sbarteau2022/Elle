@@ -17,11 +17,18 @@ onto it. For the mind/router/conductor architecture, read that repo's
 
 - **Local only.** There is no public deploy. It runs on your machine against
   the deployed worker.
-- **Admin/superadmin tier only.** A per-user JWT is obtained from
-  `/api/elle-auth`, and the tier is checked twice: at login (`Login.tsx`) and
-  on every mount via a network-backed `verifyToken()` (`lib/elle.ts`). A valid
-  *standard*-tier session is refused at the door — this is her cockpit, not a
-  member surface.
+- **Admin-tier only.** A per-user JWT is obtained from `/api/elle-auth`, and the
+  tier is checked twice: at login (`Login.tsx`) and on every mount via a
+  network-backed `verifyToken()` (`lib/elle.ts`). A valid *standard*-tier
+  session is refused at the door — this is her cockpit, not a member surface.
+  Three tiers open it: `superadmin`, `admin`, and `cofounder`.
+- **`cofounder`** is a trusted second admin: full visibility here (every panel,
+  every read), but the worker runs him at a restricted scope that blocks only
+  the **code-shipping tools** (`forge_open/write/pr`, `run_shell`) — he can see
+  and reason over all her code, but cannot ship or migrate it. His tool-chip
+  list hides those tools so the count stays accurate.
+- **Forced first-login reset.** A provisioned (temp-password) account is held at
+  a "set your password" step before the console opens.
 - Auth persists in `localStorage` (30-day token). Sign out clears it.
 
 ## Surfaces (left rail, grouped mind / work / ops; ⌘/Ctrl+1..9 to jump)
