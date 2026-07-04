@@ -35,10 +35,48 @@ export default function TradingPanel({ accent }: any) {
   const trades: Any[] = d.trades || []
   const theses: Any[] = d.theses || []
   const journal: Any[] = d.journal || []
+  const marketOpen = d.market_open !== false
+  // Today's trades, for the off-hours replay header.
+  const today = new Date().toISOString().slice(0, 10)
+  const todays = trades.filter(t => String(t.created_at || '').slice(0, 10) === today)
+  const todayPnl = todays.reduce((s, t) => s + (Number(t.pnl) || 0), 0)
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
       <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
+        {/* market status + off-hours session replay: when the desk is closed,
+            lead with what Elle did today rather than a frozen board. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--mono)', fontSize: 10 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: marketOpen ? '#4ADE80' : 'var(--t4)' }} />
+          <span style={{ color: marketOpen ? '#4ADE80' : 'var(--t3)', letterSpacing: '.06em' }}>
+            {marketOpen ? 'MARKET OPEN · live desk' : 'MARKET CLOSED · session replay'}
+          </span>
+        </div>
+        {!marketOpen && (
+          <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t3)', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 8 }}>
+              today's session · what Elle did
+            </div>
+            {journal[0] && journal[0].journal_date >= today ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: accent }}>
+                  close {money(journal[0].ending_value)} · {journal[0].trades_today} trades
+                </div>
+                {journal[0].what_happened && <P label="what happened" text={journal[0].what_happened} />}
+                {journal[0].what_she_learned && <P label="learned" text={journal[0].what_she_learned} />}
+                {journal[0].philosophical_insight && <P label="insight" text={journal[0].philosophical_insight} />}
+                {journal[0].hypothesis_for_tomorrow && <P label="tomorrow" text={journal[0].hypothesis_for_tomorrow} />}
+              </div>
+            ) : (
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t2)', lineHeight: 1.6 }}>
+                {todays.length > 0
+                  ? <>She placed <b style={{ color: 'var(--t1)' }}>{todays.length}</b> {todays.length === 1 ? 'trade' : 'trades'} today, {todayPnl >= 0 ? 'up' : 'down'} <span style={{ color: pnlColor(todayPnl) }}>{money(Math.abs(todayPnl))}</span>. Her end-of-day journal posts after the close.</>
+                  : 'Quiet session — no trades today. The desk below is her live paper account; her end-of-day journal will post after the next close.'}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* account tiles */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
           <Tile label="portfolio value" value={money(acct.total_portfolio_value)} accent={accent} />

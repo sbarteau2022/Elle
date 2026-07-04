@@ -23,18 +23,32 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const VOICE_ENABLED_KEY = 'elle_voice_enabled'
 
+// The known high-quality neural/enhanced system voices, best first. These are
+// the difference between "robot" and "person": macOS ships Ava/Samantha/Zoe,
+// Windows ships the "Natural" line, Chrome ships "Google US English". Matching
+// a name here is what kills the tinny default voice.
+const GOOD_VOICES = [
+  'ava', 'samantha', 'zoe', 'serena', 'allison', 'susan', 'nicky', 'evan', 'nathan', 'tom',
+  'aria', 'jenny', 'guy', 'michelle', 'google us english', 'natural', 'premium', 'enhanced', 'siri',
+]
+
+// Score every available voice and take the best — rather than the first match,
+// which often left a flat default in place even when a neural voice existed.
 function pickVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis?.getVoices?.() || []
   if (!voices.length) return null
-  // Prefer a natural en-US voice; fall back to any en, then anything.
-  const prefer = [
-    (v: SpeechSynthesisVoice) => /en[-_]US/i.test(v.lang) && /natural|premium|siri|samantha|ava|allison/i.test(v.name),
-    (v: SpeechSynthesisVoice) => /en[-_]US/i.test(v.lang),
-    (v: SpeechSynthesisVoice) => /^en/i.test(v.lang),
-    () => true,
-  ]
-  for (const test of prefer) { const hit = voices.find(test); if (hit) return hit }
-  return voices[0]
+  const score = (v: SpeechSynthesisVoice): number => {
+    const name = v.name.toLowerCase()
+    let s = 0
+    const idx = GOOD_VOICES.findIndex(g => name.includes(g))
+    if (idx >= 0) s += 100 - idx * 3           // earlier in the list = better
+    if (/en[-_]US/i.test(v.lang)) s += 40
+    else if (/^en/i.test(v.lang)) s += 20
+    if (!v.localService) s += 8                // network/neural often richer
+    if (/compact|eloquence|fred|albert|zarvox|novelty/i.test(name)) s -= 60 // the tinny ones
+    return s
+  }
+  return voices.slice().sort((a, b) => score(b) - score(a))[0] || voices[0]
 }
 
 // Strip anything that reads badly aloud (stray urls, long id strings) without
@@ -101,15 +115,26 @@ export function useVoice(): VoiceApi {
     const clean = forSpeech(text)
     if (!clean) return
     window.speechSynthesis.cancel()
-    // Chunk on sentence boundaries: long single utterances get cut off by the
-    // synth in some engines, and chunking lets barge-in interrupt cleanly.
-    const chunks = clean.match(/[^.!?…]+[.!?…]*/g) || [clean]
+    // Group sentences into LARGER blocks (~260 chars) instead of one utterance
+    // per sentence. Every utterance boundary is an audible gap where the engine
+    // resets its prosody — speaking sentence-by-sentence was the "staccato".
+    // Blocks keep the natural intonation flowing while staying short enough to
+    // dodge the long-utterance cutoff bug and let barge-in interrupt cleanly.
+    const sentences = clean.match(/[^.!?…]+[.!?…]*\s*/g) || [clean]
+    const chunks: string[] = []
+    let buf = ''
+    for (const s of sentences) {
+      if ((buf + s).length > 260 && buf) { chunks.push(buf.trim()); buf = s }
+      else buf += s
+    }
+    if (buf.trim()) chunks.push(buf.trim())
+
     let i = 0
     const next = () => {
       if (i >= chunks.length) { setSpeaking(false); return }
-      const u = new SpeechSynthesisUtterance(chunks[i++].trim())
+      const u = new SpeechSynthesisUtterance(chunks[i++])
       if (voiceRef.current) u.voice = voiceRef.current
-      u.rate = 1.0; u.pitch = 1.0
+      u.rate = 0.98; u.pitch = 1.02   // a hair slower + warmer than the flat default
       u.onend = next
       u.onerror = () => { setSpeaking(false) }
       window.speechSynthesis.speak(u)
