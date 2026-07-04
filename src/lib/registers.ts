@@ -12,6 +12,7 @@ export const FALLBACK_REGISTERS: Register[] = [
   { id: 'attenborough', name: 'Attenborough — Wonder',   blurb: 'nature-doc narration, reverent, present-tense' },
   { id: 'lewis',        name: 'Lewis — A Grief Observed', blurb: 'first person, broken, interior, deep analogy' },
   { id: 'iglesias',     name: 'Iglesias — Storyteller',  blurb: 'warm, witty, story-heavy, relatable, lands the turn' },
+  { id: 'screwtape',    name: 'Screwtape — War Room',    blurb: 'adversarial challenger: argues to win, deploys the tactics, debriefs — trains your defense' },
 ]
 
 export const REGISTER_KEY = 'elle_voice_id'
