@@ -28,7 +28,7 @@ onto it. For the mind/router/conductor architecture, read that repo's
 
 **mind**
 - **elle** — the unified conversation. Every turn runs the full-scope router
-  (`/api/elle-router`): the full ~46-tool catalog, and she picks the tool *and*
+  (`/api/elle-router`): the full ~47-tool catalog, and she picks the tool *and*
   the model tier per step. A stable per-browser `session_id` gives her
   continuity across turns. The κ header above the thread is her live coherence
   readout; each answer carries a folded tool timeline you can open to watch the
@@ -87,6 +87,7 @@ grouped as `router.ts` renders it:
 | **World** | `web_search`, `fetch_url`, `calc`, `diagnose`, `code_engine` |
 | **Real execution** | `run_code`, `run_shell` _(dormant until a sandbox is reprovisioned)_ |
 | **Reasoning about herself** | `constraint_analyzer` — find the single binding constraint stopping progress, not another answer |
+| **Signal analysis** | `pfar` — Prosody·FreeQ·Analytic Ripper: rip structure from a stream (spectrum over a numeric series · prosody over pitch/energy · rhetoric over text) |
 | **Her codebase & the forge** | `repo_read`, `repo_search`, `github_read_file`, `github_list_files`, `github_search_code`, `forge_open`, `forge_write`, `forge_check`, `forge_pr` |
 | **Skills** | `skill_list`, `skill_read`, `skill_write` |
 | **MCP** | `mcp_add`, `mcp_tools`, `mcp_call` (Hugging Face pre-mounted) |
@@ -97,7 +98,7 @@ grouped as `router.ts` renders it:
 
 The single source of the catalog is the worker's `router.ts`; the chip list in
 `EllePanel.tsx` mirrors it. For each tool's exact signature and the scope model,
-read the worker's [`README.md`](../elle-worker/README.md) → **The ~45 tools**.
+read the worker's [`README.md`](../elle-worker/README.md) → **The ~46 tools**.
 
 **GitHub reach.** The forge and `github_*`/`repo_*` tools run on the worker's
 `GITHUB_TOKEN`. Its allowlist is `elle-worker`, `Elle`, `elle-dev-console`, and
