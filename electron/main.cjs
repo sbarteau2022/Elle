@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const native = require('./native/index.cjs');
 
@@ -10,6 +10,55 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // guessing from platform — one capability map (native/index.cjs), easy to
 // extend as more native features land.
 ipcMain.handle('native:capabilities', () => native.getCapabilities());
+
+// ── device permissions: deny by default, granted only by the user ──────────
+// Electron's default permission handler GRANTS everything, silently. That is
+// the opposite of "permissioned, never auto accept", so we replace it: every
+// Chromium permission request is denied unless the user has explicitly
+// clicked allow in the workbench's PermissionGate, which lands here over IPC.
+// The grants live in the main process on purpose — renderer code (or anything
+// injected into it) cannot flip them without going through this channel, and
+// they reset to denied on every launch until the renderer re-asserts a
+// consent the user actually gave.
+const grants = { microphone: false, camera: false };
+
+ipcMain.handle('permissions:set', (_e, name, allow) => {
+  if (Object.prototype.hasOwnProperty.call(grants, name)) grants[name] = !!allow;
+  return { ...grants };
+});
+ipcMain.handle('permissions:get', () => ({ ...grants }));
+
+// Map Chromium's permission vocabulary onto our two grants. Returns null for
+// permissions that aren't media at all (handled separately below).
+function mediaAllowed(permission, details) {
+  if (permission === 'microphone' || permission === 'audioCapture') return grants.microphone;
+  if (permission === 'camera' || permission === 'videoCapture') return grants.camera;
+  if (permission === 'media') {
+    const types = (details && (details.mediaTypes || (details.mediaType ? [details.mediaType] : []))) || [];
+    if (!types.length) return grants.microphone || grants.camera;
+    return types.every((t) =>
+      t === 'audio' ? grants.microphone : t === 'video' ? grants.camera : false
+    );
+  }
+  return null;
+}
+
+function installPermissionPolicy(ses) {
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    const media = mediaAllowed(permission, details);
+    if (media !== null) return callback(media);
+    // The copy button writes to the clipboard from a user click — allow that
+    // one; everything else (notifications, geolocation, midi, …) is denied.
+    if (permission === 'clipboard-sanitized-write') return callback(true);
+    callback(false);
+  });
+  ses.setPermissionCheckHandler((_wc, permission, _origin, details) => {
+    const media = mediaAllowed(permission, details);
+    if (media !== null) return media;
+    if (permission === 'clipboard-sanitized-write') return true;
+    return false;
+  });
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -44,6 +93,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  installPermissionPolicy(session.defaultSession);
   createWindow();
 
   app.on('activate', () => {
