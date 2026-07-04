@@ -52,6 +52,7 @@ const TOOLS: [string, string][] = [
   ['run_shell', 'shell in the sandbox'],
   // reasoning about herself
   ['constraint_analyzer', 'find the one binding constraint'],
+  ['pfar', 'rip structure from a stream · spectrum·prosody·rhetoric'],
   // her codebase & the forge
   ['repo_read', 'her own source · any file'],
   ['repo_search', 'code search her repos'],
