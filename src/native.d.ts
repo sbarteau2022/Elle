@@ -15,11 +15,19 @@ export interface Capabilities {
   [key: string]: boolean | string
 }
 
+// Device permissions the user can grant through the workbench's
+// PermissionGate. The main process default-denies all Chromium permission
+// requests; setPermission relays an explicit user decision.
+export type PermissionName = 'microphone' | 'camera'
+export type PermissionGrants = Record<PermissionName, boolean>
+
 declare global {
   interface Window {
     elleNative?: {
       isElectron: boolean;
       getCapabilities: () => Promise<Capabilities>;
+      setPermission: (name: PermissionName, allow: boolean) => Promise<PermissionGrants>;
+      getPermissions: () => Promise<PermissionGrants>;
       onHeadMotion: (cb: (data: HeadMotion) => void) => void;
       offHeadMotion: () => void;
       headMotionAvailable: () => Promise<boolean>;

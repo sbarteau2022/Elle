@@ -8,8 +8,12 @@
 //   so a higher-quality provider (worker-side neural TTS) can drop in later
 //   without touching callers.
 // STT: Web Speech `SpeechRecognition` transcribes from the default input —
-//   again, the AirPods mic when connected — into the composer. Interim results
-//   stream so you see words appear as you talk; the final result fires onFinal.
+//   again, the AirPods mic when connected. Two modes through one API:
+//   push-to-talk (default: one utterance, recognition ends itself) and
+//   continuous ({ continuous: true }: finals stream in as you speak and the
+//   session auto-restarts on end until stopListening()). VoiceContext owns
+//   the continuous mode and the consent gate in front of both — nothing here
+//   asks for the mic on its own.
 //
 // Barge-in: starting to listen stops any in-flight speech, so you can cut her
 // off the way you would a person. Everything degrades to inert no-ops when the
@@ -42,6 +46,11 @@ function forSpeech(text: string): string {
     .trim()
 }
 
+export interface ListenOptions {
+  /** Keep transcribing across utterances; auto-restart until stopListening(). */
+  continuous?: boolean
+}
+
 export interface VoiceApi {
   ttsSupported: boolean
   sttSupported: boolean
@@ -51,7 +60,7 @@ export interface VoiceApi {
   listening: boolean
   speak: (text: string) => void
   stopSpeaking: () => void
-  startListening: (onFinal: (text: string) => void, onInterim?: (text: string) => void) => void
+  startListening: (onFinal: (text: string) => void, onInterim?: (text: string) => void, opts?: ListenOptions) => void
   stopListening: () => void
 }
 
@@ -64,6 +73,9 @@ export function useVoice(): VoiceApi {
   const [listening, setListening] = useState(false)
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null)
   const recRef = useRef<any>(null)
+  // True while a listening session is wanted; continuous mode uses it to
+  // decide whether an `onend` means "restart" or "we're done".
+  const wantRef = useRef(false)
 
   const setEnabled = useCallback((v: boolean) => {
     setEnabledState(v); localStorage.setItem(VOICE_ENABLED_KEY, v ? '1' : '0')
@@ -106,34 +118,59 @@ export function useVoice(): VoiceApi {
   }, [ttsSupported])
 
   const stopListening = useCallback(() => {
+    wantRef.current = false
     try { recRef.current?.stop() } catch { /* ignore */ }
     setListening(false)
   }, [])
 
-  const startListening = useCallback((onFinal: (t: string) => void, onInterim?: (t: string) => void) => {
+  const startListening = useCallback((onFinal: (t: string) => void, onInterim?: (t: string) => void, opts?: ListenOptions) => {
     if (!sttSupported) return
     stopSpeaking() // barge-in: cut her off when you start talking
+    const continuous = !!opts?.continuous
     const Rec = window.SpeechRecognition || window.webkitSpeechRecognition
-    const rec = new Rec()
-    rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false
-    let finalText = ''
-    rec.onresult = (e: any) => {
-      let interim = ''
-      for (let k = e.resultIndex; k < e.results.length; k++) {
-        const r = e.results[k]
-        if (r.isFinal) finalText += r[0].transcript
-        else interim += r[0].transcript
+
+    // One recognition session. Finals fire the moment the engine settles a
+    // phrase (both modes), so continuous mode streams phrases instead of
+    // buffering to the end. Recognition engines end sessions on their own
+    // (silence, network hiccups) — in continuous mode `onend` begins a fresh
+    // session while wantRef holds, which is what makes listen mode survive
+    // pauses in the conversation.
+    const begin = () => {
+      const rec = new Rec()
+      rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = continuous
+      rec.onresult = (e: any) => {
+        let interim = ''
+        for (let k = e.resultIndex; k < e.results.length; k++) {
+          const r = e.results[k]
+          if (r.isFinal) { const text = String(r[0].transcript).trim(); if (text) onFinal(text) }
+          else interim += r[0].transcript
+        }
+        if (interim && onInterim) onInterim(interim)
       }
-      if (interim && onInterim) onInterim(interim)
+      rec.onend = () => {
+        if (continuous && wantRef.current) {
+          try { begin() } catch { wantRef.current = false; setListening(false) }
+        } else {
+          wantRef.current = false; setListening(false)
+        }
+      }
+      rec.onerror = (e: any) => {
+        // 'no-speech' / 'aborted' are routine; onend decides whether to
+        // restart. Permission errors are terminal — stop wanting the mic.
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+          wantRef.current = false; setListening(false)
+        }
+      }
+      recRef.current = rec
+      rec.start()
     }
-    rec.onend = () => { setListening(false); if (finalText.trim()) onFinal(finalText.trim()) }
-    rec.onerror = () => setListening(false)
-    recRef.current = rec
-    try { rec.start(); setListening(true) } catch { setListening(false) }
+
+    wantRef.current = true
+    try { begin(); setListening(true) } catch { wantRef.current = false; setListening(false) }
   }, [sttSupported, stopSpeaking])
 
   // Clean up on unmount.
-  useEffect(() => () => { try { window.speechSynthesis?.cancel() } catch {}; try { recRef.current?.stop() } catch {} }, [])
+  useEffect(() => () => { wantRef.current = false; try { window.speechSynthesis?.cancel() } catch {}; try { recRef.current?.stop() } catch {} }, [])
 
   return { ttsSupported, sttSupported, enabled, setEnabled, speaking, listening, speak, stopSpeaking, startListening, stopListening }
 }

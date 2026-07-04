@@ -9,8 +9,8 @@
 import { useState, useRef, useEffect } from 'react'
 import KappaHeader, { type KappaDynamics } from './KappaHeader'
 import VoiceOrb from './VoiceOrb'
-import { useVoice } from '../lib/useVoice'
-import { usePresence } from '../lib/usePresence'
+import { useWorkbenchVoice } from '../lib/VoiceContext'
+import { on } from '../lib/commands'
 import { Md, printAnswer, emailAnswer } from '../lib/md'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
 
@@ -102,8 +102,12 @@ export default function EllePanel({ worker, accent }: any) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
-  const voice = useVoice()
-  const presence = usePresence()
+  // The workbench's one voice/mic/presence pipeline (VoiceContext). This
+  // panel is the conversation surface, so it's the one that subscribes to
+  // dictation and to the confirm/cancel verbs — spoken or gestured.
+  const wv = useWorkbenchVoice()
+  const { voice, presence } = wv
+  const [interim, setInterim] = useState('')
 
   // Prose register — which of her five voices answers. Persisted; sent per turn.
   const [registers, setRegisters] = useState<Register[]>(FALLBACK_REGISTERS)
@@ -116,6 +120,24 @@ export default function EllePanel({ worker, accent }: any) {
   // Presence: if you turn away from the screen mid-sentence, she stops talking —
   // the way a person would trail off when you leave the room.
   useEffect(() => { if (presence.away && voice.speaking) voice.stopSpeaking() }, [presence.away, voice.speaking])
+
+  // Listen-mode plumbing. Dictation lands in the composer (appended, never
+  // auto-sent); "send"/nod submit it; "cancel"/shake wipe it. Subscribed once —
+  // refs keep the handlers on the latest composer state without resubscribing
+  // per keystroke.
+  const qRef = useRef(q); qRef.current = q
+  const askRef = useRef<() => void>(() => {}); askRef.current = () => { void ask() }
+  useEffect(() => {
+    const subs = [
+      on('dictation', ({ text }) => { setInterim(''); setQ(prev => (prev ? prev + ' ' : '') + text) }),
+      on('dictation.interim', ({ text }) => setInterim(text)),
+      on('send', () => { if (qRef.current.trim()) askRef.current() }),
+      on('cancel', () => { setQ(''); setInterim('') }),
+      on('gesture.nod', () => { if (qRef.current.trim()) askRef.current() }),
+      on('gesture.shake', () => { setQ(''); setInterim('') }),
+    ]
+    return () => subs.forEach(off => off())
+  }, [])
 
   const ask = async (override?: string) => {
     const question = (override ?? q).trim()
@@ -146,11 +168,17 @@ export default function EllePanel({ worker, accent }: any) {
   const toggle = (i: number) => setTurns(t => t.map((x, j) => j === i ? { ...x, open: !x.open } : x))
 
   // Push-to-talk: transcribe into the composer; on a final phrase, send it.
-  const mic = () => {
+  // Consent-gated — the first press opens the PermissionGate, never the mic.
+  // While workbench listen mode is live this button hands off to it instead
+  // of fighting over the one recognition session.
+  const mic = async () => {
+    if (wv.listenMode) { wv.toggleListenMode(); return }
     if (voice.listening) { voice.stopListening(); return }
+    const ok = await wv.requestMic()
+    if (!ok) return
     voice.startListening(
       (finalText) => { setQ(''); ask(finalText) },
-      (interim) => setQ(interim),
+      (t) => setQ(t),
     )
   }
 
@@ -268,11 +296,17 @@ export default function EllePanel({ worker, accent }: any) {
 
       {/* composer */}
       <div style={{ padding: '10px 22px 18px' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 10, padding: '4px 4px 4px 14px' }}>
+        {/* words still forming while she listens — visible before they commit */}
+        {interim && (
+          <div style={{ maxWidth: 760, margin: '0 auto 6px', padding: '0 14px', fontFamily: 'var(--mono)', fontSize: 10.5, fontStyle: 'italic', color: 'var(--t3)' }}>
+            {interim}…
+          </div>
+        )}
+        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--raised)', border: `0.5px solid ${wv.listenMode ? '#D0656555' : 'var(--b1)'}`, borderRadius: 10, padding: '4px 4px 4px 14px' }}>
           <textarea ref={taRef} value={q} rows={1}
             onChange={e => { setQ(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 140) + 'px' }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask() } }}
-            placeholder={voice.listening ? 'listening…' : 'speak, or hold the mic — she decides what to reach for'}
+            placeholder={wv.listenMode ? 'listening — dictate, then say "send" or nod' : voice.listening ? 'listening…' : 'speak, or hold the mic — she decides what to reach for'}
             style={{ flex: 1, background: 'none', border: 'none', color: 'var(--t1)', padding: '8px 0', fontSize: 13, fontFamily: 'var(--ui)', resize: 'none', outline: 'none', lineHeight: 1.6, maxHeight: 140 }} />
           {voice.sttSupported && (
             <button onClick={mic} title={voice.listening ? 'stop listening' : 'talk to her'}
