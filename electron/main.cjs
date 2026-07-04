@@ -2,7 +2,7 @@
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const native = require('./native');
+const native = require('./native/index.cjs');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
