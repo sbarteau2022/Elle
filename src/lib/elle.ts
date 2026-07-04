@@ -18,9 +18,11 @@ export const TIER_KEY = 'elle_dev_tier'
 export const getToken = () => localStorage.getItem(TOKEN_KEY) || ''
 export const getEmail = () => localStorage.getItem(EMAIL_KEY) || ''
 export const getTier = () => localStorage.getItem(TIER_KEY) || ''
-// The workbench is the superadmin console: only admin-tier sessions may open
-// it. Standard accounts are valid for the public surfaces, not for this.
-export const tierAllowed = (tier: string) => tier === 'superadmin' || tier === 'admin'
+// The workbench is the admin console: only admin-tier sessions may open it.
+// Standard accounts are valid for the public surfaces, not for this.
+// 'cofounder' is a trusted second admin — full visibility here; the worker
+// restricts only his code-shipping tools, not what he can see.
+export const tierAllowed = (tier: string) => tier === 'superadmin' || tier === 'admin' || tier === 'cofounder'
 export const setAuth = (t: string, email: string, tier = '') => {
   localStorage.setItem(TOKEN_KEY, t)
   localStorage.setItem(EMAIL_KEY, email)
