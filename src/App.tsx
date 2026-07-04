@@ -18,6 +18,8 @@ import Login from './components/Login'
 import './plugins/builtins'
 import { listPanels, listSections } from './plugins/registry'
 import { worker, getEmail, getTier, clearAuth, verifyToken, WORKER } from './lib/elle'
+import { VoiceProvider, useWorkbenchVoice } from './lib/VoiceContext'
+import { on } from './lib/commands'
 
 const ACCENT = '#C9A84C'
 
@@ -55,6 +57,48 @@ letter-spacing:.02em;transition:background .13s,color .13s}
 // stable across renders exactly the way the old hardcoded array was.
 const PANELS = listPanels()
 const SECTIONS = listSections()
+
+// The workbench's ear, in the rail: toggle listen mode (consent-gated — the
+// first press opens the PermissionGate, never the mic directly), see plainly
+// when she can hear you, and revoke the mic without hunting for a settings
+// page. Invisible when this host has no speech recognition at all.
+function ListenControl() {
+  const wv = useWorkbenchVoice()
+  if (!wv.voice.sttSupported) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <button onClick={wv.toggleListenMode}
+        title={wv.listenMode ? 'she is listening — click to stop (or say "stop listening")' : 'let her listen continuously — asks for the mic first'}
+        style={{
+          alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7,
+          background: wv.listenMode ? '#D0656518' : 'none',
+          border: `0.5px solid ${wv.listenMode ? '#D0656577' : 'var(--b1)'}`,
+          borderRadius: 6, color: wv.listenMode ? '#D06565' : 'var(--t3)',
+          cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10, padding: '5px 10px',
+        }}>
+        <span style={{
+          width: 6, height: 6, borderRadius: '50%',
+          background: wv.listenMode ? '#D06565' : 'var(--t4)',
+          animation: wv.listenMode ? 'breathe 1.1s ease-in-out infinite' : 'none',
+          boxShadow: wv.listenMode ? '0 0 8px #D0656599' : 'none',
+        }} />
+        {wv.listenMode ? 'listening' : 'listen'}
+      </button>
+      {wv.micConsent === 'granted' && (
+        <button onClick={wv.revokeMic} title="drop microphone access everywhere"
+          style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9, padding: 0, letterSpacing: '.04em' }}>
+          mic allowed · revoke
+        </button>
+      )}
+      {wv.micConsent === 'denied' && (
+        <span title="she'll ask again the next time you reach for a voice feature"
+          style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', letterSpacing: '.04em' }}>
+          mic blocked
+        </span>
+      )}
+    </div>
+  )
+}
 
 // One quiet dot: is she alive right now. Polls /health at 30s.
 function Heartbeat() {
@@ -105,6 +149,10 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // …or without your hands: "open trading" (any registered panel's name)
+  // arrives here from the voice pipeline as a nav event.
+  useEffect(() => on('nav', e => setTab(e.panel)), [])
+
   if (authed === null) return (
     <><style>{CSS}</style>
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--void)', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 11 }}>
@@ -118,7 +166,7 @@ export function App() {
   const activePanel = PANELS.find(p => p.id === tab)
 
   return (
-    <>
+    <VoiceProvider accent={ACCENT}>
       <style>{CSS}</style>
       <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--void)', position: 'relative' }}>
         <div className="topglow" />
@@ -155,6 +203,7 @@ export function App() {
             </nav>
 
             <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px' }}>
+              <ListenControl />
               <Heartbeat />
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 title={`${getEmail()} · ${getTier() || 'admin'}`}>
@@ -173,6 +222,6 @@ export function App() {
           </main>
         </div>
       </div>
-    </>
+    </VoiceProvider>
   )
 }
