@@ -7,18 +7,16 @@
 // visual system is deliberate — void black, one gold, hairline borders, serif
 // only for her name; everything that is data is mono. No decoration that
 // isn't information.
+//
+// The tab bar below is a plugin surface, not a fixed list: './plugins/builtins'
+// registers the ten panels below it via registerPanel(), and this file reads
+// them back out through listPanels()/listSections(). A third-party comm panel
+// (see plugins/registry.ts) plugs in the exact same way — nothing here needs
+// to change to add one.
 import { useEffect, useState } from 'react'
-import EllePanel from './components/EllePanel'
-import OptimusPanel from './components/OptimusPanel'
-import CodePanel from './components/CodePanel'
-import Evals from './components/Evals'
-import DiagnosePanel from './components/DiagnosePanel'
-import HealthPanel from './components/HealthPanel'
-import ConductorPanel from './components/ConductorPanel'
-import TradingPanel from './components/TradingPanel'
-import LibraryPanel from './components/LibraryPanel'
-import IdentityPanel from './components/IdentityPanel'
 import Login from './components/Login'
+import './plugins/builtins'
+import { listPanels, listSections } from './plugins/registry'
 import { worker, getEmail, getTier, clearAuth, verifyToken, WORKER } from './lib/elle'
 
 const ACCENT = '#C9A84C'
@@ -52,22 +50,11 @@ letter-spacing:.02em;transition:background .13s,color .13s}
 .topglow{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.5),transparent);pointer-events:none;z-index:10}
 `
 
-type Tab = 'elle' | 'conductor' | 'library' | 'identity' | 'optimus' | 'trading' | 'code' | 'evals' | 'diagnose' | 'health'
-// [tab, glyph, label, section] — nav is grouped by what she's doing there.
-// The number is the 1-9 keyboard shortcut (⌘/Ctrl+n).
-const NAV: [Tab, string, string, string][] = [
-  ['elle',      '◈', 'elle',      'mind'],
-  ['conductor', '∞', 'conductor', 'mind'],
-  ['library',   '▣', 'library',   'mind'],
-  ['identity',  '✶', 'identity',  'mind'],
-  ['optimus',   'φ', 'optimus',   'work'],
-  ['trading',   '$', 'trading',   'work'],
-  ['code',      '{}', 'code',     'work'],
-  ['evals',     '▤', 'evals',     'work'],
-  ['diagnose',  '✚', 'diagnose',  'ops'],
-  ['health',    '●', 'health',    'ops'],
-]
-const SECTIONS = ['mind', 'work', 'ops']
+// Registered once at module load (plugins/builtins side effect above).
+// Reading it into a const here — not inside the component — keeps the nav
+// stable across renders exactly the way the old hardcoded array was.
+const PANELS = listPanels()
+const SECTIONS = listSections()
 
 // One quiet dot: is she alive right now. Polls /health at 30s.
 function Heartbeat() {
@@ -99,7 +86,7 @@ function Heartbeat() {
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
-  const [tab, setTab] = useState<Tab>('elle')
+  const [tab, setTab] = useState<string>(PANELS[0]?.id ?? '')
 
   useEffect(() => {
     let active = true
@@ -112,7 +99,7 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return
       const n = parseInt(e.key, 10)
-      if (n >= 1 && n <= NAV.length) { e.preventDefault(); setTab(NAV[n - 1][0]) }
+      if (n >= 1 && n <= PANELS.length) { e.preventDefault(); setTab(PANELS[n - 1].id) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -127,6 +114,8 @@ export function App() {
   )
 
   if (!authed) return (<><style>{CSS}</style><Login onAuth={() => setAuthed(true)} /></>)
+
+  const activePanel = PANELS.find(p => p.id === tab)
 
   return (
     <>
@@ -152,11 +141,11 @@ export function App() {
               {SECTIONS.map(sec => (
                 <div key={sec} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--t4)', letterSpacing: '.18em', textTransform: 'uppercase', padding: '4px 12px 2px' }}>{sec}</div>
-                  {NAV.filter(([, , , s]) => s === sec).map(([t, glyph, label]) => {
-                    const n = NAV.findIndex(x => x[0] === t) + 1
+                  {PANELS.filter(p => p.section === sec).map(p => {
+                    const n = PANELS.findIndex(x => x.id === p.id) + 1
                     return (
-                      <button key={t} className={'navbtn' + (tab === t ? ' on' : '')} onClick={() => setTab(t)}>
-                        <span className="glyph">{glyph}</span>{label}
+                      <button key={p.id} className={'navbtn' + (tab === p.id ? ' on' : '')} onClick={() => setTab(p.id)}>
+                        <span className="glyph">{p.glyph}</span>{p.label}
                         <span className="kb">⌘{n}</span>
                       </button>
                     )
@@ -180,16 +169,7 @@ export function App() {
 
           {/* ── instrument panel ── */}
           <main className="rise" key={tab} style={{ flex: 1, display: 'flex', minWidth: 0, background: 'var(--void)' }}>
-            {tab === 'elle' && <EllePanel worker={worker} accent={ACCENT} />}
-            {tab === 'conductor' && <ConductorPanel accent={ACCENT} />}
-            {tab === 'library' && <LibraryPanel accent={ACCENT} />}
-            {tab === 'identity' && <IdentityPanel accent={ACCENT} />}
-            {tab === 'trading' && <TradingPanel accent={ACCENT} />}
-            {tab === 'optimus' && <OptimusPanel worker={worker} accent={ACCENT} />}
-            {tab === 'code' && <CodePanel worker={worker} accent={ACCENT} />}
-            {tab === 'evals' && <Evals worker={worker} accent={ACCENT} />}
-            {tab === 'diagnose' && <DiagnosePanel accent={ACCENT} />}
-            {tab === 'health' && <HealthPanel accent={ACCENT} />}
+            {activePanel?.render({ worker, accent: ACCENT })}
           </main>
         </div>
       </div>
