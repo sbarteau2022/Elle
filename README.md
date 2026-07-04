@@ -28,7 +28,7 @@ onto it. For the mind/router/conductor architecture, read that repo's
 
 **mind**
 - **elle** — the unified conversation. Every turn runs the full-scope router
-  (`/api/elle-router`): the full ~47-tool catalog, and she picks the tool *and*
+  (`/api/elle-router`): the full ~48-tool catalog, and she picks the tool *and*
   the model tier per step. A stable per-browser `session_id` gives her
   continuity across turns. The κ header above the thread is her live coherence
   readout; each answer carries a folded tool timeline you can open to watch the
@@ -92,13 +92,14 @@ grouped as `router.ts` renders it:
 | **Skills** | `skill_list`, `skill_read`, `skill_write` |
 | **MCP** | `mcp_add`, `mcp_tools`, `mcp_call` (Hugging Face pre-mounted) |
 | **Autonomy** | `intent`, `review_runs` |
+| **Provenance** | `provenance` — read the event bus: replay a run's ordered step stream (State Replay) or trace where an answer came from |
 | **Journal** | `journal_read`, `journal_thread`, `journal_write`, `journal_annotate` |
 | **Hospitality** (native `rapid2ai-db`) | `rapid_report`, `rapid_costs`, `rapid_variance`, `rapid_pos`, `rapid_menu` |
 | **Writes / sensitive** | `ingest_paper` (2-check gate), `trigger_dream`, `trade_execute` |
 
 The single source of the catalog is the worker's `router.ts`; the chip list in
 `EllePanel.tsx` mirrors it. For each tool's exact signature and the scope model,
-read the worker's [`README.md`](../elle-worker/README.md) → **The ~46 tools**.
+read the worker's [`README.md`](../elle-worker/README.md) → **The ~47 tools**.
 
 **GitHub reach.** The forge and `github_*`/`repo_*` tools run on the worker's
 `GITHUB_TOKEN`. Its allowlist is `elle-worker`, `Elle`, `elle-dev-console`, and

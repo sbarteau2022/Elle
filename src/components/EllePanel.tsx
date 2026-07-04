@@ -74,6 +74,7 @@ const TOOLS: [string, string][] = [
   // autonomy
   ['intent', 'file standing work for the conductor'],
   ['review_runs', 'read her own autonomous runs'],
+  ['provenance', 'replay a run · trace where an answer came from'],
   // journal
   ['journal_read', 'journal · semantic'],
   ['journal_thread', 'manuscript + phase series'],
