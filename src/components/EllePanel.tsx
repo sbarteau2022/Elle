@@ -13,6 +13,7 @@ import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { on } from '../lib/commands'
 import { Md, printAnswer, emailAnswer } from '../lib/md'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
+import { getTier } from '../lib/elle'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
@@ -92,6 +93,13 @@ const TOOLS: [string, string][] = [
   ['trade_execute', 'Alpaca · buy/sell/close'],
 ]
 
+// Tools a cofounder's restricted scope refuses (mirrors the worker's SHIP_DENY):
+// the code-shipping path. Hidden from his chip list so "N tools she can reach"
+// is accurate for whoever is signed in.
+const SHIP_DENY = new Set(['forge_open', 'forge_write', 'forge_pr', 'run_shell'])
+const visibleTools = (): [string, string][] =>
+  getTier() === 'cofounder' ? TOOLS.filter(([n]) => !SHIP_DENY.has(n)) : TOOLS
+
 type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean }
 
 export default function EllePanel({ worker, accent }: any) {
@@ -168,6 +176,7 @@ export default function EllePanel({ worker, accent }: any) {
     } finally { setLoading(false) }
   }
   const toggle = (i: number) => setTurns(t => t.map((x, j) => j === i ? { ...x, open: !x.open } : x))
+  const tools = visibleTools()
 
   // Push-to-talk: transcribe into the composer; on a final phrase, send it.
   // Consent-gated — the first press opens the PermissionGate, never the mic.
@@ -194,7 +203,7 @@ export default function EllePanel({ worker, accent }: any) {
         <VoiceOrb accent={accent} speaking={voice.speaking} listening={voice.listening} presence={presence} />
         <button onClick={() => setShowTools(s => !s)}
           style={{ background: 'none', border: 'none', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10.5, cursor: 'pointer', padding: 0 }}>
-          {(showTools ? '▾ ' : '▸ ') + TOOLS.length + ' tools she can reach'}
+          {(showTools ? '▾ ' : '▸ ') + tools.length + ' tools she can reach'}
         </button>
         {note && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#D06565' }}>{note}</span>}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -220,7 +229,7 @@ export default function EllePanel({ worker, accent }: any) {
       </div>
       {showTools && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 22px 0' }}>
-          {TOOLS.map(([name, desc]) => (
+          {tools.map(([name, desc]) => (
             <span key={name} title={desc}
               style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t2)', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 4, padding: '2.5px 7px' }}>
               {name}
