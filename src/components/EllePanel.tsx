@@ -12,6 +12,7 @@ import VoiceOrb from './VoiceOrb'
 import { useVoice } from '../lib/useVoice'
 import { usePresence } from '../lib/usePresence'
 import { Md, printAnswer, emailAnswer } from '../lib/md'
+import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
@@ -89,6 +90,12 @@ export default function EllePanel({ worker, accent }: any) {
   const voice = useVoice()
   const presence = usePresence()
 
+  // Prose register — which of her five voices answers. Persisted; sent per turn.
+  const [registers, setRegisters] = useState<Register[]>(FALLBACK_REGISTERS)
+  const [register, setReg] = useState<string>(getRegister())
+  useEffect(() => { fetchRegisters().then(setRegisters) }, [])
+  const pickRegister = (id: string) => { setReg(id); setRegister(id) }
+
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [turns])
 
   // Presence: if you turn away from the screen mid-sentence, she stops talking —
@@ -107,7 +114,7 @@ export default function EllePanel({ worker, accent }: any) {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: question, session_id: sid() }),
+        body: JSON.stringify({ q: question, session_id: sid(), voice: register }),
       })
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
@@ -146,6 +153,12 @@ export default function EllePanel({ worker, accent }: any) {
         </button>
         {note && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#D06565' }}>{note}</span>}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* prose register — which of her five voices answers */}
+          <select value={register} onChange={e => pickRegister(e.target.value)}
+            title={registers.find(r => r.id === register)?.blurb || 'her prose register'}
+            style={{ background: 'var(--raised)', color: register === 'stewart' ? 'var(--t2)' : accent, border: `0.5px solid ${register === 'stewart' ? 'var(--b1)' : accent + '55'}`, borderRadius: 5, fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 6px', cursor: 'pointer', outline: 'none', maxWidth: 168 }}>
+            {registers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
           {presence.available && (
             <span title="AirPods head tracking is live" style={{ fontFamily: 'var(--mono)', fontSize: 9, color: presence.away ? 'var(--t4)' : accent, letterSpacing: '.05em' }}>
               {presence.away ? 'away' : 'present'}
