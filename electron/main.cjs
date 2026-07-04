@@ -2,18 +2,14 @@
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const native = require('./native/index.cjs');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-let motionAddon = null;
-try {
-  motionAddon = require('./addons/headphone-motion/build/Release/headphone_motion');
-} catch {
-  // addon not built yet or not on macOS — head motion unavailable
-}
-
-// The renderer asks whether presence features can light up at all.
-ipcMain.handle('head-motion-available', () => !!motionAddon);
+// The renderer asks what's actually available on this machine instead of
+// guessing from platform — one capability map (native/index.cjs), easy to
+// extend as more native features land.
+ipcMain.handle('native:capabilities', () => native.getCapabilities());
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -35,8 +31,9 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
 
-  if (motionAddon) {
-    motionAddon.startMotion((data) => {
+  const headMotion = native.getProvider('headMotion');
+  if (headMotion) {
+    headMotion.start((data) => {
       if (!win.isDestroyed()) {
         win.webContents.send('head-motion', data);
       }
@@ -54,14 +51,13 @@ app.whenReady().then(() => {
   });
 });
 
-function cleanupMotion() {
-  if (!motionAddon) return;
-  try { motionAddon.stopMotion(); } catch { /* ignore */ }
+function cleanupNative() {
+  native.getProvider('headMotion')?.stop();
 }
 
 app.on('window-all-closed', () => {
-  cleanupMotion();
+  cleanupNative();
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', cleanupMotion);
+app.on('before-quit', cleanupNative);
