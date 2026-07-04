@@ -65,6 +65,8 @@ export interface ListenOptions {
   continuous?: boolean
 }
 
+export interface ProsodyTracks { f0: number[]; energy: number[]; seconds: number }
+
 export interface VoiceApi {
   ttsSupported: boolean
   sttSupported: boolean
@@ -76,6 +78,50 @@ export interface VoiceApi {
   stopSpeaking: () => void
   startListening: (onFinal: (text: string) => void, onInterim?: (text: string) => void, opts?: ListenOptions) => void
   stopListening: () => void
+  /** Record the mic for a few seconds and return pitch (f0) + energy tracks —
+   *  the raw material PFAR reads to hear HOW you spoke. No transcription. */
+  captureProsody: (seconds?: number) => Promise<ProsodyTracks>
+}
+
+// Autocorrelation pitch detector (ACF) — the standard PitchDetect approach.
+// Returns f0 in Hz for a voiced frame, or 0 for silence/unvoiced.
+function autoCorrelate(buf: Float32Array, sampleRate: number): number {
+  const SIZE = buf.length
+  let rms = 0
+  for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i]
+  rms = Math.sqrt(rms / SIZE)
+  if (rms < 0.01) return 0 // too quiet to be voiced
+  let r1 = 0, r2 = SIZE - 1
+  const thres = 0.2
+  for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break }
+  for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break }
+  const b = buf.slice(r1, r2)
+  const n = b.length
+  const c = new Float32Array(n)
+  for (let i = 0; i < n; i++) for (let j = 0; j < n - i; j++) c[i] += b[j] * b[j + i]
+  let d = 0; while (d < n - 1 && c[d] > c[d + 1]) d++
+  let maxval = -1, maxpos = -1
+  for (let i = d; i < n; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i }
+  let T0 = maxpos
+  const x1 = c[T0 - 1] || 0, x2 = c[T0] || 0, x3 = c[T0 + 1] || 0
+  const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2
+  if (a) T0 = T0 - bb / (2 * a)
+  const f = T0 ? sampleRate / T0 : 0
+  return f >= 70 && f <= 400 ? f : 0 // clamp to the human voice band
+}
+
+// Average N raw frames down to ~count points (mean bucket; f0 averages only the
+// voiced frames in a bucket so silence doesn't drag the pitch to zero).
+function downsample(arr: number[], count: number, voicedOnly = false): number[] {
+  if (arr.length <= count) return arr
+  const out: number[] = []
+  const step = arr.length / count
+  for (let i = 0; i < count; i++) {
+    const slice = arr.slice(Math.floor(i * step), Math.floor((i + 1) * step))
+    const vals = voicedOnly ? slice.filter(v => v > 0) : slice
+    out.push(vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0)
+  }
+  return out
 }
 
 export function useVoice(): VoiceApi {
@@ -194,8 +240,41 @@ export function useVoice(): VoiceApi {
     try { begin(); setListening(true) } catch { wantRef.current = false; setListening(false) }
   }, [sttSupported, stopSpeaking])
 
+  // Record the mic for a few seconds and extract pitch (f0) + energy tracks via
+  // Web Audio — the signal PFAR reads. Its own getUserMedia + AudioContext, so
+  // it never fights the SpeechRecognition session. No audio leaves the device;
+  // only the two numeric tracks are returned.
+  const captureProsody = useCallback(async (seconds = 6): Promise<ProsodyTracks> => {
+    const AC = (window.AudioContext || (window as any).webkitAudioContext)
+    if (!navigator.mediaDevices?.getUserMedia || !AC) return { f0: [], energy: [], seconds: 0 }
+    stopSpeaking() // don't analyze her own voice
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const ctx = new AC()
+    const src = ctx.createMediaStreamSource(stream)
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 2048
+    src.connect(analyser)
+    const buf = new Float32Array(analyser.fftSize)
+    const sr = ctx.sampleRate
+    const f0raw: number[] = [], enRaw: number[] = []
+    const start = performance.now()
+    await new Promise<void>(resolve => {
+      const tick = () => {
+        analyser.getFloatTimeDomainData(buf)
+        let sum = 0; for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i]
+        enRaw.push(Math.sqrt(sum / buf.length))
+        f0raw.push(autoCorrelate(buf, sr))
+        if (performance.now() - start < seconds * 1000) setTimeout(tick, 55)
+        else resolve()
+      }
+      tick()
+    })
+    try { stream.getTracks().forEach(t => t.stop()); await ctx.close() } catch { /* ignore */ }
+    return { f0: downsample(f0raw, 48, true), energy: downsample(enRaw, 48), seconds }
+  }, [stopSpeaking])
+
   // Clean up on unmount.
   useEffect(() => () => { wantRef.current = false; try { window.speechSynthesis?.cancel() } catch {}; try { recRef.current?.stop() } catch {} }, [])
 
-  return { ttsSupported, sttSupported, enabled, setEnabled, speaking, listening, speak, stopSpeaking, startListening, stopListening }
+  return { ttsSupported, sttSupported, enabled, setEnabled, speaking, listening, speak, stopSpeaking, startListening, stopListening, captureProsody }
 }

@@ -149,19 +149,20 @@ export default function EllePanel({ worker, accent }: any) {
     return () => subs.forEach(off => off())
   }, [])
 
-  const ask = async (override?: string) => {
+  const ask = async (override?: string, extra?: { voice_prosody?: { f0: number[]; energy: number[] }; label?: string }) => {
     const question = (override ?? q).trim()
-    if (loading || !question) return
+    if (loading || (!question && !extra?.voice_prosody)) return
     voice.stopSpeaking()
     setLoading(true); setNote(''); setQ('')
     if (taRef.current) taRef.current.style.height = 'auto'
     const idx = turns.length
-    setTurns(t => [...t, { q: question, answer: '', trace: [], open: false, pending: true }])
+    const shownQ = extra?.label || question
+    setTurns(t => [...t, { q: shownQ, answer: '', trace: [], open: false, pending: true }])
     try {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: question, session_id: sid(), voice: register }),
+        body: JSON.stringify({ q: question, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody }),
       })
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
@@ -177,6 +178,24 @@ export default function EllePanel({ worker, accent }: any) {
   }
   const toggle = (i: number) => setTurns(t => t.map((x, j) => j === i ? { ...x, open: !x.open } : x))
   const tools = visibleTools()
+
+  // "Let Elle hear you": capture ~6s of the mic, extract pitch + energy, and
+  // send the tracks so PFAR reads the ACTUAL voice and she narrates what she
+  // hears. Real prosody analysis, not transcription.
+  const [hearing, setHearing] = useState(false)
+  const hearMe = async () => {
+    if (loading || hearing) return
+    const ok = await wv.requestMic()
+    if (!ok) return
+    setHearing(true); setNote('')
+    try {
+      const p = await voice.captureProsody(6)
+      if (!p.f0.length && !p.energy.length) { setNote('no audio captured — check the mic'); return }
+      await ask('', { voice_prosody: { f0: p.f0, energy: p.energy }, label: '🎙 (spoke to Elle — read my voice)' })
+    } catch (e: any) {
+      setNote('voice capture failed: ' + (e.message || e))
+    } finally { setHearing(false) }
+  }
 
   // Push-to-talk: transcribe into the composer; on a final phrase, send it.
   // Consent-gated — the first press opens the PermissionGate, never the mic.
@@ -325,6 +344,11 @@ export default function EllePanel({ worker, accent }: any) {
               {voice.listening ? '◉' : '🎙'}
             </button>
           )}
+          <button onClick={hearMe} disabled={loading || hearing}
+            title="Let Elle HEAR you — she analyzes the prosody of your actual voice (pitch, stress, rhythm) with PFAR, not the words"
+            style={{ height: 34, padding: '0 10px', borderRadius: 8, border: `0.5px solid ${hearing ? '#D06565' : accent}55`, background: hearing ? '#D0656522' : 'transparent', color: hearing ? '#D06565' : 'var(--t2)', cursor: loading || hearing ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap', animation: hearing ? 'orbSpeak 1s ease-in-out infinite' : 'none' }}>
+            {hearing ? '◉ listening 6s…' : '🎧 hear me'}
+          </button>
           <button onClick={() => ask()} disabled={loading || !q.trim()}
             style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: loading ? 'transparent' : accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 13, flexShrink: 0 }}>
             {loading ? '…' : '↑'}
