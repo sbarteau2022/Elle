@@ -16,8 +16,15 @@ const api = async (body: Record<string, unknown>) => {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
     body: JSON.stringify(body),
   })
-  return r.json()
+  const d = await r.json().catch(() => ({} as Record<string, unknown>))
+  // Surface the failure instead of swallowing it: a 401 (not admin / stale
+  // token) or any non-2xx used to return quietly and the caller would clear the
+  // form as if it had worked. Now it throws with the reason so the panel shows it.
+  if (!r.ok) throw new Error(String((d as { error?: string }).error || `HTTP ${r.status}`))
+  return d as Record<string, unknown>
 }
+
+const MIN_GOAL = 20
 
 const ago = (t: number | null) => {
   if (!t) return '—'
@@ -39,16 +46,24 @@ export default function ConductorPanel({ accent }: any) {
   const load = async () => {
     try {
       const d = await api({ op: 'list' })
-      setIntents(d.intents || []); setRuns(d.runs || [])
+      setIntents((d.intents as Intent[]) || []); setRuns((d.runs as Run[]) || [])
     } catch (e: any) { setNote(String(e.message || e)) }
   }
   useEffect(() => { load(); const iv = setInterval(load, 45000); return () => clearInterval(iv) }, [])
 
   const create = async () => {
-    if (busy || !title.trim() || goal.trim().length < 20) { setNote(goal.trim().length < 20 ? 'goal too short — say what done looks like' : ''); return }
+    if (busy) return
+    if (!title.trim()) { setNote('title required'); return }
+    if (goal.trim().length < MIN_GOAL) { setNote(`goal too short — say what done looks like (${goal.trim().length}/${MIN_GOAL})`); return }
     setBusy(true); setNote('')
-    try { await api({ op: 'create', title: title.trim(), goal: goal.trim() }); setTitle(''); setGoal(''); await load() }
-    catch (e: any) { setNote(String(e.message || e)) } finally { setBusy(false) }
+    try {
+      const d = await api({ op: 'create', title: title.trim(), goal: goal.trim() })
+      // handleIntents returns { result: "<string>" }; a validation refusal comes
+      // back as text, not a thrown error — catch it and keep the draft.
+      const res = typeof d.result === 'string' ? d.result : ''
+      if (/refused|error/i.test(res)) { setNote(res); return }
+      setTitle(''); setGoal(''); await load()
+    } catch (e: any) { setNote(String(e.message || e)) } finally { setBusy(false) }
   }
   const act = async (op: string, id: string) => { await api({ op, id }).catch(() => {}); await load() }
 
@@ -89,10 +104,21 @@ export default function ConductorPanel({ accent }: any) {
           <textarea value={goal} onChange={e => setGoal(e.target.value)} rows={3}
             placeholder="the goal — concrete enough that a future run knows what DONE looks like"
             style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', resize: 'vertical', outline: 'none', lineHeight: 1.5 }} />
-          <button onClick={create} disabled={busy || !title.trim()}
-            style={{ alignSelf: 'flex-end', padding: '5px 14px', borderRadius: 6, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
-            {busy ? '…' : 'file intent ▸'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'stretch' }}>
+            {goal.trim().length > 0 && goal.trim().length < MIN_GOAL && (
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>
+                goal {goal.trim().length}/{MIN_GOAL}
+              </span>
+            )}
+            <button onClick={create} disabled={busy || !title.trim() || goal.trim().length < MIN_GOAL}
+              style={{ marginLeft: 'auto', padding: '5px 14px', borderRadius: 6, border: `0.5px solid ${accent}55`,
+                background: accent + '22', color: accent,
+                cursor: (busy || !title.trim() || goal.trim().length < MIN_GOAL) ? 'not-allowed' : 'pointer',
+                opacity: (!title.trim() || goal.trim().length < MIN_GOAL) ? 0.5 : 1,
+                fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+              {busy ? '…' : 'file intent ▸'}
+            </button>
+          </div>
         </div>
       </div>
 
