@@ -22,12 +22,26 @@ export type KappaDynamics = {
   input_perturbation: number | null
 } | null
 
+// The durable κ MEMORY state (worker's /api/kappa-state). Distinct from the
+// per-turn dynamics above: this is the substrate the bending traces accumulate
+// in, and the seam that governs whether κ RANKS anything yet. While the gate is
+// closed (provisional=true, ranks=false) κ is computing and visible but sorts
+// nothing — the readout says so, so the number is never mistaken for validated.
+export type KappaMemory = {
+  provisional: boolean
+  ranks: boolean
+  r_estimate: number | null
+  reserve: number | null
+  trace_count: number
+  note: string
+} | null
+
 // "—" for null (insufficient data), otherwise the number to `d` decimals. A
 // genuine 0 prints as "0.000", never "—".
 const f = (x: number | null | undefined, d = 3): string =>
   (x === null || x === undefined || Number.isNaN(x)) ? '—' : x.toFixed(d)
 
-export default function KappaHeader({ dyn }: { dyn: KappaDynamics }) {
+export default function KappaHeader({ dyn, mem }: { dyn: KappaDynamics; mem?: KappaMemory }) {
   const row: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap',
     fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t3)',
@@ -39,11 +53,35 @@ export default function KappaHeader({ dyn }: { dyn: KappaDynamics }) {
     <span><span style={{ opacity: 0.6 }}>{label}</span> {val}</span>
   )
 
+  // The memory segment. Rendered whenever the worker has reported κ-state, even
+  // before the first turn's dynamics exist. The "prov" pill is the honest badge:
+  // κ is accumulating and its contraction rate is computed, but it ranks nothing
+  // until the seam clears — amber for provisional, green once it goes live.
+  const memSeg = mem ? (() => {
+    const live = mem.ranks
+    const pill: CSSProperties = {
+      fontSize: 9, letterSpacing: '.04em', textTransform: 'uppercase',
+      padding: '1px 5px', borderRadius: 3,
+      color: live ? 'var(--good, #4ADE80)' : '#D9A441',
+      border: `0.5px solid ${live ? 'var(--good, #4ADE80)' : '#D9A441'}`,
+      opacity: 0.85,
+    }
+    return (
+      <>
+        {sep}
+        <span style={pill} title={mem.note}>{live ? 'live' : 'prov'}</span>
+        {cell('r', f(mem.r_estimate))}
+        {cell('mem', String(mem.trace_count))}
+      </>
+    )
+  })() : null
+
   if (!dyn) {
     return (
       <div style={row} title="coherence dynamics — appears once Elle has answered">
         <span style={{ opacity: 0.6 }}>κ dynamics</span>
         <span style={{ opacity: 0.45 }}>— awaiting first turn</span>
+        {memSeg}
       </div>
     )
   }
@@ -57,6 +95,7 @@ export default function KappaHeader({ dyn }: { dyn: KappaDynamics }) {
       {sep}{cell('a', f(dyn.acceleration))}
       {sep}{cell('j', f(dyn.jerk))}
       {sep}{cell('∫', f(dyn.reserve, 2))}
+      {memSeg}
     </div>
   )
 }
