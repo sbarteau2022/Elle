@@ -17,6 +17,19 @@ const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
 type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean }
 
+// Mirrors the worker's cyber.ts report shape.
+type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info'
+type Finding = { severity: Severity; kind: string; title: string; line: number; snippet: string }
+type CyberReport = { risk: Severity; findings: Finding[]; counts: Record<Severity, number>; review: string; reviewed: boolean; executed: false; containment: string; lines: number }
+
+const SEV_COLOR: Record<Severity, string> = { critical: '#E5484D', high: '#F5A623', medium: '#D9A441', low: '#8B94A3', info: '#4ADE80' }
+
+const LANG_BY_EXT: Record<string, string> = {
+  ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript', mjs: 'javascript',
+  py: 'python', sql: 'sql', sh: 'bash', bash: 'bash', zsh: 'bash', json: 'json', css: 'css',
+  html: 'html', htm: 'html', go: 'go', rs: 'rust', rb: 'ruby', java: 'java', php: 'php', c: 'c', cpp: 'cpp',
+}
+
 // The artifact heuristic: her answer may show fragments before the real thing —
 // take the LARGEST fenced block as the working code.
 function extractLargestCode(text: string): { code: string; lang: string } | null {
@@ -48,7 +61,38 @@ export default function CodePanel({ worker, accent }: any) {
   const [lang, setLang] = useState('typescript')
   const [attach, setAttach] = useState(true)
   const [history, setHistory] = useState<string[]>([])
+  const [report, setReport] = useState<CyberReport | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const codeFileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Cybersecurity analysis — send the snippet to the worker's STATIC analyzer
+  // (the code is never executed) and surface the vulnerability/exploit report.
+  const analyze = async (source: string, language: string) => {
+    if (!source.trim()) { setNote('nothing to analyze — the editor is empty'); return }
+    setScanning(true); setNote(''); setReport(null)
+    try {
+      const r = await fetch(worker.url + '/api/elle-cyber-analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
+        body: JSON.stringify({ code: source, language }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
+      setReport(d as CyberReport)
+    } catch (e: any) { setNote(`analysis failed: ${e.message || e}`) } finally { setScanning(false) }
+  }
+
+  // Upload a code file → load it into the editor, guess the language, and run
+  // the security analysis on it immediately (contained: static, never executed).
+  const onCodeFile = async (file: File) => {
+    const text = await file.text()
+    setHistory(h => (code ? [...h, code] : h))
+    setCode(text)
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    const guessed = LANG_BY_EXT[ext]
+    if (guessed) setLang(guessed)
+    await analyze(text, guessed || lang)
+  }
 
   // A coding thread has its own memory, separate from the elle tab.
   const sid = () => {
@@ -190,20 +234,62 @@ export default function CodePanel({ worker, accent }: any) {
           {history.length > 0 && (
             <button onClick={undo} style={{ padding: '4px 8px', borderRadius: 5, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>↩ undo</button>
           )}
+          {/* upload a snippet → contained static security analysis */}
+          <input ref={codeFileRef} type="file" hidden
+            accept=".ts,.tsx,.js,.jsx,.mjs,.py,.sql,.sh,.bash,.go,.rs,.rb,.java,.php,.c,.cpp,.json,.css,.html,.txt"
+            onChange={e => { const f = e.target.files?.[0]; if (f) void onCodeFile(f); e.currentTarget.value = '' }} />
+          <button onClick={() => codeFileRef.current?.click()} disabled={scanning}
+            title="upload a code snippet — it is analyzed for vulnerabilities/exploits (static, never executed)"
+            style={{ padding: '4px 10px', borderRadius: 5, border: `0.5px solid ${accent}55`, background: 'transparent', color: 'var(--t2)', cursor: scanning ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+            📎 upload
+          </button>
+          <button onClick={() => analyze(code, lang)} disabled={scanning || !code.trim()}
+            title="run the cybersecurity analysis on the editor contents"
+            style={{ padding: '4px 10px', borderRadius: 5, border: `0.5px solid ${accent}55`, background: 'transparent', color: code.trim() ? accent : 'var(--t4)', cursor: scanning || !code.trim() ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+            {scanning ? '⧗ scanning…' : '🛡 analyze'}
+          </button>
           <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>
             {code ? code.split('\n').length + ' lines' : 'editor'}
           </span>
           {code && (
             <>
               <button onClick={() => navigator.clipboard?.writeText(code)} style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>⧉</button>
-              <button onClick={() => { setHistory(h => [...h, code]); setCode('') }} style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>clear</button>
+              <button onClick={() => { setHistory(h => [...h, code]); setCode(''); setReport(null) }} style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>clear</button>
             </>
           )}
         </div>
+        {/* security report — surfaced, not blocking. Static analysis only. */}
+        {report && (
+          <div style={{ borderBottom: '0.5px solid var(--b1)', background: 'var(--raised)', padding: '8px 12px', maxHeight: 220, overflowY: 'auto', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ color: SEV_COLOR[report.risk], border: `0.5px solid ${SEV_COLOR[report.risk]}`, borderRadius: 3, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                risk {report.risk}
+              </span>
+              <span style={{ color: 'var(--t3)' }}>
+                {report.findings.length} finding{report.findings.length === 1 ? '' : 's'} · {report.lines} lines · not executed
+              </span>
+              <button onClick={() => setReport(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontSize: 12 }}>✕</button>
+            </div>
+            {report.findings.length === 0 && <div style={{ color: 'var(--good, #4ADE80)' }}>no deterministic findings — clean on the static scan.</div>}
+            {report.findings.map((f, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, padding: '2px 0', color: 'var(--t2)' }}>
+                <span style={{ color: SEV_COLOR[f.severity], flexShrink: 0, width: 58 }}>{f.severity}</span>
+                <span style={{ color: 'var(--t4)', flexShrink: 0, width: 34 }}>L{f.line}</span>
+                <span><span style={{ color: 'var(--t1)' }}>{f.title}</span> <span style={{ color: 'var(--t4)' }}>· {f.kind}</span></span>
+              </div>
+            ))}
+            {report.review && (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: '0.5px solid var(--b1)', color: 'var(--t2)', fontFamily: 'var(--ui)', fontSize: 11.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', letterSpacing: '.1em', textTransform: 'uppercase' }}>security review</span><br />
+                {report.review}
+              </div>
+            )}
+          </div>
+        )}
         <textarea value={code} onChange={e => setCode(e.target.value)} spellCheck={false}
-          placeholder={'// the working artifact\n// paste code, or "apply her code" from the chat\n// with attach on, it rides along on every message'}
+          placeholder={'// the working artifact\n// paste code, or "apply her code" from the chat\n// upload a snippet to run the security analysis'}
           onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); const s = e.currentTarget; const i = s.selectionStart; s.value = s.value.slice(0, i) + '  ' + s.value.slice(s.selectionEnd); s.selectionStart = s.selectionEnd = i + 2; setCode(s.value) } }}
-          style={{ flex: 1, background: 'var(--void)', border: 'none', color: '#C8D3E0', padding: '12px 14px', fontSize: 12.5, fontFamily: 'var(--mono)', resize: 'none', outline: 'none', lineHeight: 1.6, tabSize: 2 }}
+          style={{ flex: 1, background: 'var(--void)', border: 'none', color: 'var(--t1)', padding: '12px 14px', fontSize: 12.5, fontFamily: 'var(--mono)', resize: 'none', outline: 'none', lineHeight: 1.6, tabSize: 2 }}
         />
       </div>
     </div>

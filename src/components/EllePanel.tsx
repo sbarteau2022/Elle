@@ -121,7 +121,24 @@ export default function EllePanel({ worker, accent }: any) {
   const [note, setNote] = useState('')
   const [dyn, setDyn] = useState<KappaDynamics>(null)
   const [mem, setMem] = useState<KappaMemory>(null)    // durable κ memory / seam state
+  const [attachment, setAttachment] = useState<{ name: string; text: string; chars: number; truncated?: boolean } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Upload → parse (worker toMarkdown) → hold the text as an attachment for the
+  // next turn. On send it rides in as context so Elle can read it and, on your
+  // instruction, ingest_paper it (chunk→embed→vectorize). PDF/DOCX/TXT/… all work.
+  const onUpload = async (file: File) => {
+    setUploading(true); setNote('')
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const r = await fetch(worker.url + '/api/elle-upload', { method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
+      setAttachment({ name: d.name, text: d.text, chars: d.chars, truncated: d.truncated })
+    } catch (e: any) { setNote(`upload failed: ${e.message || e}`) } finally { setUploading(false) }
+  }
 
   // Poll the durable κ memory state (public GET). Reflects the bending-trace
   // substrate + the seam gate; while gated it reports provisional/ranks=false.
@@ -176,18 +193,30 @@ export default function EllePanel({ worker, accent }: any) {
 
   const ask = async (override?: string, extra?: { voice_prosody?: { f0: number[]; energy: number[] }; label?: string }) => {
     const question = (override ?? q).trim()
-    if (loading || (!question && !extra?.voice_prosody)) return
+    if (loading || (!question && !extra?.voice_prosody && !attachment)) return
     voice.stopSpeaking()
     setLoading(true); setNote(''); setQ('')
     if (taRef.current) taRef.current.style.height = 'auto'
     const idx = turns.length
-    const shownQ = extra?.label || question
+    // Fold the attachment into the sent turn as delimited context (capped so a
+    // large doc can't blow the turn; the full text is still on the worker for a
+    // deliberate ingest). The user sees a compact "📎 name" marker, not the dump.
+    const CTX_CAP = 50000
+    const att = attachment
+    let sentQ = question
+    if (att) {
+      const bodyText = att.text.slice(0, CTX_CAP)
+      const trunc = att.text.length > CTX_CAP ? `\n…[inlined ${CTX_CAP} of ${att.chars} chars — ask me to ingest it for the full document]` : ''
+      sentQ = `[Attached file: ${att.name} · ${att.chars} chars]\n\n${bodyText}${trunc}\n\n---\n${question || 'I attached this file — read it.'}`
+    }
+    const shownQ = extra?.label || (att ? `📎 ${att.name}${question ? ' — ' + question : ''}` : question)
+    setAttachment(null)
     setTurns(t => [...t, { q: shownQ, answer: '', trace: [], open: false, pending: true }])
     try {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: question, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody, stream: true }),
+        body: JSON.stringify({ q: sentQ, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody, stream: true }),
       })
       // LIVE MODE: the worker streams the loop as SSE frames — each step's
       // thought + tool the moment she commits to it, each observation as it
@@ -382,9 +411,9 @@ export default function EllePanel({ worker, accent }: any) {
                 <div style={{ paddingLeft: 18 }}>
                   <button onClick={() => toggle(i)}
                     style={{ background: 'none', border: 'none', color: 'var(--t4)', fontFamily: 'var(--mono)', fontSize: 9.5, cursor: 'pointer', padding: 0, letterSpacing: '.05em' }}>
-                    {(t.open ? '▾' : '▸') + ' ' + (t.trace.length > 0
-                      ? t.trace.length + ' step' + (t.trace.length === 1 ? '' : 's') + ' · ' + t.trace.map((s: any) => s.tool).join(' → ')
-                      : 'her thought')}
+                    {(t.open ? '▾' : '▸') + ' chain of thought' + (t.trace.length > 0
+                      ? ' · ' + t.trace.length + ' step' + (t.trace.length === 1 ? '' : 's') + ' · ' + t.trace.map((s: any) => s.tool).join(' → ')
+                      : '')}
                   </button>
                   {t.open && (
                     <div style={{ marginTop: 8, borderLeft: '1px solid var(--b1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -440,7 +469,28 @@ export default function EllePanel({ worker, accent }: any) {
             {interim}…
           </div>
         )}
+        {/* attachment chip — a parsed file waiting to ride the next turn */}
+        {(attachment || uploading) && (
+          <div style={{ maxWidth: 760, margin: '0 auto 6px', padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t2)' }}>
+            {uploading ? <span style={{ color: 'var(--t3)' }}>📎 parsing…</span> : (
+              <>
+                <span title={attachment!.truncated ? 'large file — inlined text is capped for the turn' : ''}>
+                  📎 {attachment!.name} · {attachment!.chars.toLocaleString()} chars{attachment!.truncated ? ' (capped)' : ''}
+                </span>
+                <button onClick={() => setAttachment(null)} title="remove attachment"
+                  style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontSize: 12, padding: 0 }}>✕</button>
+              </>
+            )}
+          </div>
+        )}
+        <input ref={fileRef} type="file" hidden
+          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.rtf,.pptx,.xlsx,application/pdf,text/plain"
+          onChange={e => { const f = e.target.files?.[0]; if (f) void onUpload(f); e.currentTarget.value = '' }} />
         <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--raised)', border: `0.5px solid ${wv.listenMode ? '#D0656555' : 'var(--b1)'}`, borderRadius: 10, padding: '4px 4px 4px 14px' }}>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} title="attach a file — PDF, DOCX, TXT (parsed to text she can read and ingest)"
+            style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: 'transparent', color: uploading ? accent : 'var(--t2)', cursor: uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
+            {uploading ? '…' : '📎'}
+          </button>
           <textarea ref={taRef} value={q} rows={1}
             onChange={e => { setQ(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 140) + 'px' }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask() } }}
