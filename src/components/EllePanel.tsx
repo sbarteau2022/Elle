@@ -7,7 +7,7 @@
 // coherence readout (worker-computed, dt = 1 turn).
 // ============================================================
 import { useState, useRef, useEffect } from 'react'
-import KappaHeader, { type KappaDynamics } from './KappaHeader'
+import KappaHeader, { type KappaDynamics, type KappaMemory } from './KappaHeader'
 import VoiceOrb from './VoiceOrb'
 import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { on } from '../lib/commands'
@@ -120,7 +120,18 @@ export default function EllePanel({ worker, accent }: any) {
   const [showTools, setShowTools] = useState(false)
   const [note, setNote] = useState('')
   const [dyn, setDyn] = useState<KappaDynamics>(null)
+  const [mem, setMem] = useState<KappaMemory>(null)    // durable κ memory / seam state
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Poll the durable κ memory state (public GET). Reflects the bending-trace
+  // substrate + the seam gate; while gated it reports provisional/ranks=false.
+  // Best-effort — a miss just leaves the memory segment as it was.
+  const refreshMem = async () => {
+    try {
+      const r = await fetch(`${worker.url}/api/kappa-state?session=${encodeURIComponent(sid())}`)
+      if (r.ok) setMem((await r.json()) as KappaMemory)
+    } catch { /* leave the readout as-is */ }
+  }
   const taRef = useRef<HTMLTextAreaElement>(null)
 
   // The workbench's one voice/mic/presence pipeline (VoiceContext). This
@@ -137,6 +148,9 @@ export default function EllePanel({ worker, accent }: any) {
   const pickRegister = (id: string) => { setReg(id); setRegister(id) }
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [turns])
+  // Load the κ memory / seam state on mount so the header shows it before the
+  // first turn; each answered turn refreshes it (a trace was just written).
+  useEffect(() => { void refreshMem() }, [])
 
   // Presence: if you turn away from the screen mid-sentence, she stops talking —
   // the way a person would trail off when you leave the room.
@@ -217,6 +231,7 @@ export default function EllePanel({ worker, accent }: any) {
         }
         if (done) {
           if (done.kappa_dynamics) setDyn(done.kappa_dynamics)
+          void refreshMem()
           const answer = done.answer || '(no answer)'
           setTurns(t => t.map((x, i) => i === idx
             ? { ...x, answer, trace: done.trace || steps, finalThought: done.final_thought || '', pending: false } : x))
@@ -229,6 +244,7 @@ export default function EllePanel({ worker, accent }: any) {
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
       if (d.kappa_dynamics) setDyn(d.kappa_dynamics)
+      void refreshMem()
       const answer = d.answer || '(no answer)'
       setTurns(t => t.map((x, i) => i === idx
         ? { ...x, answer, trace: d.trace || [], finalThought: d.final_thought || '', pending: false } : x))
@@ -277,7 +293,7 @@ export default function EllePanel({ worker, accent }: any) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       {/* κ instrument line — her live coherence readout */}
-      <KappaHeader dyn={dyn} />
+      <KappaHeader dyn={dyn} mem={mem} />
 
       {/* header row: label + tool drawer + voice */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 22px 0' }}>
