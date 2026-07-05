@@ -54,6 +54,17 @@ const TOOLS: [string, string][] = [
   // reasoning about herself
   ['constraint_analyzer', 'find the one binding constraint'],
   ['pfar', 'rip structure from a stream · spectrum·prosody·rhetoric'],
+  ['predict', 'bet ledger vs herself · calibration curve'],
+  ['devil', 'adversary on retainer · breaks a draft'],
+  ['council', 'three engines in parallel · disagreement map'],
+  ['scar', 'flinches · recorded injuries that warn'],
+  ['dead_drop', 'context-triggered mail to future self'],
+  ['watch', 'tripwires on the world · fires intents'],
+  ['metabolism', 'interoception · provider health + latency'],
+  ['tool_forge', 'grow her own tools · sandboxed'],
+  ['fork_replay', 'counterfactual replay of a past run'],
+  ['consolidate', 'sleep pass · digest the day now'],
+  ['page_read', 'page-fault handler for big observations'],
   // her codebase & the forge
   ['repo_read', 'her own source · any file'],
   ['repo_search', 'code search her repos'],
@@ -100,7 +111,7 @@ const SHIP_DENY = new Set(['forge_open', 'forge_write', 'forge_pr', 'run_shell']
 const visibleTools = (): [string, string][] =>
   getTier() === 'cofounder' ? TOOLS.filter(([n]) => !SHIP_DENY.has(n)) : TOOLS
 
-type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean }
+type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean; finalThought?: string }
 
 export default function EllePanel({ worker, accent }: any) {
   const [q, setQ] = useState('')
@@ -169,7 +180,7 @@ export default function EllePanel({ worker, accent }: any) {
       if (d.kappa_dynamics) setDyn(d.kappa_dynamics)
       const answer = d.answer || '(no answer)'
       setTurns(t => t.map((x, i) => i === idx
-        ? { ...x, answer, trace: d.trace || [], pending: false } : x))
+        ? { ...x, answer, trace: d.trace || [], finalThought: d.final_thought || '', pending: false } : x))
       if (voice.enabled && !d.error) voice.speak(answer)   // she reads it back
     } catch (e: any) {
       setNote('Error: ' + (e.message || e))
@@ -296,25 +307,51 @@ export default function EllePanel({ worker, accent }: any) {
                 </div>
               )}
               {/* tool trace — a timeline, folded by default */}
-              {t.trace.length > 0 && (
+              {(t.trace.length > 0 || t.finalThought) && (
                 <div style={{ paddingLeft: 18 }}>
                   <button onClick={() => toggle(i)}
                     style={{ background: 'none', border: 'none', color: 'var(--t4)', fontFamily: 'var(--mono)', fontSize: 9.5, cursor: 'pointer', padding: 0, letterSpacing: '.05em' }}>
-                    {(t.open ? '▾' : '▸') + ' ' + t.trace.length + ' step' + (t.trace.length === 1 ? '' : 's') + ' · ' + t.trace.map((s: any) => s.tool).join(' → ')}
+                    {(t.open ? '▾' : '▸') + ' ' + (t.trace.length > 0
+                      ? t.trace.length + ' step' + (t.trace.length === 1 ? '' : 's') + ' · ' + t.trace.map((s: any) => s.tool).join(' → ')
+                      : 'her thought')}
                   </button>
                   {t.open && (
                     <div style={{ marginTop: 8, borderLeft: '1px solid var(--b1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {t.trace.map((s: any, j: number) => (
                         <div key={j} style={{ paddingLeft: 14, position: 'relative' }}>
                           <span style={{ position: 'absolute', left: -3, top: 5, width: 5, height: 5, borderRadius: '50%', background: accent + 'AA' }} />
+                          {/* her chain of thought — why she reached for this, before what she reached for */}
+                          {s.thought && (
+                            <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55, marginBottom: 3 }}>
+                              {String(s.thought)}
+                            </div>
+                          )}
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: accent }}>
                             {s.tool}<span style={{ color: 'var(--t4)' }}>{'  ' + JSON.stringify(s.args)}</span>
                           </div>
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, whiteSpace: 'pre-wrap', color: 'var(--t3)', lineHeight: 1.55, marginTop: 2, maxHeight: 180, overflowY: 'auto' }}>
                             {String(s.result || '')}
                           </div>
+                          {/* the model's native reasoning tokens for this step, folded */}
+                          {s.thinking && (
+                            <details style={{ marginTop: 3 }}>
+                              <summary style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', cursor: 'pointer', letterSpacing: '.05em' }}>deep reasoning</summary>
+                              <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, whiteSpace: 'pre-wrap', color: 'var(--t4)', lineHeight: 1.5, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
+                                {String(s.thinking)}
+                              </div>
+                            </details>
+                          )}
                         </div>
                       ))}
+                      {/* the closing thought — what she was thinking as she answered */}
+                      {t.finalThought && (
+                        <div style={{ paddingLeft: 14, position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: -3, top: 5, width: 5, height: 5, borderRadius: '50%', background: 'var(--t4)' }} />
+                          <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55 }}>
+                            → {t.finalThought}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
