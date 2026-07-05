@@ -110,6 +110,12 @@ app.whenReady().then(() => {
   installPermissionPolicy(session.defaultSession);
   createWindow();
 
+  // Elle's hands on this box: dial the connect-back sandbox UP to the worker.
+  // Idle unless ELLE_SANDBOX_KEY is set (and matches the worker's
+  // SANDBOX_AGENT_KEY). Lives for the whole app session, not per-window, so it
+  // is stopped only on quit — not when a window closes.
+  native.getProvider('sandboxAgent')?.start();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -124,4 +130,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', cleanupNative);
+app.on('before-quit', () => {
+  cleanupNative();
+  native.getProvider('sandboxAgent')?.stop();
+});
