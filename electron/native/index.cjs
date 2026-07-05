@@ -13,8 +13,9 @@
 // not touching main.cjs or preload.cjs.
 // ============================================================
 const headMotion = require('./providers/head-motion.cjs');
+const sandboxAgent = require('./providers/sandbox-agent.cjs');
 
-const providers = [headMotion];
+const providers = [headMotion, sandboxAgent];
 
 function isActive(provider) {
   return provider.platforms.includes(process.platform) && provider.available;
