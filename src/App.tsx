@@ -27,9 +27,15 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--void:#060709;--base:#0B0C10;--raised:#101117;--float:#15161E;--ov:#1C1D27;
---t1:#E4E7EC;--t2:#8B94A3;--t3:#525B69;--t4:#343B46;--b1:rgba(255,255,255,.07);--b2:rgba(255,255,255,.035);
---gold:#C9A84C;--gold-dim:rgba(201,168,76,.14);
+--t1:#E4E7EC;--t2:#9AA3B2;--t3:#6B7688;--t4:#4A5261;--b1:rgba(255,255,255,.09);--b2:rgba(255,255,255,.05);
+--gold:#C9A84C;--gold-dim:rgba(201,168,76,.14);--good:#4ADE80;
 --mono:'JetBrains Mono',monospace;--ui:'Inter',system-ui,sans-serif;--serif:'Playfair Display',serif}
+/* Light theme — same structure, inverted surfaces + darkened text tiers for
+   contrast. Stamped on <html data-theme="light"> by the header toggle. */
+:root[data-theme="light"]{--void:#F6F4EF;--base:#FFFFFF;--raised:#EFEDE6;--float:#E8E5DC;--ov:#DFDBD0;
+--t1:#1A1C22;--t2:#3E4551;--t3:#5C6472;--t4:#8A93A0;--b1:rgba(0,0,0,.12);--b2:rgba(0,0,0,.06);
+--gold:#8A6D18;--gold-dim:rgba(138,109,24,.14);--good:#178A4E}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18)}
 html,body,#root{height:100%;overflow:hidden}
 body{background:var(--void);color:var(--t1);font-family:var(--ui);font-size:13px;-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
@@ -131,6 +137,14 @@ function Heartbeat() {
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [tab, setTab] = useState<string>(PANELS[0]?.id ?? '')
+  // Theme: dark by default (the console's native look); light for when the low
+  // -contrast tiers get hard to read. Stamped on <html> so the CSS overrides win.
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('elle_theme') === 'light' ? 'light' : 'dark'))
+  useEffect(() => {
+    if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light')
+    else document.documentElement.removeAttribute('data-theme')
+    localStorage.setItem('elle_theme', theme)
+  }, [theme])
 
   useEffect(() => {
     let active = true
@@ -203,6 +217,11 @@ export function App() {
             </nav>
 
             <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px' }}>
+              <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+                title={theme === 'light' ? 'switch to dark' : 'switch to light'}
+                style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
+                {theme === 'light' ? '◐ dark' : '◑ light'}
+              </button>
               <ListenControl />
               <Heartbeat />
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
