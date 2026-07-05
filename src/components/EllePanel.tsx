@@ -173,8 +173,59 @@ export default function EllePanel({ worker, accent }: any) {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: question, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody }),
+        body: JSON.stringify({ q: question, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody, stream: true }),
       })
+      // LIVE MODE: the worker streams the loop as SSE frames — each step's
+      // thought + tool the moment she commits to it, each observation as it
+      // lands, then one 'done' frame with the full result. The timeline grows
+      // in front of you instead of appearing after the fact. A worker that
+      // predates streaming answers with JSON; the fallback below handles it.
+      const ctype = r.headers.get('content-type') || ''
+      if (r.ok && ctype.includes('text/event-stream') && r.body) {
+        const reader = r.body.getReader()
+        const dec = new TextDecoder()
+        let buf = ''
+        let done: any = null
+        const steps: any[] = []
+        const apply = () => setTurns(t => t.map((x, i) => i === idx ? { ...x, trace: [...steps], open: true } : x))
+        for (;;) {
+          const { value, done: eof } = await reader.read()
+          if (eof) break
+          buf += dec.decode(value, { stream: true })
+          let sep
+          while ((sep = buf.indexOf('\n\n')) !== -1) {
+            const frame = buf.slice(0, sep); buf = buf.slice(sep + 2)
+            let ev = '', data = ''
+            for (const line of frame.split('\n')) {
+              if (line.startsWith('event: ')) ev = line.slice(7).trim()
+              else if (line.startsWith('data: ')) data += line.slice(6)
+            }
+            if (!data) continue
+            let d: any; try { d = JSON.parse(data) } catch { continue }
+            if (ev === 'step') {
+              steps.push({ tool: d.tool, args: d.args || {}, result: '…', thought: d.thought, thinking: d.thinking })
+              apply()
+            } else if (ev === 'obs') {
+              const s = steps[steps.length - 1]
+              if (s && s.tool === d.tool) { s.result = d.result || ''; apply() }
+            } else if (ev === 'done') {
+              done = d
+            } else if (ev === 'error') {
+              setNote(d.error || 'stream error')
+            }
+          }
+        }
+        if (done) {
+          if (done.kappa_dynamics) setDyn(done.kappa_dynamics)
+          const answer = done.answer || '(no answer)'
+          setTurns(t => t.map((x, i) => i === idx
+            ? { ...x, answer, trace: done.trace || steps, finalThought: done.final_thought || '', pending: false } : x))
+          if (voice.enabled) voice.speak(answer)   // she reads it back
+        } else {
+          setTurns(t => t.map((x, i) => i === idx ? { ...x, answer: '(the stream ended without an answer)', pending: false } : x))
+        }
+        return
+      }
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
       if (d.kappa_dynamics) setDyn(d.kappa_dynamics)
@@ -291,7 +342,11 @@ export default function EllePanel({ worker, accent }: any) {
               </div>
               {/* her answer — prose on the page, one gold hairline */}
               <div style={{ borderLeft: `2px solid ${t.pending ? 'var(--b1)' : accent + '99'}`, paddingLeft: 16, fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.75, opacity: t.pending ? 0.45 : 1, transition: 'opacity .2s' }}>
-                {t.pending ? 'thinking…' : <Md text={t.answer} />}
+                {t.pending
+                  ? (t.trace.length && t.trace[t.trace.length - 1].thought
+                      ? <span style={{ fontStyle: 'italic' }}>{t.trace[t.trace.length - 1].thought}</span>
+                      : 'thinking…')
+                  : <Md text={t.answer} />}
               </div>
               {/* export rail — print/PDF via the browser dialog, email via mailto, copy */}
               {!t.pending && t.answer && (
