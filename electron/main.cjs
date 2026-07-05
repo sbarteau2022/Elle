@@ -11,6 +11,20 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // extend as more native features land.
 ipcMain.handle('native:capabilities', () => native.getCapabilities());
 
+// ── sovereign dynamic KV cache (local model only) ──────────────────────────
+// The renderer / local-model orchestration drives the working-set cache over
+// these channels. Every handler is inert unless the build is running sovereign
+// (see native/providers/sovereign-kv-cache.cjs) — in the hosted build the
+// worker's own KV cache does this job, so these no-op. Recall stays caller-side
+// (the renderer supplies the assembled text via put), matching the worker's
+// injected-recall seam across the IPC boundary.
+const sovKv = native.getProvider('sovereignKvCache');
+ipcMain.handle('sovereign:kv-budget', (_e, query) => sovKv ? sovKv.dynamicBudget(query) : 0);
+ipcMain.handle('sovereign:kv-get', (_e, sessionId, query) => sovKv ? sovKv.getCached(sessionId, query) : null);
+ipcMain.handle('sovereign:kv-put', (_e, sessionId, query, text) => sovKv ? sovKv.putCached(sessionId, query, text) : undefined);
+ipcMain.handle('sovereign:kv-invalidate', (_e, sessionId) => sovKv ? sovKv.invalidateWorkingSet(sessionId) : undefined);
+ipcMain.handle('sovereign:kv-stats', (_e, sessionId) => sovKv ? sovKv.stats(sessionId) : { sovereign: false, entries: 0 });
+
 // ── device permissions: deny by default, granted only by the user ──────────
 // Electron's default permission handler GRANTS everything, silently. That is
 // the opposite of "permissioned, never auto accept", so we replace it: every

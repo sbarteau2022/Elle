@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently -k -n vite,electron -c cyan,magenta \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "cross-env ELECTRON=1 vite build"
+    "electron:build": "cross-env ELECTRON=1 vite build",
+    "test": "node --test electron/native/providers/*.test.cjs"
   },
   "dependencies": {
     "@fontsource/dm-mono": "^5.2.7",

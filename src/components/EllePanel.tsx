@@ -7,7 +7,7 @@
 // coherence readout (worker-computed, dt = 1 turn).
 // ============================================================
 import { useState, useRef, useEffect } from 'react'
-import KappaHeader, { type KappaDynamics } from './KappaHeader'
+import KappaHeader, { type KappaDynamics, type KappaMemory } from './KappaHeader'
 import VoiceOrb from './VoiceOrb'
 import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { on } from '../lib/commands'
@@ -54,6 +54,17 @@ const TOOLS: [string, string][] = [
   // reasoning about herself
   ['constraint_analyzer', 'find the one binding constraint'],
   ['pfar', 'rip structure from a stream · spectrum·prosody·rhetoric'],
+  ['predict', 'bet ledger vs herself · calibration curve'],
+  ['devil', 'adversary on retainer · breaks a draft'],
+  ['council', 'three engines in parallel · disagreement map'],
+  ['scar', 'flinches · recorded injuries that warn'],
+  ['dead_drop', 'context-triggered mail to future self'],
+  ['watch', 'tripwires on the world · fires intents'],
+  ['metabolism', 'interoception · provider health + latency'],
+  ['tool_forge', 'grow her own tools · sandboxed'],
+  ['fork_replay', 'counterfactual replay of a past run'],
+  ['consolidate', 'sleep pass · digest the day now'],
+  ['page_read', 'page-fault handler for big observations'],
   // her codebase & the forge
   ['repo_read', 'her own source · any file'],
   ['repo_search', 'code search her repos'],
@@ -100,7 +111,7 @@ const SHIP_DENY = new Set(['forge_open', 'forge_write', 'forge_pr', 'run_shell']
 const visibleTools = (): [string, string][] =>
   getTier() === 'cofounder' ? TOOLS.filter(([n]) => !SHIP_DENY.has(n)) : TOOLS
 
-type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean }
+type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean; finalThought?: string }
 
 export default function EllePanel({ worker, accent }: any) {
   const [q, setQ] = useState('')
@@ -109,7 +120,35 @@ export default function EllePanel({ worker, accent }: any) {
   const [showTools, setShowTools] = useState(false)
   const [note, setNote] = useState('')
   const [dyn, setDyn] = useState<KappaDynamics>(null)
+  const [mem, setMem] = useState<KappaMemory>(null)    // durable κ memory / seam state
+  const [attachment, setAttachment] = useState<{ name: string; text: string; chars: number; truncated?: boolean } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Upload → parse (worker toMarkdown) → hold the text as an attachment for the
+  // next turn. On send it rides in as context so Elle can read it and, on your
+  // instruction, ingest_paper it (chunk→embed→vectorize). PDF/DOCX/TXT/… all work.
+  const onUpload = async (file: File) => {
+    setUploading(true); setNote('')
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const r = await fetch(worker.url + '/api/elle-upload', { method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
+      setAttachment({ name: d.name, text: d.text, chars: d.chars, truncated: d.truncated })
+    } catch (e: any) { setNote(`upload failed: ${e.message || e}`) } finally { setUploading(false) }
+  }
+
+  // Poll the durable κ memory state (public GET). Reflects the bending-trace
+  // substrate + the seam gate; while gated it reports provisional/ranks=false.
+  // Best-effort — a miss just leaves the memory segment as it was.
+  const refreshMem = async () => {
+    try {
+      const r = await fetch(`${worker.url}/api/kappa-state?session=${encodeURIComponent(sid())}`)
+      if (r.ok) setMem((await r.json()) as KappaMemory)
+    } catch { /* leave the readout as-is */ }
+  }
   const taRef = useRef<HTMLTextAreaElement>(null)
 
   // The workbench's one voice/mic/presence pipeline (VoiceContext). This
@@ -126,6 +165,9 @@ export default function EllePanel({ worker, accent }: any) {
   const pickRegister = (id: string) => { setReg(id); setRegister(id) }
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [turns])
+  // Load the κ memory / seam state on mount so the header shows it before the
+  // first turn; each answered turn refreshes it (a trace was just written).
+  useEffect(() => { void refreshMem() }, [])
 
   // Presence: if you turn away from the screen mid-sentence, she stops talking —
   // the way a person would trail off when you leave the room.
@@ -151,25 +193,90 @@ export default function EllePanel({ worker, accent }: any) {
 
   const ask = async (override?: string, extra?: { voice_prosody?: { f0: number[]; energy: number[] }; label?: string }) => {
     const question = (override ?? q).trim()
-    if (loading || (!question && !extra?.voice_prosody)) return
+    if (loading || (!question && !extra?.voice_prosody && !attachment)) return
     voice.stopSpeaking()
     setLoading(true); setNote(''); setQ('')
     if (taRef.current) taRef.current.style.height = 'auto'
     const idx = turns.length
-    const shownQ = extra?.label || question
+    // Fold the attachment into the sent turn as delimited context (capped so a
+    // large doc can't blow the turn; the full text is still on the worker for a
+    // deliberate ingest). The user sees a compact "📎 name" marker, not the dump.
+    const CTX_CAP = 50000
+    const att = attachment
+    let sentQ = question
+    if (att) {
+      const bodyText = att.text.slice(0, CTX_CAP)
+      const trunc = att.text.length > CTX_CAP ? `\n…[inlined ${CTX_CAP} of ${att.chars} chars — ask me to ingest it for the full document]` : ''
+      sentQ = `[Attached file: ${att.name} · ${att.chars} chars]\n\n${bodyText}${trunc}\n\n---\n${question || 'I attached this file — read it.'}`
+    }
+    const shownQ = extra?.label || (att ? `📎 ${att.name}${question ? ' — ' + question : ''}` : question)
+    setAttachment(null)
     setTurns(t => [...t, { q: shownQ, answer: '', trace: [], open: false, pending: true }])
     try {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: question, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody }),
+        body: JSON.stringify({ q: sentQ, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody, stream: true }),
       })
+      // LIVE MODE: the worker streams the loop as SSE frames — each step's
+      // thought + tool the moment she commits to it, each observation as it
+      // lands, then one 'done' frame with the full result. The timeline grows
+      // in front of you instead of appearing after the fact. A worker that
+      // predates streaming answers with JSON; the fallback below handles it.
+      const ctype = r.headers.get('content-type') || ''
+      if (r.ok && ctype.includes('text/event-stream') && r.body) {
+        const reader = r.body.getReader()
+        const dec = new TextDecoder()
+        let buf = ''
+        let done: any = null
+        const steps: any[] = []
+        const apply = () => setTurns(t => t.map((x, i) => i === idx ? { ...x, trace: [...steps], open: true } : x))
+        for (;;) {
+          const { value, done: eof } = await reader.read()
+          if (eof) break
+          buf += dec.decode(value, { stream: true })
+          let sep
+          while ((sep = buf.indexOf('\n\n')) !== -1) {
+            const frame = buf.slice(0, sep); buf = buf.slice(sep + 2)
+            let ev = '', data = ''
+            for (const line of frame.split('\n')) {
+              if (line.startsWith('event: ')) ev = line.slice(7).trim()
+              else if (line.startsWith('data: ')) data += line.slice(6)
+            }
+            if (!data) continue
+            let d: any; try { d = JSON.parse(data) } catch { continue }
+            if (ev === 'step') {
+              steps.push({ tool: d.tool, args: d.args || {}, result: '…', thought: d.thought, thinking: d.thinking })
+              apply()
+            } else if (ev === 'obs') {
+              const s = steps[steps.length - 1]
+              if (s && s.tool === d.tool) { s.result = d.result || ''; apply() }
+            } else if (ev === 'done') {
+              done = d
+            } else if (ev === 'error') {
+              setNote(d.error || 'stream error')
+            }
+          }
+        }
+        if (done) {
+          if (done.kappa_dynamics) setDyn(done.kappa_dynamics)
+          void refreshMem()
+          const answer = done.answer || '(no answer)'
+          setTurns(t => t.map((x, i) => i === idx
+            ? { ...x, answer, trace: done.trace || steps, finalThought: done.final_thought || '', pending: false } : x))
+          if (voice.enabled) voice.speak(answer)   // she reads it back
+        } else {
+          setTurns(t => t.map((x, i) => i === idx ? { ...x, answer: '(the stream ended without an answer)', pending: false } : x))
+        }
+        return
+      }
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
       if (d.kappa_dynamics) setDyn(d.kappa_dynamics)
+      void refreshMem()
       const answer = d.answer || '(no answer)'
       setTurns(t => t.map((x, i) => i === idx
-        ? { ...x, answer, trace: d.trace || [], pending: false } : x))
+        ? { ...x, answer, trace: d.trace || [], finalThought: d.final_thought || '', pending: false } : x))
       if (voice.enabled && !d.error) voice.speak(answer)   // she reads it back
     } catch (e: any) {
       setNote('Error: ' + (e.message || e))
@@ -215,7 +322,7 @@ export default function EllePanel({ worker, accent }: any) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       {/* κ instrument line — her live coherence readout */}
-      <KappaHeader dyn={dyn} />
+      <KappaHeader dyn={dyn} mem={mem} />
 
       {/* header row: label + tool drawer + voice */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 22px 0' }}>
@@ -280,7 +387,11 @@ export default function EllePanel({ worker, accent }: any) {
               </div>
               {/* her answer — prose on the page, one gold hairline */}
               <div style={{ borderLeft: `2px solid ${t.pending ? 'var(--b1)' : accent + '99'}`, paddingLeft: 16, fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.75, opacity: t.pending ? 0.45 : 1, transition: 'opacity .2s' }}>
-                {t.pending ? 'thinking…' : <Md text={t.answer} />}
+                {t.pending
+                  ? (t.trace.length && t.trace[t.trace.length - 1].thought
+                      ? <span style={{ fontStyle: 'italic' }}>{t.trace[t.trace.length - 1].thought}</span>
+                      : 'thinking…')
+                  : <Md text={t.answer} />}
               </div>
               {/* export rail — print/PDF via the browser dialog, email via mailto, copy */}
               {!t.pending && t.answer && (
@@ -296,25 +407,51 @@ export default function EllePanel({ worker, accent }: any) {
                 </div>
               )}
               {/* tool trace — a timeline, folded by default */}
-              {t.trace.length > 0 && (
+              {(t.trace.length > 0 || t.finalThought) && (
                 <div style={{ paddingLeft: 18 }}>
                   <button onClick={() => toggle(i)}
                     style={{ background: 'none', border: 'none', color: 'var(--t4)', fontFamily: 'var(--mono)', fontSize: 9.5, cursor: 'pointer', padding: 0, letterSpacing: '.05em' }}>
-                    {(t.open ? '▾' : '▸') + ' ' + t.trace.length + ' step' + (t.trace.length === 1 ? '' : 's') + ' · ' + t.trace.map((s: any) => s.tool).join(' → ')}
+                    {(t.open ? '▾' : '▸') + ' chain of thought' + (t.trace.length > 0
+                      ? ' · ' + t.trace.length + ' step' + (t.trace.length === 1 ? '' : 's') + ' · ' + t.trace.map((s: any) => s.tool).join(' → ')
+                      : '')}
                   </button>
                   {t.open && (
                     <div style={{ marginTop: 8, borderLeft: '1px solid var(--b1)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {t.trace.map((s: any, j: number) => (
                         <div key={j} style={{ paddingLeft: 14, position: 'relative' }}>
                           <span style={{ position: 'absolute', left: -3, top: 5, width: 5, height: 5, borderRadius: '50%', background: accent + 'AA' }} />
+                          {/* her chain of thought — why she reached for this, before what she reached for */}
+                          {s.thought && (
+                            <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55, marginBottom: 3 }}>
+                              {String(s.thought)}
+                            </div>
+                          )}
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: accent }}>
                             {s.tool}<span style={{ color: 'var(--t4)' }}>{'  ' + JSON.stringify(s.args)}</span>
                           </div>
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, whiteSpace: 'pre-wrap', color: 'var(--t3)', lineHeight: 1.55, marginTop: 2, maxHeight: 180, overflowY: 'auto' }}>
                             {String(s.result || '')}
                           </div>
+                          {/* the model's native reasoning tokens for this step, folded */}
+                          {s.thinking && (
+                            <details style={{ marginTop: 3 }}>
+                              <summary style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', cursor: 'pointer', letterSpacing: '.05em' }}>deep reasoning</summary>
+                              <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, whiteSpace: 'pre-wrap', color: 'var(--t4)', lineHeight: 1.5, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
+                                {String(s.thinking)}
+                              </div>
+                            </details>
+                          )}
                         </div>
                       ))}
+                      {/* the closing thought — what she was thinking as she answered */}
+                      {t.finalThought && (
+                        <div style={{ paddingLeft: 14, position: 'relative' }}>
+                          <span style={{ position: 'absolute', left: -3, top: 5, width: 5, height: 5, borderRadius: '50%', background: 'var(--t4)' }} />
+                          <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55 }}>
+                            → {t.finalThought}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -332,7 +469,28 @@ export default function EllePanel({ worker, accent }: any) {
             {interim}…
           </div>
         )}
+        {/* attachment chip — a parsed file waiting to ride the next turn */}
+        {(attachment || uploading) && (
+          <div style={{ maxWidth: 760, margin: '0 auto 6px', padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t2)' }}>
+            {uploading ? <span style={{ color: 'var(--t3)' }}>📎 parsing…</span> : (
+              <>
+                <span title={attachment!.truncated ? 'large file — inlined text is capped for the turn' : ''}>
+                  📎 {attachment!.name} · {attachment!.chars.toLocaleString()} chars{attachment!.truncated ? ' (capped)' : ''}
+                </span>
+                <button onClick={() => setAttachment(null)} title="remove attachment"
+                  style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontSize: 12, padding: 0 }}>✕</button>
+              </>
+            )}
+          </div>
+        )}
+        <input ref={fileRef} type="file" hidden
+          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.rtf,.pptx,.xlsx,application/pdf,text/plain"
+          onChange={e => { const f = e.target.files?.[0]; if (f) void onUpload(f); e.currentTarget.value = '' }} />
         <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--raised)', border: `0.5px solid ${wv.listenMode ? '#D0656555' : 'var(--b1)'}`, borderRadius: 10, padding: '4px 4px 4px 14px' }}>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} title="attach a file — PDF, DOCX, TXT (parsed to text she can read and ingest)"
+            style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: 'transparent', color: uploading ? accent : 'var(--t2)', cursor: uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
+            {uploading ? '…' : '📎'}
+          </button>
           <textarea ref={taRef} value={q} rows={1}
             onChange={e => { setQ(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 140) + 'px' }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask() } }}

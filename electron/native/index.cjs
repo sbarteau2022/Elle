@@ -14,8 +14,9 @@
 // ============================================================
 const headMotion = require('./providers/head-motion.cjs');
 const sandboxAgent = require('./providers/sandbox-agent.cjs');
+const sovereignKvCache = require('./providers/sovereign-kv-cache.cjs');
 
-const providers = [headMotion, sandboxAgent];
+const providers = [headMotion, sandboxAgent, sovereignKvCache];
 
 function isActive(provider) {
   return provider.platforms.includes(process.platform) && provider.available;

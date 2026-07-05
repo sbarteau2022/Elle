@@ -9,6 +9,7 @@ import EllePanel from '../components/EllePanel'
 import ConductorPanel from '../components/ConductorPanel'
 import LibraryPanel from '../components/LibraryPanel'
 import IdentityPanel from '../components/IdentityPanel'
+import MirrorPanel from '../components/MirrorPanel'
 import OptimusPanel from '../components/OptimusPanel'
 import TradingPanel from '../components/TradingPanel'
 import CodePanel from '../components/CodePanel'
@@ -32,6 +33,10 @@ registerPanel({
 registerPanel({
   id: 'identity', glyph: '✶', label: 'identity', section: 'mind', order: 4,
   render: ({ accent }) => <IdentityPanel accent={accent} />,
+})
+registerPanel({
+  id: 'mirror', glyph: '◐', label: 'mirror', section: 'mind', order: 11,
+  render: ({ worker, accent }) => <MirrorPanel worker={worker} accent={accent} />,
 })
 registerPanel({
   id: 'optimus', glyph: 'φ', label: 'optimus', section: 'work', order: 5,
