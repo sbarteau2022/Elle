@@ -36,4 +36,16 @@ contextBridge.exposeInMainWorld('elleNative', {
     const caps = await ipcRenderer.invoke('native:capabilities');
     return !!caps.headMotion;
   },
+
+  // Sovereign dynamic KV cache — the local-model working-set cache. Inert in
+  // the hosted build (every call resolves to a no-op/empty result); live only
+  // when running sovereign. The local-model orchestration uses these to size
+  // the memory pull to the turn and reuse an assembled set across a session.
+  sovereignKv: {
+    budget: (query) => ipcRenderer.invoke('sovereign:kv-budget', String(query || '')),
+    get: (sessionId, query) => ipcRenderer.invoke('sovereign:kv-get', sessionId, String(query || '')),
+    put: (sessionId, query, text) => ipcRenderer.invoke('sovereign:kv-put', sessionId, String(query || ''), String(text || '')),
+    invalidate: (sessionId) => ipcRenderer.invoke('sovereign:kv-invalidate', sessionId),
+    stats: (sessionId) => ipcRenderer.invoke('sovereign:kv-stats', sessionId),
+  },
 });

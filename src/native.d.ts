@@ -31,6 +31,15 @@ declare global {
       onHeadMotion: (cb: (data: HeadMotion) => void) => void;
       offHeadMotion: () => void;
       headMotionAvailable: () => Promise<boolean>;
+      // Sovereign dynamic KV cache — live only in the local/sovereign build.
+      // In the hosted build every call resolves to a no-op/empty result.
+      sovereignKv?: {
+        budget: (query: string) => Promise<number>;
+        get: (sessionId: string, query: string) => Promise<string | null>;
+        put: (sessionId: string, query: string, text: string) => Promise<void>;
+        invalidate: (sessionId: string) => Promise<void>;
+        stats: (sessionId: string) => Promise<{ sovereign: boolean; entries: number; baseDir?: string }>;
+      };
     };
     webkitSpeechRecognition?: any;
     SpeechRecognition?: any;
