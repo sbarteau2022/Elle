@@ -16,6 +16,7 @@ import CodePanel from '../components/CodePanel'
 import Evals from '../components/Evals'
 import DiagnosePanel from '../components/DiagnosePanel'
 import HealthPanel from '../components/HealthPanel'
+import SandboxPanel, { sandboxHasUnseenReport } from '../components/SandboxPanel'
 import { registerPanel } from './registry'
 
 registerPanel({
@@ -53,6 +54,11 @@ registerPanel({
 registerPanel({
   id: 'evals', glyph: '▤', label: 'evals', section: 'work', order: 8,
   render: ({ worker, accent }) => <Evals worker={worker} accent={accent} />,
+})
+registerPanel({
+  id: 'sandbox', glyph: '⇅', label: 'sandbox', section: 'work', order: 8.5,
+  render: ({ accent }) => <SandboxPanel accent={accent} />,
+  alert: sandboxHasUnseenReport,
 })
 registerPanel({
   id: 'diagnose', glyph: '✚', label: 'diagnose', section: 'ops', order: 9,
