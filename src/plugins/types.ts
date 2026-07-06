@@ -28,6 +28,13 @@ export interface PanelPlugin {
   order: number
   render: (ctx: PanelContext) => ReactNode
   /**
+   * Optional attention signal. If present, the shell polls it and flashes this
+   * panel's rail tab (dark→light) while it returns true — e.g. the sandbox tab
+   * flashes when Elle has surfaced a report that hasn't been opened yet. Kept
+   * dependency-free (no ctx) so a panel owns its own worker call.
+   */
+  alert?: () => Promise<boolean>
+  /**
    * Native capability keys (see Capabilities in native.d.ts) this panel
    * leans on — e.g. ['mic'], ['camera']. Advisory only: the shell doesn't
    * hide or gate on this today, but a panel can read useCapabilities()

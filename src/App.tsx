@@ -50,6 +50,11 @@ letter-spacing:.02em;transition:background .13s,color .13s}
 .navbtn:hover{background:var(--raised);color:var(--t1)}
 .navbtn.on{background:var(--gold-dim);color:var(--gold)}
 .navbtn.on::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:14px;border-radius:2px;background:var(--gold);box-shadow:0 0 6px var(--gold)}
+/* a tab with an unattended alert (e.g. a surfaced sandbox report) breathes
+   dark→light until it's opened */
+@keyframes tabflash{0%,100%{background:transparent;color:var(--t2)}50%{background:var(--gold);color:var(--void);box-shadow:0 0 10px var(--gold-dim)}}
+.navbtn.flash{animation:tabflash 1.15s ease-in-out infinite}
+.navbtn.flash .glyph{opacity:1}
 .navbtn .glyph{width:14px;display:inline-block;text-align:center;opacity:.75;font-size:12px}
 .navbtn.on .glyph{opacity:1}
 .navbtn .kb{margin-left:auto;font-size:9px;color:var(--t4);opacity:0;transition:opacity .13s}
@@ -137,6 +142,8 @@ function Heartbeat() {
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [tab, setTab] = useState<string>(PANELS[0]?.id ?? '')
+  // Per-panel attention signals (PanelPlugin.alert) → a flashing rail tab.
+  const [alerts, setAlerts] = useState<Record<string, boolean>>({})
   // Theme: dark by default (the console's native look); light for when the low
   // -contrast tiers get hard to read. Stamped on <html> so the CSS overrides win.
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('elle_theme') === 'light' ? 'light' : 'dark'))
@@ -166,6 +173,20 @@ export function App() {
   // …or without your hands: "open trading" (any registered panel's name)
   // arrives here from the voice pipeline as a nav event.
   useEffect(() => on('nav', e => setTab(e.panel)), [])
+
+  // Panels that define alert() get polled; while one returns true its rail tab
+  // flashes (see .navbtn.flash). Only panels that opt in are polled.
+  useEffect(() => {
+    const alerting = PANELS.filter(p => p.alert)
+    if (!alerting.length) return
+    let live = true
+    const tick = async () => {
+      const entries = await Promise.all(alerting.map(async p => [p.id, await p.alert!().catch(() => false)] as const))
+      if (live) setAlerts(prev => { const next = { ...prev }; for (const [id, on] of entries) next[id] = !!on; return next })
+    }
+    tick(); const iv = setInterval(tick, 7000)
+    return () => { live = false; clearInterval(iv) }
+  }, [])
 
   if (authed === null) return (
     <><style>{CSS}</style>
@@ -206,7 +227,9 @@ export function App() {
                   {PANELS.filter(p => p.section === sec).map(p => {
                     const n = PANELS.findIndex(x => x.id === p.id) + 1
                     return (
-                      <button key={p.id} className={'navbtn' + (tab === p.id ? ' on' : '')} onClick={() => setTab(p.id)}>
+                      <button key={p.id}
+                        className={'navbtn' + (tab === p.id ? ' on' : '') + (alerts[p.id] && tab !== p.id ? ' flash' : '')}
+                        onClick={() => { setTab(p.id); if (alerts[p.id]) setAlerts(a => ({ ...a, [p.id]: false })) }}>
                         <span className="glyph">{p.glyph}</span>{p.label}
                         <span className="kb">⌘{n}</span>
                       </button>
