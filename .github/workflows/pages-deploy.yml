@@ -36,6 +36,14 @@ jobs:
       # needs Vite. Plain `vite build` targets the web (base '/'), not file://.
       - run: npm ci --ignore-scripts
       - run: npm run build
+      # Create the Pages project on first run — wrangler deploy does NOT
+      # auto-create it, so without this the first deploy fails "Project not
+      # found". Idempotent: a re-run errors "already exists", swallowed by `|| true`.
+      - name: Ensure Pages project exists
+        run: npx --yes wrangler@4 pages project create elle-workbench --production-branch=main || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: f60c2e6068e002f5dbad7cd562a5c165
       # public/_redirects already ships the SPA fallback (/* /index.html 200) into dist/.
       - name: Deploy dist to Cloudflare Pages
         run: npx --yes wrangler@4 pages deploy dist --project-name=elle-workbench --branch=main --commit-dirty=true
