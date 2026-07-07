@@ -1,5 +1,12 @@
 'use strict';
 
+// FIRST, before anything reads process.env: lay the repo's .env under the
+// environment. Vite loads .env for the renderer only (and only VITE_* keys);
+// the native providers below run HERE in the main process, so without this
+// an ELLE_SANDBOX_KEY sitting in .env was invisible to the sandbox agent and
+// the sovereign duplex — "idle, key not set", path never opens.
+require('./native/load-env.cjs').loadDotEnv();
+
 const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const native = require('./native/index.cjs');
