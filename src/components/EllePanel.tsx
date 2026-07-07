@@ -164,6 +164,13 @@ export default function EllePanel({ worker, accent }: any) {
   useEffect(() => { fetchRegisters().then(setRegisters) }, [])
   const pickRegister = (id: string) => { setReg(id); setRegister(id) }
 
+  // Sovereign lane — pin generation to the local model over the sandbox
+  // socket (same loop, same tools, free). The worker demotes to hosted
+  // transparently if the agent is offline. Persisted like the register.
+  const LOCAL_KEY = 'elle_prefer_local'
+  const [preferLocal, setPreferLocal] = useState(localStorage.getItem(LOCAL_KEY) === '1')
+  const toggleLocal = () => setPreferLocal(v => { localStorage.setItem(LOCAL_KEY, v ? '0' : '1'); return !v })
+
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [turns])
   // Load the κ memory / seam state on mount so the header shows it before the
   // first turn; each answered turn refreshes it (a trace was just written).
@@ -216,7 +223,7 @@ export default function EllePanel({ worker, accent }: any) {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: sentQ, session_id: sid(), voice: register, voice_prosody: extra?.voice_prosody, stream: true }),
+        body: JSON.stringify({ q: sentQ, session_id: sid(), voice: register, prefer: preferLocal ? 'local' : undefined, voice_prosody: extra?.voice_prosody, stream: true }),
       })
       // LIVE MODE: the worker streams the loop as SSE frames — each step's
       // thought + tool the moment she commits to it, each observation as it
@@ -334,6 +341,12 @@ export default function EllePanel({ worker, accent }: any) {
         {note && <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: '#D06565' }}>{note}</span>}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* prose register — which of her five voices answers */}
+          {/* sovereign lane — same mind, generation on the local model */}
+          <button onClick={toggleLocal}
+            title={preferLocal ? 'generation runs on the local model over the sandbox socket (falls back to cloud if the agent is offline) — click for cloud' : 'click to run generation on the local model (free) — same tools, same loop'}
+            style={{ background: preferLocal ? accent + '1f' : 'none', border: `0.5px solid ${preferLocal ? accent + '55' : 'var(--b1)'}`, borderRadius: 5, color: preferLocal ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 9px' }}>
+            {preferLocal ? '🏠 local mind' : '☁ cloud mind'}
+          </button>
           <select value={register} onChange={e => pickRegister(e.target.value)}
             title={registers.find(r => r.id === register)?.blurb || 'her prose register'}
             style={{ background: 'var(--raised)', color: register === 'stewart' ? 'var(--t2)' : accent, border: `0.5px solid ${register === 'stewart' ? 'var(--b1)' : accent + '55'}`, borderRadius: 5, fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 6px', cursor: 'pointer', outline: 'none', maxWidth: 168 }}>
