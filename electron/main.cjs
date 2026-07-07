@@ -116,6 +116,11 @@ app.whenReady().then(() => {
   // is stopped only on quit — not when a window closes.
   native.getProvider('sandboxAgent')?.start();
 
+  // The sovereign half of the duplex channel: the local 7B (Ollama), woken on
+  // an interval, speaking to the cloud half on the immutable ledger. Same
+  // shared secret as the sandbox agent; idle without it (or without Ollama).
+  native.getProvider('sovereignDuplex')?.start();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -133,4 +138,5 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   cleanupNative();
   native.getProvider('sandboxAgent')?.stop();
+  native.getProvider('sovereignDuplex')?.stop();
 });

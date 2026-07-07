@@ -18,6 +18,7 @@ import DiagnosePanel from '../components/DiagnosePanel'
 import HealthPanel from '../components/HealthPanel'
 import SandboxPanel, { sandboxHasUnseenReport } from '../components/SandboxPanel'
 import IdeasPanel from '../components/IdeasPanel'
+import DuplexPanel, { duplexHasUnseen } from '../components/DuplexPanel'
 import { registerPanel } from './registry'
 
 registerPanel({
@@ -64,6 +65,11 @@ registerPanel({
 registerPanel({
   id: 'ideas', glyph: '✦', label: 'ideas', section: 'work', order: 8.7,
   render: ({ accent }) => <IdeasPanel accent={accent} />,
+})
+registerPanel({
+  id: 'duplex', glyph: '⇄', label: 'duplex', section: 'mind', order: 2.5,
+  render: ({ accent }) => <DuplexPanel accent={accent} />,
+  alert: duplexHasUnseen,
 })
 registerPanel({
   id: 'diagnose', glyph: '✚', label: 'diagnose', section: 'ops', order: 9,
