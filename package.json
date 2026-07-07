@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "concurrently -k -n vite,electron -c cyan,magenta \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:dev": "concurrently -k -n vite,electron -c cyan,magenta \"vite --host 127.0.0.1\" \"wait-on http-get://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "cross-env ELECTRON=1 vite build",
     "test": "node --test electron/native/*.test.cjs electron/native/providers/*.test.cjs"
   },
