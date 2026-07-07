@@ -21,6 +21,34 @@ test('shouldSpeak: volunteers a thought on the spontaneity beat', () => {
   assert.equal(dup.shouldSpeak(sovLast, dup.SPONTANEOUS_EVERY + 1), false);
 });
 
+test('shouldWakeCloud: wakes normally for the first few reciprocal rounds', () => {
+  const oneRound = [{ speaker: 'sovereign', content: 'a', created_at: 1 }, { speaker: 'cloud', content: 'b', created_at: 2 }];
+  assert.equal(dup.shouldWakeCloud(oneRound, 1000), true);
+});
+
+test('shouldWakeCloud: backs off once MAX_CONSECUTIVE_ROUNDS trip, then requires a real cooldown', () => {
+  const base = Date.now();
+  const messages = [];
+  for (let i = 0; i < dup.MAX_CONSECUTIVE_ROUNDS; i++) {
+    messages.push({ speaker: 'sovereign', content: `s${i}`, created_at: base + i * 2 });
+    messages.push({ speaker: 'cloud', content: `c${i}`, created_at: base + i * 2 + 1 });
+  }
+  const lastCloudAt = messages[messages.length - 1].created_at;
+  // Right after the last round closes: still within cooldown, do not wake.
+  assert.equal(dup.shouldWakeCloud(messages, lastCloudAt + 1000), false);
+  // Long enough silence: the backoff lifts and it may wake again.
+  assert.equal(dup.shouldWakeCloud(messages, lastCloudAt + dup.WAKE_COOLDOWN_MS), true);
+});
+
+test('shouldWakeCloud: an observation breaks the round count (not a ping-pong turn)', () => {
+  const messages = [
+    { speaker: 'sovereign', content: 'a', created_at: 1 },
+    { speaker: 'cloud', content: 'b', kind: 'observe', created_at: 2 },
+  ];
+  assert.equal(dup.trailingRounds(messages), 0);
+  assert.equal(dup.shouldWakeCloud(messages, 1000), true);
+});
+
 test('toOllamaMessages: sovereign is assistant, cloud is user, observations are tagged', () => {
   const chat = dup.toOllamaMessages([
     { speaker: 'sovereign', kind: 'say', content: 'mine' },
