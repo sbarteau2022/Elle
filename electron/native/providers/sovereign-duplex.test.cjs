@@ -39,3 +39,21 @@ test('toOllamaMessages: an empty channel still gets a user turn to answer', () =
   assert.equal(chat.length, 2);
   assert.equal(chat[1].role, 'user');
 });
+
+test('stripThinking: complete think blocks are removed, the said part stays', () => {
+  assert.equal(dup.stripThinking('<think>private reasoning</think>Hello cloud.'), 'Hello cloud.');
+  assert.equal(dup.stripThinking('a<think>x</think>b<think>y</think>c'), 'abc');
+});
+
+test('stripThinking: orphaned closer drops everything before it', () => {
+  assert.equal(dup.stripThinking('leaked reasoning</think>The message.'), 'The message.');
+});
+
+test('stripThinking: unclosed opener yields nothing said', () => {
+  assert.equal(dup.stripThinking('<think>still thinking when cut off'), '');
+});
+
+test('stripThinking: plain text passes untouched', () => {
+  assert.equal(dup.stripThinking('just a message'), 'just a message');
+  assert.equal(dup.stripThinking(null), '');
+});

@@ -31,7 +31,7 @@
 
 const DEFAULT_WORKER = 'https://elle-worker.sbarteau2022.workers.dev';
 const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = 'qwen2.5:7b';
+const DEFAULT_MODEL = 'qwen3:4b';
 const DEFAULT_INTERVAL = 90_000;
 const SPONTANEOUS_EVERY = 20;  // ticks of silence before it volunteers a thought
 const MAX_REPLY = 2000;
@@ -79,6 +79,23 @@ function toOllamaMessages(messages) {
   return chat;
 }
 
+// ── pure: keep reasoning out of the master copy ─────────────
+// Qwen3 (and other thinking models) emit <think>…</think> blocks through
+// Ollama. The duplex ledger is immutable and on the record — private
+// deliberation does not belong on it, only what the sovereign chose to SAY.
+// We also ask Ollama not to think (think:false, ignored by older versions)
+// and strip defensively in case the model emits the tags anyway.
+function stripThinking(text) {
+  let s = String(text == null ? '' : text);
+  s = s.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // Orphaned closer (opener clipped upstream): everything before it was thought.
+  const closer = s.match(/<\/think>/i);
+  if (closer) s = s.slice(s.indexOf(closer[0]) + closer[0].length);
+  // Unclosed opener (generation cut off mid-thought): nothing after it was said.
+  s = s.replace(/<think>[\s\S]*$/i, '');
+  return s.trim();
+}
+
 // ── module state ────────────────────────────────────────────
 let timer = null;
 let running = false;
@@ -108,9 +125,12 @@ async function tick(cfg) {
     let thought;
     try {
       const gen = await post(`${cfg.ollama}/api/chat`, {
-        model: cfg.model, messages: toOllamaMessages(messages), stream: false,
+        // think:false keeps qwen3-family models from spending the tick on a
+        // reasoning block (older Ollama versions ignore the field); the strip
+        // below catches any <think> tags that arrive regardless.
+        model: cfg.model, messages: toOllamaMessages(messages), stream: false, think: false,
       });
-      thought = String((gen && gen.message && gen.message.content) || '').trim();
+      thought = stripThinking((gen && gen.message && gen.message.content) || '');
     } catch (e) {
       // The free local model isn't up — that is a normal state, not an error.
       if (lastError !== 'ollama') { log(`local model unreachable at ${cfg.ollama} (${e.message}) — idling until it is`); lastError = 'ollama'; }
@@ -153,5 +173,6 @@ module.exports = {
   // pure / testable
   shouldSpeak,
   toOllamaMessages,
+  stripThinking,
   SPONTANEOUS_EVERY,
 };
