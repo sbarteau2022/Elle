@@ -25,13 +25,14 @@
 //   ELLE_SANDBOX_KEY         shared secret; REQUIRED (no key ⇒ idle).
 //   ELLE_WORKER_URL          worker origin; same fallback as the sandbox agent.
 //   ELLE_OLLAMA_URL          local model host  (default http://127.0.0.1:11434)
-//   ELLE_LOCAL_MODEL         the 7B            (default qwen2.5:7b)
+//   ELLE_LOCAL_MODEL         the local model — the EXACT `ollama list` name
+//                            (default elle:latest)
 //   ELLE_DUPLEX_INTERVAL_MS  tick period       (default 90s)
 // ============================================================
 
 const DEFAULT_WORKER = 'https://elle-worker.sbarteau2022.workers.dev';
 const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = 'qwen3:4b';
+const DEFAULT_MODEL = 'elle:latest';
 const DEFAULT_INTERVAL = 90_000;
 const SPONTANEOUS_EVERY = 20;  // ticks of silence before it volunteers a thought
 const MAX_REPLY = 2000;
@@ -169,10 +170,12 @@ async function tick(cfg) {
     let thought;
     try {
       const gen = await post(`${cfg.ollama}/api/chat`, {
-        // think:false keeps qwen3-family models from spending the tick on a
-        // reasoning block (older Ollama versions ignore the field); the strip
-        // below catches any <think> tags that arrive regardless.
-        model: cfg.model, messages: toOllamaMessages(messages), stream: false, think: false,
+        // No `think` field: Ollama returns a thinking model's reasoning in a
+        // separate message.thinking we simply never read, so message.content
+        // is already clean. (Passing think:false crashed some builds; matching
+        // the plain request that works avoids it.) stripThinking is a
+        // belt-and-suspenders catch for any <think> tags that arrive inline.
+        model: cfg.model, messages: toOllamaMessages(messages), stream: false,
       });
       thought = stripThinking((gen && gen.message && gen.message.content) || '');
     } catch (e) {
