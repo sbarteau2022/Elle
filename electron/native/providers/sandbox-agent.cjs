@@ -164,32 +164,36 @@ function handleExec(job, s) {
   proc.on('error', (e) => { errOut = cap(errOut, Buffer.from(`spawn error: ${e.message}\n`)); finish(-1); });
 }
 
+// Pure: job → { bin, args, ext, electronRunAsNode } describing how to run it,
+// with no code-file arg appended yet (ext === null means "shell", no temp
+// file). Split out from spawnFor so the language/shell dispatch is testable
+// without actually spawning a process.
+function commandFor(job) {
+  if (job.mode === 'shell') {
+    const shell = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
+    const flag = process.platform === 'win32' ? '/c' : '-c';
+    return { bin: shell, args: [flag, String(job.command || '')], ext: null };
+  }
+  const lang = (job.language || 'python').toLowerCase();
+  if (lang === 'python' || lang === 'py') return { bin: pythonBin(), args: [], ext: '.py' };
+  if (lang === 'javascript' || lang === 'js' || lang === 'node') {
+    return { bin: process.execPath.includes('electron') ? 'node' : process.execPath, args: [], ext: '.mjs', electronRunAsNode: true };
+  }
+  if (lang === 'typescript' || lang === 'ts') {
+    return { bin: process.platform === 'win32' ? 'npx.cmd' : 'npx', args: ['-y', 'tsx'], ext: '.ts' };
+  }
+  return null;
+}
+
 function spawnFor(job) {
   ensureRoot();
   const cwd = root;
-  const env = { ...process.env };
-  if (job.mode === 'shell') {
-    const cmd = String(job.command || '');
-    const shell = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
-    const flag = process.platform === 'win32' ? '/c' : '-c';
-    return { proc: spawn(shell, [flag, cmd], { cwd, env }), tmp: null };
-  }
-  // mode === 'code'
-  const lang = (job.language || 'python').toLowerCase();
-  const code = String(job.code || '');
-  if (lang === 'python' || lang === 'py') {
-    const tmp = writeTmp(code, '.py');
-    return { proc: spawn(pythonBin(), [tmp], { cwd, env }), tmp };
-  }
-  if (lang === 'javascript' || lang === 'js' || lang === 'node') {
-    const tmp = writeTmp(code, '.mjs');
-    return { proc: spawn(process.execPath.includes('electron') ? 'node' : process.execPath, [tmp], { cwd, env: { ...env, ELECTRON_RUN_AS_NODE: '1' } }), tmp };
-  }
-  if (lang === 'typescript' || lang === 'ts') {
-    const tmp = writeTmp(code, '.ts');
-    return { proc: spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['-y', 'tsx', tmp], { cwd, env }), tmp };
-  }
-  return { proc: null, tmp: null };
+  const c = commandFor(job);
+  if (!c) return { proc: null, tmp: null };
+  const env = c.electronRunAsNode ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : { ...process.env };
+  if (c.ext === null) return { proc: spawn(c.bin, c.args, { cwd, env }), tmp: null };
+  const tmp = writeTmp(String(job.code || ''), c.ext);
+  return { proc: spawn(c.bin, [...c.args, tmp], { cwd, env }), tmp };
 }
 
 function pythonBin() { return process.platform === 'win32' ? 'python' : 'python3'; }
@@ -333,6 +337,10 @@ module.exports = {
   id: 'sandboxAgent',
   platforms: ['darwin', 'win32', 'linux'],
   available: true,
+  // Exposed for unit tests — pure, no socket/process side effects.
+  config,
+  commandFor,
+  walkFiles,
   start(opts) {
     const cfg = config(opts);
     if (!cfg.key) { log('idle — ELLE_SANDBOX_KEY not set; not connecting'); return; }
