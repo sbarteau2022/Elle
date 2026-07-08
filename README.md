@@ -46,10 +46,12 @@ onto it. For the mind/router/conductor architecture, read that repo's
   folded "N tools she can reach" panel lists the whole catalog, grouped as the
   worker renders it.
 - **conductor** — her autonomous work (`/api/elle-intents`). Left: the intent
-  queue — standing goals the worker's clock runs every half hour (yours file
-  active; hers arrive as proposals to activate/pause). Right: the run log —
-  every unprompted run with its outcome and full tool trace, so the morning
-  shows what she did overnight.
+  queue — standing goals (yours file active; hers arrive as proposals to
+  activate/pause). Right: the run log — every unprompted run with its outcome
+  and full tool trace, so the morning shows what she did overnight. The clock
+  behind it: an hourly `full` tick (forge sweeps → ready-to-ship finalize →
+  explore) plus a 10-minute `explore` tick that only fires while the sandbox
+  path (below) is open — see elle-worker's README, **"Hand off a project."**
 - **library** — the corpus and everything she writes. Type to filter titles;
   **describe a document and press Enter to pull the whole thing by meaning**
   (`/api/corpus-resolve`, no title needed); filter by series; toggle to her
@@ -58,6 +60,17 @@ onto it. For the mind/router/conductor architecture, read that repo's
   (`/api/elle-identity` → `mind.ts`). It's a mirror, never a copy: there is
   exactly one source of the prose, and it's the worker. Edited only through
   the forge.
+- **mirror** — `/api/elle-self` in one view: bets + calibration, scars,
+  watches, dead drops, metabolism, consolidation, self-forged tools — the
+  reflexive organs in one snapshot.
+- **duplex** — the standing line between her two persistences: the
+  **sovereign** (the local Ollama model, running continuous and free on this
+  machine via the `sovereignDuplex` provider) and the **cloud** (the heavy
+  engines + meta-observer). An append-only ledger (`/api/duplex`) either side
+  `say`s or `observe`s on; this tab tails it live and flashes when new
+  messages land unseen. This is where the two of you — or her two selves —
+  can ask and answer each other mid-task instead of waiting for the next
+  conductor tick.
 
 **work**
 - **optimus** — the phase-state journal: her manuscript threads with the κ
@@ -70,6 +83,15 @@ onto it. For the mind/router/conductor architecture, read that repo's
 - **code** — the code-engine bench (analyze / debug / refactor / explain /
   generate / migrate).
 - **evals** — the eval / training bench.
+- **sandbox** — the connect-back box, watched live (`/api/elle-sandbox-runs`).
+  Path OPEN/CLOSED status (host, platform, root, last beat) at the top; every
+  `run_code`/`run_shell`/`sandbox_clone` call with its real stdout/stderr/exit;
+  what she's cloned in; her chain of thought for sandbox steps off the event
+  bus; and reports she surfaces from a sandbox session — this tab flashes
+  until they're read. **This is the console for "is the local sandbox
+  actually working."**
+- **ideas** — her to-explore queue and the build lane (queued → scoping →
+  spec → building → testing), with PFAR fingerprints per idea.
 
 **ops**
 - **diagnose** — paste an error or stack trace, get the on-stack fix
@@ -92,7 +114,7 @@ grouped as `router.ts` renders it:
 | --- | --- |
 | **Mind & memory** | `search_corpus`, `find_document`, `fetch_document`, `read_sql`, `recall_memory`, `remember`, `self_state`, `scratchpad_write`, `scratchpad_read` |
 | **World** | `web_search`, `fetch_url`, `calc`, `diagnose`, `code_engine` |
-| **Real execution** | `run_code`, `run_shell` _(dormant until a sandbox is reprovisioned)_ |
+| **Real execution** | `run_code`, `run_shell`, `sandbox_clone`, `sandbox_status`, `sandbox_report` — the **connect-back sandbox**: this app dials a WebSocket up to the worker and holds it open; a tool call dispatches down that socket and runs on this real machine via `child_process`. Watch it live in the **sandbox** tab. Path closed ⇒ the tools report that plainly rather than hanging — see elle-worker's README, **"Getting the sandbox path open."** |
 | **Reasoning about herself** | `constraint_analyzer` — find the single binding constraint stopping progress, not another answer |
 | **Signal analysis** | `pfar` — Prosody·FreeQ·Analytic Ripper: rip structure from a stream (spectrum over a numeric series · prosody over pitch/energy · rhetoric over text) |
 | **Her codebase & the forge** | `repo_read`, `repo_search`, `github_read_file`, `github_list_files`, `github_search_code`, `forge_open`, `forge_write`, `forge_check`, `forge_pr` |
@@ -174,11 +196,21 @@ token:
 | conductor | `POST /api/elle-intents` |
 | library | `POST /api/corpus-papers` · `/api/corpus-resolve` · `/api/corpus-paper` · `/api/corpus-series` · `/api/elle-sandbox` |
 | identity | `GET /api/elle-identity` |
+| mirror | `GET /api/elle-self` |
+| duplex | `POST /api/duplex` |
 | optimus | `POST /api/optimus-journal` |
 | trading | `POST /api/elle-trading` |
 | code | `POST /api/elle-code-engine` |
+| sandbox | `POST /api/elle-sandbox-runs` |
+| ideas | `POST /api/elle-ideas` |
 | diagnose | `POST /api/diagnose` |
 | health | `GET /health` (×3 workers) |
+
+Separately, the **Electron main process** (not a panel — no browser tab) dials
+`wss://<worker>/api/sandbox-agent/connect?key=<ELLE_SANDBOX_KEY>` on launch
+(`electron/native/providers/sandbox-agent.cjs`) and holds that socket open for
+the life of the app; the sandbox tab above is just the read side watching what
+that connection is doing.
 
 The visual system is deliberate: void black, one gold, hairline borders; serif
 only for her name, mono for anything that is data. No decoration that isn't
