@@ -44,6 +44,7 @@ const TOOLS: [string, string][] = [
   ['scratchpad_read', 'short-TTL working memory · read'],
   // world
   ['web_search', 'live web · grounded'],
+  ['deep_research', 'multi-round web investigation · one cited dossier'],
   ['fetch_url', 'read one http(s) page'],
   ['calc', 'exact deterministic arithmetic'],
   ['diagnose', 'root-cause a stack/build error'],

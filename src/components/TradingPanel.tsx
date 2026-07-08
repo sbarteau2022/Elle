@@ -1,10 +1,13 @@
 // ============================================================
 // TRADING — her desk, in the workbench.
 // The live account, open positions, her recent trades WITH the reasoning
-// that placed them, active theses, and her trading journal. Read-only —
-// she trades on the cron; this is the window, not the controls.
+// that placed them, active theses, market observations, and her trading
+// journal. Read-only, deliberately — she trades on the cron; this is the
+// window, not the controls. "Interactive" here means better BROWSING of
+// what's already there (filter, sort, more of the reasoning surfaced), not
+// new ability to move money.
 // ============================================================
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { WORKER, getToken } from '../lib/elle'
 
 type Any = Record<string, any>
@@ -12,10 +15,21 @@ type Any = Record<string, any>
 const money = (n: any) => n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
 const pct = (n: any) => n == null ? '—' : (Number(n) >= 0 ? '+' : '') + Number(n).toFixed(2) + '%'
 const pnlColor = (n: any) => n == null ? 'var(--t3)' : Number(n) >= 0 ? '#4ADE80' : '#D06565'
+const TRADE_ACTIONS = ['all', 'buy', 'sell', 'watch', 'hold']
+const TRADE_STATUSES = ['all', 'open', 'closed']
+const TRADE_SORTS = [
+  { id: 'recent', label: 'most recent' },
+  { id: 'pnl', label: 'p&l' },
+  { id: 'confidence', label: 'confidence' },
+] as const
 
 export default function TradingPanel({ accent }: any) {
   const [d, setD] = useState<Any | null>(null)
   const [note, setNote] = useState('')
+  const [symbolFilter, setSymbolFilter] = useState('')
+  const [actionFilter, setActionFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState<typeof TRADE_SORTS[number]['id']>('recent')
 
   const load = async () => {
     try {
@@ -27,19 +41,32 @@ export default function TradingPanel({ accent }: any) {
   }
   useEffect(() => { load(); const iv = setInterval(load, 60000); return () => clearInterval(iv) }, [])
 
-  if (note) return <Pad><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#D06565' }}>{note}</div></Pad>
-  if (!d) return <Pad><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--t3)' }}>loading the desk…</div></Pad>
-
-  const acct = d.account || {}
-  const positions: Any[] = d.positions || []
-  const trades: Any[] = d.trades || []
-  const theses: Any[] = d.theses || []
-  const journal: Any[] = d.journal || []
-  const marketOpen = d.market_open !== false
+  const acct = d?.account || {}
+  const positions: Any[] = d?.positions || []
+  const trades: Any[] = d?.trades || []
+  const theses: Any[] = d?.theses || []
+  const journal: Any[] = d?.journal || []
+  const observations: Any[] = d?.observations || []
+  const marketOpen = d?.market_open !== false
   // Today's trades, for the off-hours replay header.
   const today = new Date().toISOString().slice(0, 10)
   const todays = trades.filter(t => String(t.created_at || '').slice(0, 10) === today)
   const todayPnl = todays.reduce((s, t) => s + (Number(t.pnl) || 0), 0)
+
+  const visibleTrades = useMemo(() => {
+    const q = symbolFilter.trim().toUpperCase()
+    let out = trades.filter(t =>
+      (!q || String(t.symbol || '').toUpperCase().includes(q)) &&
+      (actionFilter === 'all' || t.action === actionFilter) &&
+      (statusFilter === 'all' || t.status === statusFilter))
+    if (sortBy === 'pnl') out = [...out].sort((a, b) => (Number(b.pnl) || 0) - (Number(a.pnl) || 0))
+    else if (sortBy === 'confidence') out = [...out].sort((a, b) => (Number(b.confidence) || 0) - (Number(a.confidence) || 0))
+    // 'recent' is already the API's order (created_at DESC) — no re-sort needed
+    return out
+  }, [trades, symbolFilter, actionFilter, statusFilter, sortBy])
+
+  if (note) return <Pad><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#D06565' }}>{note}</div></Pad>
+  if (!d) return <Pad><div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--t3)' }}>loading the desk…</div></Pad>
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
@@ -88,10 +115,15 @@ export default function TradingPanel({ accent }: any) {
         {/* positions */}
         <Section title="open positions">
           {positions.length === 0 ? <Empty>flat — no open positions</Empty> : (
-            <Table head={['symbol', 'qty', 'market value', 'unreal. p&l']}
+            <Table head={['symbol', 'side', 'qty', 'entry', 'current', 'market value', 'unreal. p&l', '%']}
               rows={positions.map(p => [
-                <b style={{ color: 'var(--t1)' }}>{p.symbol}</b>, p.qty ?? p.quantity ?? '—',
-                money(p.market_value), <span style={{ color: pnlColor(p.unrealized_pl ?? p.unrealized_pnl) }}>{money(p.unrealized_pl ?? p.unrealized_pnl)}</span>,
+                <b style={{ color: 'var(--t1)' }}>{p.symbol}</b>,
+                <span style={{ textTransform: 'uppercase', fontSize: 10.5, color: 'var(--t3)' }}>{p.side || '—'}</span>,
+                p.qty ?? p.quantity ?? '—',
+                money(p.entry_price), money(p.current_price),
+                money(p.market_value),
+                <span style={{ color: pnlColor(p.unrealized_pl ?? p.unrealized_pnl) }}>{money(p.unrealized_pl ?? p.unrealized_pnl)}</span>,
+                <span style={{ color: pnlColor(p.unrealized_pnl_pct) }}>{pct(p.unrealized_pnl_pct)}</span>,
               ])} />
           )}
         </Section>
@@ -113,11 +145,36 @@ export default function TradingPanel({ accent }: any) {
           </Section>
         )}
 
+        {/* market observations — what she's noticing, separate from what she acted on */}
+        {observations.length > 0 && (
+          <Section title="market observations">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {observations.map((o, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>{o.observation_type}{o.symbol ? ` · ${o.symbol}` : ''}</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--t2)' }}>{o.observation}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* trades with her reasoning */}
         <Section title="recent trades — with her reasoning">
           {trades.length === 0 ? <Empty>no trades yet</Empty> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {trades.map((t, i) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  value={symbolFilter} onChange={e => setSymbolFilter(e.target.value)}
+                  placeholder="filter by symbol…"
+                  style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, padding: '5px 9px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)', width: 140 }}
+                />
+                <Select value={actionFilter} onChange={setActionFilter} options={TRADE_ACTIONS} />
+                <Select value={statusFilter} onChange={setStatusFilter} options={TRADE_STATUSES} />
+                <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>sort</span>
+                <Select value={sortBy} onChange={v => setSortBy(v as typeof sortBy)} options={TRADE_SORTS.map(s => s.id)} labels={Object.fromEntries(TRADE_SORTS.map(s => [s.id, s.label]))} />
+              </div>
+              {visibleTrades.length === 0 ? <Empty>no trades match that filter</Empty> : visibleTrades.map((t, i) => (
                 <div key={i} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: '10px 12px' }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: t.action === 'buy' ? '#4ADE80' : t.action === 'sell' ? '#D06565' : accent }}>{String(t.action || '').toUpperCase()}</span>
@@ -128,6 +185,12 @@ export default function TradingPanel({ accent }: any) {
                   </div>
                   {t.reasoning && <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.6, marginTop: 6 }}>{t.reasoning}</div>}
                   {t.what_she_is_testing && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t3)', marginTop: 4, fontStyle: 'italic' }}>testing: {t.what_she_is_testing}</div>}
+                  {(t.expected_catalyst || t.expected_timeframe) && (
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      {t.expected_catalyst && <span>catalyst: {t.expected_catalyst}</span>}
+                      {t.expected_timeframe && <span>horizon: {t.expected_timeframe}</span>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -158,6 +221,17 @@ export default function TradingPanel({ accent }: any) {
 
 const Pad = ({ children }: any) => <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{children}</div>
 const Empty = ({ children }: any) => <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t4)' }}>{children}</div>
+
+function Select({ value, onChange, options, labels }: { value: string; onChange: (v: string) => void; options: string[]; labels?: Record<string, string> }) {
+  return (
+    <select
+      value={value} onChange={e => onChange(e.target.value)}
+      style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)' }}
+    >
+      {options.map(o => <option key={o} value={o}>{labels?.[o] || o}</option>)}
+    </select>
+  )
+}
 
 function Tile({ label, value, color, accent }: any) {
   return (
