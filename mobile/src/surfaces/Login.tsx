@@ -2,25 +2,31 @@
 // THE THRESHOLD — sign in / first arrival.
 //
 // Email + password against /api/elle-auth (signup is open: a new account is
-// a 'standard' tier = member scope). A provisioned account with a temp
-// password walks the forced set_password flow before the door opens.
+// a 'standard' tier = member scope), or one tap with Google (/api/elle-oauth
+// — same tier, same JWT). The Google button appears only when the native
+// module and a web client ID are actually present (an EAS build with the env
+// set); in Expo Go or an unconfigured build it simply isn't there. A
+// provisioned account with a temp password walks the forced set_password
+// flow before the door opens.
 // ============================================================
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '../auth';
 import { Button } from '../components/ui';
+import { googleAvailable } from '../google';
 import { colors, fonts, hairline, space } from '../theme';
 
 type Mode = 'login' | 'signup' | 'reset';
 
 export function Login() {
-  const { signIn, signUp, completeReset } = useAuth();
+  const { signIn, signUp, completeReset, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const canGoogle = googleAvailable();
 
   const go = async () => {
     setError(null);
@@ -32,6 +38,16 @@ export function Login() {
         const r = await signIn(email.trim(), password);
         if (r.mustReset) { setMode('reset'); setError('Set your own password to open the door.'); }
       }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally { setBusy(false); }
+  };
+
+  const goGoogle = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await signInWithGoogle(); // false = sheet dismissed; nothing to show either way
     } catch (e) {
       setError((e as Error).message);
     } finally { setBusy(false); }
@@ -70,6 +86,23 @@ export function Login() {
           />
         </View>
 
+        {canGoogle && mode !== 'reset' ? (
+          <>
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.orLine} />
+            </View>
+            <Pressable
+              onPress={() => { void goGoogle(); }} disabled={busy}
+              style={({ pressed }) => [styles.googleBtn, (pressed || busy) && { opacity: 0.6 }]}
+            >
+              <Text style={styles.googleG}>G</Text>
+              <Text style={styles.googleText}>Continue with Google</Text>
+            </Pressable>
+          </>
+        ) : null}
+
         {mode !== 'reset' ? (
           <Pressable onPress={() => { setMode(m => (m === 'login' ? 'signup' : 'login')); setError(null); }} hitSlop={8}>
             <Text style={styles.swap}>
@@ -93,4 +126,14 @@ const styles = StyleSheet.create({
   },
   error: { fontFamily: fonts.body, fontSize: 14, color: '#c96a5a', textAlign: 'center', marginTop: space(1) },
   swap: { fontFamily: fonts.body, fontSize: 14, color: colors.mist, textAlign: 'center', marginTop: space(4) },
+  orRow: { flexDirection: 'row', alignItems: 'center', gap: space(3), marginTop: space(4) },
+  orLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.dim },
+  orText: { fontFamily: fonts.mono, fontSize: 10, color: colors.dim, letterSpacing: 1 },
+  googleBtn: {
+    ...hairline, borderRadius: 10, marginTop: space(3),
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space(2),
+    paddingVertical: space(3),
+  },
+  googleG: { fontFamily: fonts.display, fontSize: 17, color: colors.gold },
+  googleText: { fontFamily: fonts.body, fontSize: 15, color: colors.cream },
 });
