@@ -11,6 +11,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { auth as authApi, type User } from './api';
+import { googleIdToken, googleSignOut } from './google';
 
 const KEY_TOKEN = 'elle.token';
 const KEY_USER = 'elle.user';
@@ -22,6 +23,9 @@ export interface AuthState {
   signIn(email: string, password: string): Promise<{ mustReset: boolean }>;
   signUp(email: string, password: string): Promise<void>;
   completeReset(email: string, tempPassword: string, newPassword: string): Promise<void>;
+  /** Native Google sheet → /api/elle-oauth → same JWT as password login.
+   *  Resolves false if the user dismissed the sheet (not an error). */
+  signInWithGoogle(): Promise<boolean>;
   signOut(): Promise<void>;
 }
 
@@ -82,9 +86,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await persist(r.access_token, r.user);
   }, [persist]);
 
+  const signInWithGoogle = useCallback(async () => {
+    const idToken = await googleIdToken();
+    if (!idToken) return false; // sheet dismissed — not an error
+    const r = await authApi.oauth(idToken);
+    await persist(r.access_token, r.user);
+    return true;
+  }, [persist]);
+
+  const signOut = useCallback(async () => {
+    await googleSignOut(); // drop the native session so the picker shows next time
+    await clear();
+  }, [clear]);
+
   const value = useMemo<AuthState>(() => ({
-    restoring, token, user, signIn, signUp, completeReset, signOut: clear,
-  }), [restoring, token, user, signIn, signUp, completeReset, clear]);
+    restoring, token, user, signIn, signUp, completeReset, signInWithGoogle, signOut,
+  }), [restoring, token, user, signIn, signUp, completeReset, signInWithGoogle, signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

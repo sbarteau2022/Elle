@@ -48,6 +48,42 @@ Sign-up is open (a new account is `standard` tier = `member` scope on the
 worker: her reading mind, never `read_sql`/trading/corpus writes). A
 provisioned account with a temp password walks the forced reset flow.
 
+## Google sign-in
+
+One tap with Google on the threshold, next to email/password. Flow: the
+native Google sheet (`@react-native-google-signin`) hands the app an ID
+token → `POST /api/elle-oauth` → the **worker** verifies it (audience check
+against its `GOOGLE_CLIENT_ID` allowlist + `email_verified`) and mints the
+same 30-day JWT as password login, upserting a `standard`-tier account by
+email. The app never trusts the Google token itself; the worker is the door.
+
+**It degrades to absent, never to broken**: the button renders only when the
+native module exists (a real EAS build, not Expo Go) *and*
+`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` was baked in at bundle time. Unset, the
+threshold is exactly what it was — email/password only.
+
+Setup (one time, Stewart's Google account — none of this can run from an
+agent session):
+
+1. **Google Cloud Console** → APIs & Services → Credentials → create OAuth
+   client IDs in one project: a **Web application** client (this is the
+   idToken audience on Android — yes, web), an **iOS** client (bundle id
+   `com.sbarteau.elle`), and optionally an **Android** client (package
+   `com.sbarteau.elle` + your EAS build's SHA-1, shown by
+   `eas credentials`) — the Android client isn't referenced in code but
+   Google requires it to exist for Credential Manager on some devices.
+2. **Worker**: set the secret as a comma-separated allowlist of the web +
+   iOS client IDs:
+   `wrangler secret put GOOGLE_CLIENT_ID` →
+   `<web-id>,<ios-id>` (the endpoint is inert 503 until this is set).
+3. **App env** (copy `.env.example` → `.env`, or set as EAS env vars):
+   `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`,
+   and `GOOGLE_IOS_URL_SCHEME` (the iOS client ID reversed — Console shows
+   it as "iOS URL scheme"; build-time only, consumed by `app.config.js` to
+   register the URL scheme at prebuild).
+4. Rebuild (`npm run build:preview…`) — native module changes need a new
+   build, not just a JS update.
+
 ## Shipping — internal build, install via link (no store review)
 
 The chosen path for now: EAS's **internal distribution** — a real, native,
