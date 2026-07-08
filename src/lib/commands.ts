@@ -21,6 +21,7 @@ export type WorkbenchEvent =
   | { kind: 'dictation.interim'; text: string } // words still forming, for live display
   | { kind: 'gesture.nod' }                   // embodied "yes" — confirm/send
   | { kind: 'gesture.shake' }                 // embodied "no" — cancel/stop
+  | { kind: 'forge.ship'; ideaId: string; name?: string } // "ship this bubble" → the Forge panel streams it
 
 type Kind = WorkbenchEvent['kind']
 type Of<K extends Kind> = Extract<WorkbenchEvent, { kind: K }>
