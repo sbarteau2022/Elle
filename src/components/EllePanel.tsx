@@ -102,7 +102,7 @@ const TOOLS: [string, string][] = [
   // writes / sensitive
   ['ingest_paper', 'add to corpus · 2-check gate'],
   ['trigger_dream', 'run one libre/dream cycle'],
-  ['trade_execute', 'Alpaca · buy/sell/close'],
+  ['trade_execute', 'Alpaca · buy/sell/short/cover/close, equities + options'],
 ]
 
 // Tools a cofounder's restricted scope refuses (mirrors the worker's SHIP_DENY):

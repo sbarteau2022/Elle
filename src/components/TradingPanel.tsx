@@ -15,7 +15,7 @@ type Any = Record<string, any>
 const money = (n: any) => n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
 const pct = (n: any) => n == null ? '—' : (Number(n) >= 0 ? '+' : '') + Number(n).toFixed(2) + '%'
 const pnlColor = (n: any) => n == null ? 'var(--t3)' : Number(n) >= 0 ? '#4ADE80' : '#D06565'
-const TRADE_ACTIONS = ['all', 'buy', 'sell', 'watch', 'hold']
+const TRADE_ACTIONS = ['all', 'buy', 'sell', 'short', 'cover', 'watch', 'hold']
 const TRADE_STATUSES = ['all', 'open', 'closed']
 const TRADE_SORTS = [
   { id: 'recent', label: 'most recent' },
@@ -177,8 +177,13 @@ export default function TradingPanel({ accent }: any) {
               {visibleTrades.length === 0 ? <Empty>no trades match that filter</Empty> : visibleTrades.map((t, i) => (
                 <div key={i} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: '10px 12px' }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: t.action === 'buy' ? '#4ADE80' : t.action === 'sell' ? '#D06565' : accent }}>{String(t.action || '').toUpperCase()}</span>
-                    <b style={{ color: 'var(--t1)', fontSize: 13 }}>{t.symbol}</b>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: t.action === 'buy' || t.action === 'cover' ? '#4ADE80' : t.action === 'sell' || t.action === 'short' ? '#D06565' : accent }}>{String(t.action || '').toUpperCase()}</span>
+                    <b style={{ color: 'var(--t1)', fontSize: 13 }}>{t.underlying_symbol || t.symbol}</b>
+                    {t.asset_class === 'option' && (
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: accent, border: `0.5px solid ${accent}66`, borderRadius: 4, padding: '1px 5px' }}>
+                        {String(t.option_right || '').toUpperCase()} ${t.strike_price} · exp {t.expiration_date}
+                      </span>
+                    )}
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t3)' }}>{t.quantity} @ {money(t.entry_price)}{t.exit_price ? ` → ${money(t.exit_price)}` : ''}</span>
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>{t.status}{t.confidence != null ? ` · conf ${t.confidence}` : ''}</span>
                     {t.pnl != null && <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 11, color: pnlColor(t.pnl) }}>{money(t.pnl)} ({pct(t.pnl_pct)})</span>}
@@ -189,6 +194,11 @@ export default function TradingPanel({ accent }: any) {
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       {t.expected_catalyst && <span>catalyst: {t.expected_catalyst}</span>}
                       {t.expected_timeframe && <span>horizon: {t.expected_timeframe}</span>}
+                    </div>
+                  )}
+                  {t.attribution && (
+                    <div style={{ fontSize: 11, color: 'var(--t2)', lineHeight: 1.6, marginTop: 8, paddingTop: 8, borderTop: '0.5px solid var(--b2)' }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>attribution: </span>{t.attribution}
                     </div>
                   )}
                 </div>
