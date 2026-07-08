@@ -124,7 +124,7 @@ grouped as `router.ts` renders it:
 | **Provenance** | `provenance` — read the event bus: replay a run's ordered step stream (State Replay) or trace where an answer came from |
 | **Journal** | `journal_read`, `journal_thread`, `journal_write`, `journal_annotate` |
 | **Hospitality** (native `rapid2ai-db`) | `rapid_report`, `rapid_costs`, `rapid_variance`, `rapid_pos`, `rapid_menu` |
-| **Writes / sensitive** | `ingest_paper` (2-check gate), `trigger_dream`, `trade_execute` |
+| **Writes / sensitive** | `ingest_paper` (2-check gate), `trigger_dream`, `trade_execute` — equities (buy/sell/short/cover/close) and options (calls/puts, buying or writing, resolved from a target strike rather than a raw OCC symbol) on the paper Alpaca account; no hard position-size caps, same reasoning-is-the-gate model as the rest of the desk |
 
 The single source of the catalog is the worker's `router.ts`; the chip list in
 `EllePanel.tsx` mirrors it. For each tool's exact signature and the scope model,
