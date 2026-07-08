@@ -172,6 +172,36 @@ npm run build            # plain Vite build
 npm run preview          # preview a production renderer build
 ```
 
+## Desktop shortcut — "Reset & Launch" (macOS)
+
+A one-click icon for when the local clone is in a state worth just throwing
+away: it clears `~/Elle`, pulls a fresh copy from GitHub, `npm install`s, and
+launches `electron:dev` — all in one double-click, output visible in a
+Terminal window it opens for you.
+
+```bash
+node electron/branding/make-icns.cjs   # (re)generate the icon — void black,
+                                        # one gold mark, same identity as the
+                                        # mobile app's icon
+bash scripts/make-desktop-icon.sh      # builds ~/Desktop/Elle Reset & Launch.app
+```
+
+It's **guarded, not blind**: it refuses to wipe anything if the existing
+clone has uncommitted or untracked changes (commit/stash first, or pass
+`--force` to `scripts/reset-and-launch.sh` directly to discard them anyway),
+clones into a temp dir first so a failed clone never touches your working
+copy, and carries your gitignored `.env`/`.env.local` across the wipe so
+`ELLE_SANDBOX_KEY` etc. survive.
+
+The `.app` is self-contained — the reset logic is baked in at build time, so
+wiping `~/Elle` never touches the icon that triggered it. Re-run
+`make-desktop-icon.sh` whenever `scripts/reset-and-launch.sh` changes, to
+refresh it. First launch needs one Gatekeeper step: right-click → Open →
+Open (it's an unsigned local build); after that, plain double-click works.
+
+Point it at a different clone location or fork with `ELLE_APP_DIR` /
+`ELLE_REPO_URL` env vars — see `scripts/reset-and-launch.sh`.
+
 ## Scripts
 
 | Script | Purpose |
