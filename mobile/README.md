@@ -48,21 +48,59 @@ Sign-up is open (a new account is `standard` tier = `member` scope on the
 worker: her reading mind, never `read_sql`/trading/corpus writes). A
 provisioned account with a temp password walks the forced reset flow.
 
-## Shipping (the human yes)
+## Shipping — internal build, install via link (no store review)
 
-Builds are EAS-ready (`eas.json`: development / preview / production). What
-needs Stewart's hands, in order:
+The chosen path for now: EAS's **internal distribution** — a real, native,
+installable build (push notifications and everything work; this is not a
+PWA) that testers install straight from a link/QR code, no App Store or Play
+Store review. `eas.json`'s `preview` profile is already configured for this
+(`"distribution": "internal"`) — Android needs nothing further and produces
+a directly-installable `.apk` automatically; iOS additionally needs its
+devices registered ahead of time (ad-hoc provisioning: only device UDIDs on
+the allow-list at build time can install, link or no link).
 
-1. `npx eas init` — links the app to an EAS project (writes the `projectId`
-   into `app.json` `extra.eas`; push registration is a clean no-op until then).
-2. `npx eas build --profile preview --platform all` — needs Apple Developer +
-   Google Play accounts wired into EAS credentials.
-3. `npx eas submit` — the store click stays a human click, same law as the
-   forge.
+Everything below needs Stewart's own login/identity/payment — none of it can
+be run from an agent session, interactive browser/device auth is required:
 
-Icons/splash are generated (`node scripts/make-icons.js` — void black, one
-gold mark, no image toolchain needed). The privacy policy the stores require
-is served by the worker at `/privacy`, so it can never drift from what the
+1. **`npx eas init`** (one time) — links the app to an Expo/EAS account,
+   writes `projectId` into `app.json` → `extra.eas`. Free account is enough
+   for this step; push registration is a clean no-op until it's done.
+2. **Android — ship it now, nothing else needed:**
+   ```bash
+   npm run build:preview:android    # eas build --profile preview --platform android
+   ```
+   EAS prints a build-details URL (and shows a QR code) when it finishes —
+   anyone with the link taps it on an Android phone and installs the `.apk`
+   directly. No Google account, no Play Console, no review.
+3. **iOS — one extra step first, because Apple gates installs by device:**
+   - Free Apple ID is enough to build *for your own registered devices*;
+     wider ad-hoc distribution (more testers) needs the Apple Developer
+     Program ($99/yr) so EAS can manage an ad-hoc provisioning profile.
+   - Register each tester's device UDID **before** building:
+     ```bash
+     npm run device:register          # eas device:create — opens a
+                                       # registration URL/QR; the tester
+                                       # opens it ON their iPhone once
+     ```
+   - Then build:
+     ```bash
+     npm run build:preview:ios        # eas build --profile preview --platform ios
+     ```
+     EAS will also prompt to register any devices you haven't yet if it
+     detects a gap — same flow, just inline.
+   - Same as Android: EAS prints an install link/QR when the build
+     finishes. Only devices registered *before that build* can actually
+     install with it — registering a device after the fact needs a new
+     build.
+
+**Later, when ready for the real stores** (no one asked for this yet — do
+not do it preemptively): `eas build --profile production` +
+`npx eas submit`, needs Apple Developer Program + Google Play Console
+account, and store review. The store click stays a human click, same law
+as the forge. Store-listing prerequisites already exist either way: icons/
+splash are generated (`node scripts/make-icons.js` — void black, one gold
+mark, no image toolchain needed), and the privacy policy stores require is
+served by the worker at `/privacy`, so it can never drift from what the
 code does.
 
 ## Architecture notes
