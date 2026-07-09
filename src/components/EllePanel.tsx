@@ -442,6 +442,10 @@ export default function EllePanel({ worker, accent }: any) {
                           )}
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: accent }}>
                             {s.tool}<span style={{ color: 'var(--t4)' }}>{'  ' + JSON.stringify(s.args)}</span>
+                            {typeof s.kappa === 'number' && (
+                              <span title="κ over this step's thought — her coherence, step by step"
+                                style={{ color: 'var(--t3)', marginLeft: 8 }}>κ {s.kappa.toFixed(2)}</span>
+                            )}
                           </div>
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, whiteSpace: 'pre-wrap', color: 'var(--t3)', lineHeight: 1.55, marginTop: 2, maxHeight: 180, overflowY: 'auto' }}>
                             {String(s.result || '')}
