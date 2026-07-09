@@ -1,4 +1,4 @@
- # Elle · Workbench
+  # Elle · Workbench
 
 The local, superadmin-only desktop console for Elle — a React + Vite renderer
 running inside Electron. **This is the one console.** The old cloud dev console
