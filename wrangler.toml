@@ -7,8 +7,12 @@
 #   elle-worker   → the Cloudflare Worker holding her mind
 #
 # No [assets] `main` script: this is assets-only (no server-side logic here),
-# so the SPA fallback below is enough — public/_redirects is kept too as a
-# harmless belt-and-suspenders for any tooling that still reads it.
+# so the SPA fallback below is enough on its own. public/_redirects (the
+# legacy /* /index.html 200 rule) is deliberately NOT kept alongside this —
+# turns out it isn't harmless: Cloudflare's redirects validator rejects the
+# combination as an infinite loop (deploy error 100324, "this would cause a
+# redirect to strip .html/index and end up triggering this rule again").
+# not_found_handling below is the one true source for SPA fallback now.
 name = "elle"
 compatibility_date = "2026-06-25"
 
