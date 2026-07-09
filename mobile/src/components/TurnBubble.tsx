@@ -5,6 +5,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { LiveStep } from '../api';
 import { colors, fonts, space } from '../theme';
+import { Md } from '../lib/md';
 import { ToolFold } from './ToolFold';
 
 export interface ThreadTurn {
@@ -28,7 +29,7 @@ export function TurnBubble({ turn }: { turn: ThreadTurn }) {
   return (
     <View style={styles.elleWrap}>
       {turn.steps?.length ? <ToolFold steps={turn.steps} live={turn.live} /> : null}
-      <Text style={styles.elleText}>{turn.content || (turn.live ? '…' : '')}</Text>
+      {turn.content ? <Md text={turn.content} /> : (turn.live ? <Text style={styles.elleText}>…</Text> : null)}
       {typeof turn.kappa === 'number' ? (
         <Text style={styles.kappa}>κ {turn.kappa.toFixed(3)}</Text>
       ) : null}
