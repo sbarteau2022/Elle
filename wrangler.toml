@@ -1,0 +1,17 @@
+# Elle (frontend) — the public renderer, deployed as static assets.
+#
+# This is the "elle" Worker (Cloudflare's unified Workers-with-static-assets
+# model, the modern replacement for Pages) — distinct from "elle-worker",
+# the backend API in the sibling repo. Same account, two deployments:
+#   elle          → this repo's `dist/` (the web build of the renderer)
+#   elle-worker   → the Cloudflare Worker holding her mind
+#
+# No [assets] `main` script: this is assets-only (no server-side logic here),
+# so the SPA fallback below is enough — public/_redirects is kept too as a
+# harmless belt-and-suspenders for any tooling that still reads it.
+name = "elle"
+compatibility_date = "2026-06-25"
+
+[assets]
+directory = "dist"
+not_found_handling = "single-page-application"
