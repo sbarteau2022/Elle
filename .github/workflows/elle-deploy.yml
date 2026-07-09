@@ -18,7 +18,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # wrangler requires Node 22+ (elle-worker-deploy.yml uses 24 for
+          # the same reason) — ci.yml's Node 20 only has to satisfy tsc/vitest,
+          # never wrangler itself, which is why that one gets away with less.
+          node-version: '24'
           cache: 'npm'
       # --ignore-scripts: skip the Electron binary download, same as ci.yml —
       # this job only needs the web (non-Electron) Vite build.
