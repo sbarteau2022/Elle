@@ -32,7 +32,7 @@ const ago = (t: number | null) => {
   return m < 1 ? 'now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`
 }
 
-const STATUS_COLOR: Record<string, string> = { active: '#C9A84C', proposed: '#8B94A3', paused: '#525B69', done: '#4ADE80' }
+const STATUS_COLOR: Record<string, string> = { active: '#C9A84C', proposed: '#8B94A3', paused: '#525B69', ready: '#6EA8DE', done: '#4ADE80' }
 
 export default function ConductorPanel({ accent }: any) {
   const [intents, setIntents] = useState<Intent[]>([])
@@ -91,6 +91,10 @@ export default function ConductorPanel({ accent }: any) {
                   {it.status !== 'active' && it.status !== 'done' && <Btn label="activate" color={accent} onClick={() => act('activate', it.id)} />}
                   {it.status === 'active' && <Btn label="pause" color="var(--t3)" onClick={() => act('pause', it.id)} />}
                   {it.status !== 'done' && <Btn label="done" color="#4ADE80" onClick={() => act('complete', it.id)} />}
+                  {/* the kill switch — removes the intent from the queue entirely
+                      (run history stays). Workbench-only verb; she can't self-erase. */}
+                  <Btn label="✕ kill" color="#D06565"
+                    onClick={() => { if (window.confirm(`Kill "${it.title}"?\n\nThis removes it from the queue permanently — the conductor will never run it again. Its run history stays.`)) act('delete', it.id) }} />
                 </span>
               </div>
             </div>

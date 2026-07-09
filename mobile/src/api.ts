@@ -89,6 +89,11 @@ export const auth = {
     call<AuthResult>('/api/elle-auth', { body: { action: 'set_password', email, password, new_password: newPassword } }),
   verify: (token: string) =>
     call<{ valid: boolean; user: User }>('/api/elle-auth', { body: { action: 'verify', token } }),
+  // Google sign-in: trade a Google ID token for the same JWT password login
+  // mints. The worker verifies it server-side (audience + email_verified);
+  // the app never trusts the Google token by itself.
+  oauth: (credential: string) =>
+    call<AuthResult>('/api/elle-oauth', { body: { credential } }),
 };
 
 // ── the thread ───────────────────────────────────────────────────────────────

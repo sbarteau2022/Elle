@@ -19,6 +19,8 @@
 // ============================================================
 import { useEffect, useState } from 'react'
 import { WORKER, getToken } from '../lib/elle'
+import { emit } from '../lib/commands'
+import { shipIdeaToForge } from './ForgePanel'
 
 type Idea = {
   id: string; title: string; summary: string | null; details: string | null
@@ -27,6 +29,7 @@ type Idea = {
   clones: Array<{ clone_key?: string; target?: string; title?: string; created_at?: number }>
   refs: Array<{ repo?: string; path?: string; note?: string }>
   spec_paper_id: string | null; intent_id: string | null
+  forge_spec: { name?: string; language?: string; goals?: Array<{ describe: string; assert: string }> } | null
   extend_count: number; verdict: string | null
   pfar: Record<string, any> | null
   source: string; created_at: number; updated_at: number
@@ -153,6 +156,19 @@ export default function IdeasPanel({ accent }: any) {
       const res = typeof d.result === 'string' ? d.result : ''
       if (/refused/i.test(res)) { setNote(res); return }
       setTitle(''); setSummary(''); await load()
+    } catch (e: any) { setNote(String(e.message || e)) } finally { setBusy(false) }
+  }
+
+  // The 70B reads her codebase + goals and proposes novel tools — each lands
+  // here as a ship-ready bubble. She stops needing to be handed every idea.
+  const ideate = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const d = await api({ op: 'ideate', count: 4 })
+      const res = typeof d.result === 'string' ? d.result : ''
+      if (/no forge-ready/i.test(res)) setNote(res)
+      await load()
     } catch (e: any) { setNote(String(e.message || e)) } finally { setBusy(false) }
   }
 
@@ -285,16 +301,19 @@ export default function IdeasPanel({ accent }: any) {
                         {next.label}
                       </button>
                     )}
-                    {it.status === 'scoping' && (
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', alignSelf: 'center' }}>
-                        the spec is hers to cut — ask her to `idea op=spec` with the plan bullets
-                      </span>
-                    )}
-                    {it.status === 'spec' && (
-                      <button onClick={() => act('build', it.id)} disabled={busy}
-                        style={{ padding: '4px 12px', borderRadius: 6, border: `0.5px solid ${c}55`, background: c + '22', color: c, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
-                        build — hand it to the conductor ▸
+                    {/* a bubble with acceptance goals ships straight to the sandbox forge,
+                        LIVE — no conductor. Watch it iterate in the forge tab. */}
+                    {it.forge_spec && it.forge_spec.goals && it.forge_spec.goals.length > 0 &&
+                      it.status !== 'held' && it.status !== 'killed' && (
+                      <button onClick={() => { shipIdeaToForge(it.id, it.title); emit({ kind: 'nav', panel: 'forge' }) }} disabled={busy}
+                        style={{ padding: '4px 12px', borderRadius: 6, border: '0.5px solid #5CC8C277', background: '#5CC8C222', color: '#5CC8C2', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+                        ⚒ ship to the sandbox — forge it live ▸
                       </button>
+                    )}
+                    {it.status === 'scoping' && !(it.forge_spec && it.forge_spec.goals?.length) && (
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', alignSelf: 'center' }}>
+                        no acceptance goals yet — have the 70B ideate/spec it, then ship
+                      </span>
                     )}
                     {it.status === 'testing' && (
                       <>
@@ -333,6 +352,11 @@ export default function IdeasPanel({ accent }: any) {
             cursor: (busy || !title.trim() || summary.trim().length < 12) ? 'not-allowed' : 'pointer',
             opacity: (!title.trim() || summary.trim().length < 12) ? 0.5 : 1, fontFamily: 'var(--mono)', fontSize: 10.5 }}>
           {busy ? '…' : 'file idea ▸'}
+        </button>
+        <button onClick={ideate} disabled={busy} title="the 70B proposes novel tools grounded in her codebase + goals"
+          style={{ padding: '5px 14px', borderRadius: 6, border: '0.5px solid #B08FD855', background: '#B08FD822', color: '#B08FD8',
+            cursor: busy ? 'wait' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5, whiteSpace: 'nowrap' }}>
+          ✦ ideate (70B)
         </button>
       </div>
     </div>

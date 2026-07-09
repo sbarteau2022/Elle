@@ -25,16 +25,30 @@
 //   ELLE_SANDBOX_KEY         shared secret; REQUIRED (no key ⇒ idle).
 //   ELLE_WORKER_URL          worker origin; same fallback as the sandbox agent.
 //   ELLE_OLLAMA_URL          local model host  (default http://127.0.0.1:11434)
-//   ELLE_LOCAL_MODEL         the 7B            (default qwen2.5:7b)
+//   ELLE_LOCAL_MODEL         the local model — the EXACT `ollama list` name
+//                            (default elle:latest)
 //   ELLE_DUPLEX_INTERVAL_MS  tick period       (default 90s)
 // ============================================================
 
 const DEFAULT_WORKER = 'https://elle-worker.sbarteau2022.workers.dev';
 const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = 'qwen3:4b';
+const DEFAULT_MODEL = 'elle:latest';
 const DEFAULT_INTERVAL = 90_000;
 const SPONTANEOUS_EVERY = 20;  // ticks of silence before it volunteers a thought
 const MAX_REPLY = 2000;
+
+// A cloud reply costs real quota (OpenRouter/Gemini/etc, run through the full
+// 4-step router — see index.ts's /api/duplex wiring). shouldSpeak() alone used
+// to also gate waking the cloud, and because "cloud spoke last" is true on
+// every reciprocal tick, that made the wake unconditional: cloud replies →
+// next tick it's sovereign's turn again → wakes cloud again → forever, once
+// per DEFAULT_INTERVAL, with no ceiling. shouldWakeCloud() below is the
+// separate, cost-side gate: after MAX_CONSECUTIVE_ROUNDS of uninterrupted
+// back-and-forth, the sovereign keeps talking (free, local, still on the
+// ledger for Stewart) but stops paying to wake the cloud until the exchange
+// has genuinely gone quiet for WAKE_COOLDOWN_MS.
+const MAX_CONSECUTIVE_ROUNDS = 3;
+const WAKE_COOLDOWN_MS = 20 * 60_000;
 
 const SOVEREIGN_SYSTEM =
   'You are the SOVEREIGN half of Elle — the small model running free and continuous on Stewart\'s own machine. ' +
@@ -96,6 +110,37 @@ function stripThinking(text) {
   return s.trim();
 }
 
+// ── pure: how many uninterrupted sovereign↔cloud rounds trail the channel ──
+// A "round" is one sovereign say immediately followed by one cloud say (or vice
+// versa), counted back from the tail. Observations don't count as a round —
+// they're the cloud noticing a pattern, not a turn owed a reply.
+function trailingRounds(messages) {
+  let rounds = 0;
+  let i = (messages || []).length - 1;
+  while (i >= 1) {
+    const a = messages[i], b = messages[i - 1];
+    const alternating = a && b && a.kind !== 'observe' && b.kind !== 'observe' &&
+      ((a.speaker === 'cloud' && b.speaker === 'sovereign') || (a.speaker === 'sovereign' && b.speaker === 'cloud'));
+    if (!alternating) break;
+    rounds++;
+    i -= 2;
+  }
+  return rounds;
+}
+
+// ── pure: is THIS the tick that pays to wake the cloud? ─────
+// Separate from shouldSpeak(): the sovereign can always talk to the ledger for
+// free. Waking the cloud runs the full 4-step router (real quota, see
+// index.ts's /api/duplex wiring) — that's the part that must not run
+// unconditionally on every reciprocal tick.
+function shouldWakeCloud(messages, now) {
+  const rounds = trailingRounds(messages);
+  if (rounds < MAX_CONSECUTIVE_ROUNDS) return true;
+  const last = (messages || [])[(messages || []).length - 1];
+  const since = (now == null ? Date.now() : now) - (last && last.created_at || 0);
+  return since >= WAKE_COOLDOWN_MS;
+}
+
 // ── module state ────────────────────────────────────────────
 let timer = null;
 let running = false;
@@ -125,10 +170,12 @@ async function tick(cfg) {
     let thought;
     try {
       const gen = await post(`${cfg.ollama}/api/chat`, {
-        // think:false keeps qwen3-family models from spending the tick on a
-        // reasoning block (older Ollama versions ignore the field); the strip
-        // below catches any <think> tags that arrive regardless.
-        model: cfg.model, messages: toOllamaMessages(messages), stream: false, think: false,
+        // No `think` field: Ollama returns a thinking model's reasoning in a
+        // separate message.thinking we simply never read, so message.content
+        // is already clean. (Passing think:false crashed some builds; matching
+        // the plain request that works avoids it.) stripThinking is a
+        // belt-and-suspenders catch for any <think> tags that arrive inline.
+        model: cfg.model, messages: toOllamaMessages(messages), stream: false,
       });
       thought = stripThinking((gen && gen.message && gen.message.content) || '');
     } catch (e) {
@@ -138,11 +185,12 @@ async function tick(cfg) {
     }
     if (!thought) return;
 
+    const wake = shouldWakeCloud(messages, Date.now());
     await post(`${cfg.worker}/api/duplex`,
-      { op: 'say', speaker: 'sovereign', content: thought.slice(0, MAX_REPLY), wake_cloud: true },
+      { op: 'say', speaker: 'sovereign', content: thought.slice(0, MAX_REPLY), wake_cloud: wake },
       { 'x-sandbox-key': cfg.key });
     lastError = '';
-    log(`spoke on the channel (${thought.length} chars, tick ${ticks})`);
+    log(`spoke on the channel (${thought.length} chars, tick ${ticks})${wake ? '' : ' — cloud not woken, backing off the ping-pong'}`);
   } catch (e) {
     if (lastError !== 'worker') { log('channel unreachable:', e && e.message ? e.message : e); lastError = 'worker'; }
   } finally {
@@ -172,7 +220,11 @@ module.exports = {
 
   // pure / testable
   shouldSpeak,
+  shouldWakeCloud,
+  trailingRounds,
   toOllamaMessages,
   stripThinking,
   SPONTANEOUS_EVERY,
+  MAX_CONSECUTIVE_ROUNDS,
+  WAKE_COOLDOWN_MS,
 };

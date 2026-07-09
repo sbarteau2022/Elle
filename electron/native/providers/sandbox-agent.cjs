@@ -112,6 +112,7 @@ function connect(cfg) {
     if (m.t === 'welcome') return;
     if (m.t === 'exec') return handleExec(m, s);
     if (m.t === 'clone') return handleClone(m, s);
+    if (m.t === 'llm') return handleLlm(m, s);
   });
 
   s.on('close', () => { log('path closed'); teardownSock(); scheduleReconnect(cfg); });
@@ -163,32 +164,36 @@ function handleExec(job, s) {
   proc.on('error', (e) => { errOut = cap(errOut, Buffer.from(`spawn error: ${e.message}\n`)); finish(-1); });
 }
 
+// Pure: job → { bin, args, ext, electronRunAsNode } describing how to run it,
+// with no code-file arg appended yet (ext === null means "shell", no temp
+// file). Split out from spawnFor so the language/shell dispatch is testable
+// without actually spawning a process.
+function commandFor(job) {
+  if (job.mode === 'shell') {
+    const shell = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
+    const flag = process.platform === 'win32' ? '/c' : '-c';
+    return { bin: shell, args: [flag, String(job.command || '')], ext: null };
+  }
+  const lang = (job.language || 'python').toLowerCase();
+  if (lang === 'python' || lang === 'py') return { bin: pythonBin(), args: [], ext: '.py' };
+  if (lang === 'javascript' || lang === 'js' || lang === 'node') {
+    return { bin: process.execPath.includes('electron') ? 'node' : process.execPath, args: [], ext: '.mjs', electronRunAsNode: true };
+  }
+  if (lang === 'typescript' || lang === 'ts') {
+    return { bin: process.platform === 'win32' ? 'npx.cmd' : 'npx', args: ['-y', 'tsx'], ext: '.ts' };
+  }
+  return null;
+}
+
 function spawnFor(job) {
   ensureRoot();
   const cwd = root;
-  const env = { ...process.env };
-  if (job.mode === 'shell') {
-    const cmd = String(job.command || '');
-    const shell = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
-    const flag = process.platform === 'win32' ? '/c' : '-c';
-    return { proc: spawn(shell, [flag, cmd], { cwd, env }), tmp: null };
-  }
-  // mode === 'code'
-  const lang = (job.language || 'python').toLowerCase();
-  const code = String(job.code || '');
-  if (lang === 'python' || lang === 'py') {
-    const tmp = writeTmp(code, '.py');
-    return { proc: spawn(pythonBin(), [tmp], { cwd, env }), tmp };
-  }
-  if (lang === 'javascript' || lang === 'js' || lang === 'node') {
-    const tmp = writeTmp(code, '.mjs');
-    return { proc: spawn(process.execPath.includes('electron') ? 'node' : process.execPath, [tmp], { cwd, env: { ...env, ELECTRON_RUN_AS_NODE: '1' } }), tmp };
-  }
-  if (lang === 'typescript' || lang === 'ts') {
-    const tmp = writeTmp(code, '.ts');
-    return { proc: spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['-y', 'tsx', tmp], { cwd, env }), tmp };
-  }
-  return { proc: null, tmp: null };
+  const c = commandFor(job);
+  if (!c) return { proc: null, tmp: null };
+  const env = c.electronRunAsNode ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : { ...process.env };
+  if (c.ext === null) return { proc: spawn(c.bin, c.args, { cwd, env }), tmp: null };
+  const tmp = writeTmp(String(job.code || ''), c.ext);
+  return { proc: spawn(c.bin, [...c.args, tmp], { cwd, env }), tmp };
 }
 
 function pythonBin() { return process.platform === 'win32' ? 'python' : 'python3'; }
@@ -198,6 +203,49 @@ function writeTmp(content, ext) {
   const p = path.join(root, `.elle-run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}${ext}`);
   fs.writeFileSync(p, content, 'utf8');
   return p;
+}
+
+// ── llm: the sovereign inference lane ────────────────────────
+// The worker's router loop dispatches a GENERATION down the same socket
+// run_code rides: we think it on the local Ollama (free, no key, no quota)
+// and send the text back. Same defaults as the sovereign-duplex provider —
+// one local model, addressed by the name `ollama list` shows. The <think>
+// strip is shared with the duplex: private deliberation never rides the
+// protocol, only what the model chose to say.
+const { stripThinking } = require('./sovereign-duplex.cjs');
+const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
+const DEFAULT_LOCAL_MODEL = 'elle:latest'; // keep in step with sovereign-duplex's DEFAULT_MODEL — one local mind
+const LLM_MAX_CONTENT = 32_000;
+
+async function handleLlm(job, s) {
+  const started = Date.now();
+  const base = (process.env.ELLE_OLLAMA_URL || DEFAULT_OLLAMA).replace(/\/+$/, '');
+  const model = process.env.ELLE_LOCAL_MODEL || DEFAULT_LOCAL_MODEL;
+  const reply = (r) => s.send(JSON.stringify({ t: 'llm_result', id: job.id, duration_ms: Date.now() - started, ...r }));
+  try {
+    const chat = [{ role: 'system', content: String(job.system || '') }];
+    for (const m of Array.isArray(job.messages) ? job.messages : []) {
+      chat.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') });
+    }
+    const timeout = Math.min(Math.max(job.timeout_ms || 120_000, 5_000), 600_000);
+    const r = await fetch(`${base}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model, messages: chat, stream: false, think: false,
+        options: { num_predict: Math.min(Math.max(job.max_tokens || 2048, 128), 8192) },
+      }),
+      signal: AbortSignal.timeout(timeout),
+    });
+    if (!r.ok) return reply({ ok: false, error: `ollama HTTP ${r.status}`, model });
+    const data = await r.json();
+    if (data && data.error) return reply({ ok: false, error: String(data.error), model });
+    const content = stripThinking((data && data.message && data.message.content) || '').slice(0, LLM_MAX_CONTENT);
+    if (!content) return reply({ ok: false, error: 'local model returned nothing', model });
+    reply({ ok: true, content, model });
+  } catch (e) {
+    reply({ ok: false, error: e && e.message ? e.message : String(e), model });
+  }
 }
 
 // ── clone: pull a copy of code back up (and keep one locally) ─
@@ -289,6 +337,10 @@ module.exports = {
   id: 'sandboxAgent',
   platforms: ['darwin', 'win32', 'linux'],
   available: true,
+  // Exposed for unit tests — pure, no socket/process side effects.
+  config,
+  commandFor,
+  walkFiles,
   start(opts) {
     const cfg = config(opts);
     if (!cfg.key) { log('idle — ELLE_SANDBOX_KEY not set; not connecting'); return; }
