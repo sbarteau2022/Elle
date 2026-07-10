@@ -8,6 +8,7 @@
 import EllePanel from '../components/EllePanel'
 import ConductorPanel from '../components/ConductorPanel'
 import LibraryPanel from '../components/LibraryPanel'
+import ResearchPanel from '../components/ResearchPanel'
 import IdentityPanel from '../components/IdentityPanel'
 import MirrorPanel from '../components/MirrorPanel'
 import OptimusPanel from '../components/OptimusPanel'
@@ -34,6 +35,10 @@ registerPanel({
 registerPanel({
   id: 'library', glyph: '▣', label: 'library', section: 'mind', order: 3,
   render: ({ accent }) => <LibraryPanel accent={accent} />,
+})
+registerPanel({
+  id: 'research', glyph: '▨', label: 'research', section: 'mind', order: 3.5,
+  render: ({ accent }) => <ResearchPanel accent={accent} />,
 })
 registerPanel({
   id: 'identity', glyph: '✶', label: 'identity', section: 'mind', order: 4,
