@@ -7,7 +7,7 @@
 // the sovereign duplex — "idle, key not set", path never opens.
 require('./native/load-env.cjs').loadDotEnv();
 
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const path = require('path');
 const native = require('./native/index.cjs');
 
@@ -81,6 +81,33 @@ function installPermissionPolicy(ses) {
   });
 }
 
+// Lock the privileged window to its own content. The renderer holds the
+// preload bridge (native capabilities + permission grants) and IPC, so it
+// must never become attacker-controlled web content. Two Electron-security-
+// checklist guards:
+//   • window.open / target=_blank → DENY a new Electron window (which would
+//     not inherit the secure webPreferences); http(s) links open in the OS
+//     browser instead, everything else is dropped.
+//   • navigation away from the app's own origin (the Vite dev server, or the
+//     file:// bundle) is refused — a stray or injected link can't steer the
+//     main frame onto a remote page that then holds the bridge.
+function hardenNavigation(win) {
+  const wc = win.webContents;
+  wc.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => {});
+    return { action: 'deny' };
+  });
+  const allowedOrigin = isDev ? 'http://localhost:5173' : 'file://';
+  wc.on('will-navigate', (event, url) => {
+    if (!url.startsWith(allowedOrigin)) event.preventDefault();
+  });
+  // Same rule for sub-frames / redirects.
+  wc.on('will-redirect', (event, url) => {
+    if (!url.startsWith(allowedOrigin)) event.preventDefault();
+  });
+  wc.on('will-attach-webview', (event) => event.preventDefault()); // no <webview> at all
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -93,6 +120,8 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  hardenNavigation(win);
 
   if (isDev) {
     win.loadURL('http://localhost:5173');
