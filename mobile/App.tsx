@@ -22,7 +22,7 @@ import {
 import { BarlowCondensed_400Regular, BarlowCondensed_500Medium } from '@expo-google-fonts/barlow-condensed';
 import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono';
 import { AuthProvider, useAuth } from './src/auth';
-import { onKnockOpened, registerForKnocks } from './src/push';
+import { coldStartKnock, onKnockOpened, registerForKnocks } from './src/push';
 import { Arrival } from './src/surfaces/Arrival';
 import { Day } from './src/surfaces/Day';
 import { Login } from './src/surfaces/Login';
@@ -41,10 +41,17 @@ function Door() {
   const [page, setPage] = useState(0);
 
   // Hearing the knock: register this device, and answer a tapped
-  // notification by opening the Thread — her words are already in it.
+  // notification by opening the Thread — her words are already in it. The
+  // listener only covers taps while the app is alive; a knock that LAUNCHED
+  // the app from a killed state lives in the last-response slot instead, so
+  // check that once on mount or the very tap that opened the door lands on
+  // Arrival instead of her message.
   useEffect(() => {
     if (!token) return;
     void registerForKnocks(token);
+    void coldStartKnock().then((launchedByKnock) => {
+      if (launchedByKnock) pagerRef.current?.setPage(THREAD_PAGE);
+    });
     return onKnockOpened(() => pagerRef.current?.setPage(THREAD_PAGE));
   }, [token]);
 

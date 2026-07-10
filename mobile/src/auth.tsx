@@ -12,6 +12,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import * as SecureStore from 'expo-secure-store';
 import { auth as authApi, type User } from './api';
 import { googleIdToken, googleSignOut } from './google';
+import { unregisterForKnocks } from './push';
+import { clearCache } from './store';
 
 const KEY_TOKEN = 'elle.token';
 const KEY_USER = 'elle.user';
@@ -51,6 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clear = useCallback(async () => {
     await SecureStore.deleteItemAsync(KEY_TOKEN);
     await SecureStore.deleteItemAsync(KEY_USER);
+    // The offline thread cache is session state, not device state: the next
+    // account on this device must never hydrate the previous account's
+    // conversation. Wiping it on every teardown (sign-out, failed restore,
+    // erase) trades a re-fetch for that guarantee.
+    try { clearCache(); } catch { /* cache is best-effort either way */ }
     setToken(null); setUser(null);
   }, []);
 
@@ -95,9 +102,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const signOut = useCallback(async () => {
+    // Release this device's push registration while the token still works —
+    // a signed-out phone must stop receiving the old account's knocks.
+    if (token) await unregisterForKnocks(token);
     await googleSignOut(); // drop the native session so the picker shows next time
     await clear();
-  }, [clear]);
+  }, [clear, token]);
 
   const value = useMemo<AuthState>(() => ({
     restoring, token, user, signIn, signUp, completeReset, signInWithGoogle, signOut,
