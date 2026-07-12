@@ -7,8 +7,9 @@
 //   wss://<worker>/api/sandbox-agent/connect?key=<secret>
 // and holds it open. The worker's SandboxAgent Durable Object authenticates the
 // secret and, when Elle calls run_code / run_shell / sandbox_clone, sends a job
-// down this socket. We execute it on the real OS with child_process, stream the
-// result back, and for clones ship a copy of the code up (and keep one locally).
+// down this socket. We execute it — inside a locked Docker box by default (see
+// sandbox-box.cjs; fail-closed when the daemon is down) — stream the result
+// back, and for clones ship a copy of the code up (and keep one locally).
 //
 // Trust model: this is the operator's own machine and the worker tool is
 // full-scope only (her superadmin cockpit + conductor). The shared secret is the
@@ -27,6 +28,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const box = require('./sandbox-box.cjs');
 
 const DEFAULT_WORKER = 'https://elle-worker.sbarteau2022.workers.dev';
 const HEARTBEAT_MS = 25_000;
@@ -132,12 +134,12 @@ function scheduleReconnect(cfg) {
   reconnectTimer = setTimeout(() => connect(cfg), wait);
 }
 
-// ── exec: run code or a shell command on the real OS ────────
+// ── exec: run code or a shell command inside the box ────────
 function handleExec(job, s) {
   const started = Date.now();
-  const { proc, tmp } = spawnFor(job);
+  const { proc, tmp, error } = spawnFor(job);
   if (!proc) {
-    return s.send(JSON.stringify({ t: 'result', id: job.id, stdout: '', stderr: 'unsupported job', exit: -1, duration_ms: 0 }));
+    return s.send(JSON.stringify({ t: 'result', id: job.id, stdout: '', stderr: error || 'unsupported job', exit: -1, duration_ms: 0 }));
   }
   let out = '', errOut = '', truncated = false, settled = false;
   const cap = (buf, chunk) => {
@@ -188,13 +190,29 @@ function commandFor(job) {
 function spawnFor(job) {
   ensureRoot();
   const cwd = root;
+
+  // The box (default). Exec runs inside a locked Docker container; if the
+  // daemon is down we FAIL CLOSED — refuse rather than fall through to a bare
+  // host spawn. Only ELLE_SANDBOX_ISOLATION=none escapes to the host lane.
+  if (box.isolationMode() === 'docker') {
+    if (!box.dockerAvailable()) {
+      return { proc: null, tmp: null, error:
+        'sandbox box refused: Docker daemon not reachable. Exec is fail-closed — ' +
+        'start Docker Desktop (or set ELLE_SANDBOX_ISOLATION=none to run on the bare host, NOT recommended).' };
+    }
+    return box.boxedSpawn(job, root);
+  }
+
+  // Explicit opt-out: bare host spawn (legacy, un-jailed). Loud on first use.
+  if (!warnedBareHost) { warnedBareHost = true; log('WARNING: ELLE_SANDBOX_ISOLATION=none — exec runs UN-JAILED on the bare host.'); }
   const c = commandFor(job);
-  if (!c) return { proc: null, tmp: null };
+  if (!c) return { proc: null, tmp: null, error: 'unsupported job language' };
   const env = c.electronRunAsNode ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : { ...process.env };
   if (c.ext === null) return { proc: spawn(c.bin, c.args, { cwd, env }), tmp: null };
   const tmp = writeTmp(String(job.code || ''), c.ext);
   return { proc: spawn(c.bin, [...c.args, tmp], { cwd, env }), tmp };
 }
+let warnedBareHost = false;
 
 function pythonBin() { return process.platform === 'win32' ? 'python' : 'python3'; }
 
