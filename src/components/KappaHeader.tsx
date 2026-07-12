@@ -8,9 +8,16 @@
 //
 // null ≠ 0: a derivative that does not yet have enough turns to exist renders
 // as "—", distinct from a real 0.
+//
+// The T / L cells are the superposition-holding valve (src/lib/holding.ts,
+// derivation in docs/SUPERPOSITION_HOLDING.md): held tension and holding loss,
+// both leaky at ρ. L is bounded by e−1 by construction and reads ≈ mean |Δκ|
+// per turn at steady state; it turns amber only when the hold is strained.
+// Like κ, it is a readout — nothing ranks on it.
 // ============================================================
 
 import type { CSSProperties } from 'react'
+import type { HoldingState } from '../lib/holding'
 
 export type KappaDynamics = {
   step_index: number
@@ -41,7 +48,7 @@ export type KappaMemory = {
 const f = (x: number | null | undefined, d = 3): string =>
   (x === null || x === undefined || Number.isNaN(x)) ? '—' : x.toFixed(d)
 
-export default function KappaHeader({ dyn, mem }: { dyn: KappaDynamics; mem?: KappaMemory }) {
+export default function KappaHeader({ dyn, mem, hold }: { dyn: KappaDynamics; mem?: KappaMemory; hold?: HoldingState | null }) {
   const row: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap',
     fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t3)',
@@ -57,6 +64,25 @@ export default function KappaHeader({ dyn, mem }: { dyn: KappaDynamics; mem?: Ka
   // before the first turn's dynamics exist. The "prov" pill is the honest badge:
   // κ is accumulating and its contraction rate is computed, but it ranks nothing
   // until the seam clears — amber for provisional, green once it goes live.
+  // The holding segment. Two cells: T (held tension, input-gated) and L (the
+  // holding loss). L colours amber only while the valve reports 'strained' —
+  // otherwise it stays as muted as the rest of the row. The tooltip carries
+  // the valve's constants so the numbers are auditable in place.
+  const holdSeg = hold ? (
+    <>
+      {sep}
+      <span title={`superposition holding — ρ ${hold.rho} (half-life ${hold.halfLifeTurns.toFixed(1)} turns)`
+        + ` · status ${hold.status}`
+        + (hold.rhoCalibrated !== null ? ` · ρ* from this session ${hold.rhoCalibrated.toFixed(4)}` : ' · ρ* not yet estimable')
+        + ` · L < e−1 by construction — docs/SUPERPOSITION_HOLDING.md`}>
+        <span style={{ opacity: 0.6 }}>T</span> {f(hold.tension, 2)}
+        {' '}<span style={{ opacity: 0.35 }}>·</span>{' '}
+        <span style={{ opacity: 0.6 }}>L</span>{' '}
+        <span style={hold.status === 'strained' ? { color: '#D9A441' } : undefined}>{f(hold.loss)}</span>
+      </span>
+    </>
+  ) : null
+
   const memSeg = mem ? (() => {
     const live = mem.ranks
     const pill: CSSProperties = {
@@ -81,6 +107,7 @@ export default function KappaHeader({ dyn, mem }: { dyn: KappaDynamics; mem?: Ka
       <div style={row} title="coherence dynamics — appears once Elle has answered">
         <span style={{ opacity: 0.6 }}>κ dynamics</span>
         <span style={{ opacity: 0.45 }}>— awaiting first turn</span>
+        {holdSeg}
         {memSeg}
       </div>
     )
@@ -95,6 +122,7 @@ export default function KappaHeader({ dyn, mem }: { dyn: KappaDynamics; mem?: Ka
       {sep}{cell('a', f(dyn.acceleration))}
       {sep}{cell('j', f(dyn.jerk))}
       {sep}{cell('∫', f(dyn.reserve, 2))}
+      {holdSeg}
       {memSeg}
     </div>
   )
