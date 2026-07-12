@@ -104,12 +104,14 @@ export default function TradingPanel({ accent }: any) {
           </div>
         )}
 
-        {/* account tiles */}
+        {/* account tiles — day p&l is the real synced field; the old
+            "realized p&l" tile read a column the account table never had and
+            rendered an eternal em-dash. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
           <Tile label="portfolio value" value={money(acct.total_portfolio_value)} accent={accent} />
           <Tile label="cash" value={money(acct.current_cash)} accent={accent} />
           <Tile label="unrealized p&l" value={money(acct.unrealized_pnl)} color={pnlColor(acct.unrealized_pnl)} />
-          <Tile label="realized p&l" value={money(acct.realized_pnl)} color={pnlColor(acct.realized_pnl)} />
+          <Tile label="day p&l" value={money(acct.day_pnl)} color={pnlColor(acct.day_pnl)} />
         </div>
 
         {/* positions */}
@@ -128,9 +130,11 @@ export default function TradingPanel({ accent }: any) {
           )}
         </Section>
 
-        {/* active theses — her live convictions */}
-        {theses.length > 0 && (
-          <Section title="active theses">
+        {/* active theses — her live convictions. Always visible: an empty
+            surface with an explanation beats a section that silently doesn't
+            exist (the black-box feel was mostly hidden-when-empty sections). */}
+        <Section title="active theses">
+          {theses.length === 0 ? <Empty>no active theses yet — the trading cycle writes these as convictions form</Empty> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {theses.map((t, i) => (
                 <div key={i} style={{ borderLeft: `2px solid ${accent}66`, paddingLeft: 12 }}>
@@ -142,12 +146,12 @@ export default function TradingPanel({ accent }: any) {
                 </div>
               ))}
             </div>
-          </Section>
-        )}
+          )}
+        </Section>
 
         {/* market observations — what she's noticing, separate from what she acted on */}
-        {observations.length > 0 && (
-          <Section title="market observations">
+        <Section title="market observations">
+          {observations.length === 0 ? <Empty>nothing noted yet — observations land here from the 15-minute market cycle</Empty> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {observations.map((o, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
@@ -156,8 +160,8 @@ export default function TradingPanel({ accent }: any) {
                 </div>
               ))}
             </div>
-          </Section>
-        )}
+          )}
+        </Section>
 
         {/* trades with her reasoning */}
         <Section title="recent trades — with her reasoning">
@@ -186,6 +190,12 @@ export default function TradingPanel({ accent }: any) {
                     )}
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t3)' }}>{t.quantity} @ {money(t.entry_price)}{t.exit_price ? ` → ${money(t.exit_price)}` : ''}</span>
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>{t.status}{t.confidence != null ? ` · conf ${t.confidence}` : ''}</span>
+                    {t.source && (
+                      <span title={t.source === 'chat' ? 'placed in conversation via trade_execute' : 'placed by the autonomous trading cycle'}
+                        style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', border: '0.5px solid var(--b2)', borderRadius: 4, padding: '1px 5px' }}>
+                        {t.source === 'chat' ? 'via chat' : 'autonomous'}
+                      </span>
+                    )}
                     {t.pnl != null && <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 11, color: pnlColor(t.pnl) }}>{money(t.pnl)} ({pct(t.pnl_pct)})</span>}
                   </div>
                   {t.reasoning && <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.6, marginTop: 6 }}>{t.reasoning}</div>}
@@ -208,8 +218,8 @@ export default function TradingPanel({ accent }: any) {
         </Section>
 
         {/* trading journal */}
-        {journal.length > 0 && (
-          <Section title="trading journal">
+        <Section title="trading journal">
+          {journal.length === 0 ? <Empty>no entries yet — the day's journal posts after the US close (~21:10 UTC)</Empty> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {journal.map((j, i) => (
                 <div key={i} style={{ borderLeft: '2px solid var(--b1)', paddingLeft: 12 }}>
@@ -222,8 +232,8 @@ export default function TradingPanel({ accent }: any) {
                 </div>
               ))}
             </div>
-          </Section>
-        )}
+          )}
+        </Section>
       </div>
     </div>
   )
