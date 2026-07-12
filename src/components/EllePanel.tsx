@@ -8,6 +8,7 @@
 // ============================================================
 import { useState, useRef, useEffect } from 'react'
 import KappaHeader, { type KappaDynamics, type KappaMemory } from './KappaHeader'
+import { createHoldingValve, type HoldingState } from '../lib/holding'
 import VoiceOrb from './VoiceOrb'
 import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { on } from '../lib/commands'
@@ -122,6 +123,10 @@ export default function EllePanel({ worker, accent }: any) {
   const [note, setNote] = useState('')
   const [dyn, setDyn] = useState<KappaDynamics>(null)
   const [mem, setMem] = useState<KappaMemory>(null)    // durable κ memory / seam state
+  // The superposition-holding valve — session-scoped, fed one observation per
+  // answered turn from the same kappa_dynamics frame that drives `dyn`.
+  const valve = useRef(createHoldingValve())
+  const [hold, setHold] = useState<HoldingState | null>(null)
   const [attachment, setAttachment] = useState<{ name: string; text: string; chars: number; truncated?: boolean } | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -267,7 +272,10 @@ export default function EllePanel({ worker, accent }: any) {
           }
         }
         if (done) {
-          if (done.kappa_dynamics) setDyn(done.kappa_dynamics)
+          if (done.kappa_dynamics) {
+            setDyn(done.kappa_dynamics)
+            setHold(valve.current.observe(done.kappa_dynamics))
+          }
           void refreshMem()
           const answer = done.answer || '(no answer)'
           setTurns(t => t.map((x, i) => i === idx
@@ -280,7 +288,10 @@ export default function EllePanel({ worker, accent }: any) {
       }
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
-      if (d.kappa_dynamics) setDyn(d.kappa_dynamics)
+      if (d.kappa_dynamics) {
+        setDyn(d.kappa_dynamics)
+        setHold(valve.current.observe(d.kappa_dynamics))
+      }
       void refreshMem()
       const answer = d.answer || '(no answer)'
       setTurns(t => t.map((x, i) => i === idx
@@ -330,7 +341,7 @@ export default function EllePanel({ worker, accent }: any) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       {/* κ instrument line — her live coherence readout */}
-      <KappaHeader dyn={dyn} mem={mem} />
+      <KappaHeader dyn={dyn} mem={mem} hold={hold} />
 
       {/* header row: label + tool drawer + voice */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 22px 0' }}>
