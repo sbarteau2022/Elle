@@ -127,6 +127,12 @@ export default function EllePanel({ worker, accent }: any) {
   // answered turn from the same kappa_dynamics frame that drives `dyn`.
   const valve = useRef(createHoldingValve())
   const [hold, setHold] = useState<HoldingState | null>(null)
+  // Pressure Test II recommendation #1 — a second, faster valve (ρ=0.10) on
+  // the identical stream. The slow valve prices what a session has been
+  // carrying; this one is the smoke alarm for a short, sharp episode the slow
+  // valve's 34-turn memory can miss entirely. Same threshold, via λ=ρ.
+  const fastValve = useRef(createHoldingValve(0.10))
+  const [fastHold, setFastHold] = useState<HoldingState | null>(null)
   const [attachment, setAttachment] = useState<{ name: string; text: string; chars: number; truncated?: boolean } | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -274,7 +280,15 @@ export default function EllePanel({ worker, accent }: any) {
         if (done) {
           if (done.kappa_dynamics) {
             setDyn(done.kappa_dynamics)
-            setHold(valve.current.observe(done.kappa_dynamics))
+            // Pressure Test III: feeding √steps-normalization to the FAST
+            // valve too pushed its incident detection from 5 turns to 14 —
+            // the incident's own step counts (poisson mean ~3-4) suppressed
+            // exactly the sensitivity the fast companion exists for. Only the
+            // slow valve (which prices sustained cost, where "is this just a
+            // long tool loop" is the real ambiguity) gets steps; the fast
+            // valve stays raw so it keeps its validated 5-turn latency.
+            setHold(valve.current.observe({ ...done.kappa_dynamics, steps: steps.length }))
+            setFastHold(fastValve.current.observe(done.kappa_dynamics))
           }
           void refreshMem()
           const answer = done.answer || '(no answer)'
@@ -290,7 +304,9 @@ export default function EllePanel({ worker, accent }: any) {
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
       if (d.kappa_dynamics) {
         setDyn(d.kappa_dynamics)
-        setHold(valve.current.observe(d.kappa_dynamics))
+        // See the streaming call site above — the fast valve stays unnormalized.
+        setHold(valve.current.observe({ ...d.kappa_dynamics, steps: (d.trace || []).length }))
+        setFastHold(fastValve.current.observe(d.kappa_dynamics))
       }
       void refreshMem()
       const answer = d.answer || '(no answer)'
@@ -341,7 +357,7 @@ export default function EllePanel({ worker, accent }: any) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       {/* κ instrument line — her live coherence readout */}
-      <KappaHeader dyn={dyn} mem={mem} hold={hold} />
+      <KappaHeader dyn={dyn} mem={mem} hold={hold} fast={fastHold} />
 
       {/* header row: label + tool drawer + voice */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 22px 0' }}>
