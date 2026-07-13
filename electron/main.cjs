@@ -32,6 +32,15 @@ ipcMain.handle('sovereign:kv-put', (_e, sessionId, query, text) => sovKv ? sovKv
 ipcMain.handle('sovereign:kv-invalidate', (_e, sessionId) => sovKv ? sovKv.invalidateWorkingSet(sessionId) : undefined);
 ipcMain.handle('sovereign:kv-stats', (_e, sessionId) => sovKv ? sovKv.stats(sessionId) : { sovereign: false, entries: 0 });
 
+// ── local embed (bge-large via Ollama — same weights as the worker) ────────
+// The multimodal intake lane's embedding step. Renderer sends text, gets a
+// 1024-dim vector or a precise error; the renderer's intake helper decides
+// whether to fall back to server-side embedding. No Ollama → clean error,
+// never a hang (30s timeout inside the provider).
+const localEmbed = native.getProvider('localEmbed');
+ipcMain.handle('local-embed:text', (_e, text) =>
+  localEmbed ? localEmbed.embedText(String(text || '')) : { ok: false, error: 'local embed provider unavailable' });
+
 // ── device permissions: deny by default, granted only by the user ──────────
 // Electron's default permission handler GRANTS everything, silently. That is
 // the opposite of "permissioned, never auto accept", so we replace it: every

@@ -31,6 +31,11 @@ declare global {
       onHeadMotion: (cb: (data: HeadMotion) => void) => void;
       offHeadMotion: () => void;
       headMotionAvailable: () => Promise<boolean>;
+      // Local embedding on the worker's own weights (bge-large-en-v1.5 via
+      // Ollama). ok:false carries a precise diagnosis, never a bare failure.
+      embedLocal?: (text: string) => Promise<
+        { ok: true; vector: number[]; model: string } | { ok: false; error: string }
+      >;
       // Sovereign dynamic KV cache — live only in the local/sovereign build.
       // In the hosted build every call resolves to a no-op/empty result.
       sovereignKv?: {

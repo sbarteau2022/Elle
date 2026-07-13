@@ -37,6 +37,14 @@ contextBridge.exposeInMainWorld('elleNative', {
     return !!caps.headMotion;
   },
 
+  // Local embed — bge-large-en-v1.5 via Ollama, the SAME weights the worker's
+  // Workers AI embedder runs, so vectors from this machine live in the same
+  // 1024-dim space as the whole corpus. Returns { ok, vector, model } or
+  // { ok:false, error } with a precise diagnosis (model not pulled, wrong
+  // dims, Ollama down) — the intake helper falls back to server-side
+  // embedding on any failure, and the failure is never silent.
+  embedLocal: (text) => ipcRenderer.invoke('local-embed:text', String(text || '')),
+
   // Sovereign dynamic KV cache — the local-model working-set cache. Inert in
   // the hosted build (every call resolves to a no-op/empty result); live only
   // when running sovereign. The local-model orchestration uses these to size
