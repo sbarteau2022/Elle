@@ -19,6 +19,7 @@ import './plugins/builtins'
 import { listPanels, listSections } from './plugins/registry'
 import { worker, getEmail, getTier, clearAuth, verifyToken, WORKER } from './lib/elle'
 import { VoiceProvider, useWorkbenchVoice } from './lib/VoiceContext'
+import { CameraProvider } from './lib/CameraContext'
 import { on } from './lib/commands'
 
 const ACCENT = '#C9A84C'
@@ -202,6 +203,7 @@ export function App() {
 
   return (
     <VoiceProvider accent={ACCENT}>
+    <CameraProvider accent={ACCENT}>
       <style>{CSS}</style>
       <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--void)', position: 'relative' }}>
         <div className="topglow" />
@@ -264,6 +266,7 @@ export function App() {
           </main>
         </div>
       </div>
+    </CameraProvider>
     </VoiceProvider>
   )
 }
