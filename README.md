@@ -42,7 +42,8 @@ onto it. For the mind/router/conductor architecture, read that repo's
   reasoning. A **prose-register selector** in the header swaps her voice for the
   conversation (Stewart · Einstein · Attenborough · Lewis · Iglesias ·
   Screwtape) without touching her self; a **voice orb** (Web Speech TTS/STT,
-  plus AirPods head-pose presence on macOS) lets you talk to her out loud. The
+  optionally ElevenLabs for TTS — see `.env.example` — plus AirPods head-pose
+  presence on macOS) lets you talk to her out loud. The
   folded "N tools she can reach" panel lists the whole catalog, grouped as the
   worker renders it.
 - **conductor** — her autonomous work (`/api/elle-intents`). Left: the intent
