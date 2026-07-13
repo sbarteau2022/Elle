@@ -11,6 +11,7 @@ import KappaHeader, { type KappaDynamics, type KappaMemory } from './KappaHeader
 import { createHoldingValve, type HoldingState } from '../lib/holding'
 import VoiceOrb from './VoiceOrb'
 import { useWorkbenchVoice } from '../lib/VoiceContext'
+import { useWorkbenchCamera } from '../lib/CameraContext'
 import { on } from '../lib/commands'
 import { Md, printAnswer, emailAnswer } from '../lib/md'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
@@ -168,6 +169,7 @@ export default function EllePanel({ worker, accent }: any) {
   // dictation and to the confirm/cancel verbs — spoken or gestured.
   const wv = useWorkbenchVoice()
   const { voice, presence } = wv
+  const camera = useWorkbenchCamera()
   const [interim, setInterim] = useState('')
 
   // Prose register — which of her five voices answers. Persisted; sent per turn.
@@ -337,6 +339,21 @@ export default function EllePanel({ worker, accent }: any) {
     } catch (e: any) {
       setNote('voice capture failed: ' + (e.message || e))
     } finally { setHearing(false) }
+  }
+
+  // "Let Elle SEE you": one frame, no live feed — captured, then the camera
+  // closes. Rides the exact same attachment pipeline text uploads use
+  // (parsed server-side via Workers AI toMarkdown, which already describes
+  // images) rather than a second, separate intake path.
+  const [seeing, setSeeing] = useState(false)
+  const seeMe = async () => {
+    if (loading || seeing || uploading) return
+    setSeeing(true); setNote('')
+    try {
+      const r = await camera.captureFrame()
+      if (!r.ok) { if (r.error !== 'camera permission denied') setNote('camera capture failed: ' + r.error); return }
+      await onUpload(r.file)
+    } finally { setSeeing(false) }
   }
 
   // Push-to-talk: transcribe into the composer; on a final phrase, send it.
@@ -535,6 +552,11 @@ export default function EllePanel({ worker, accent }: any) {
           <button onClick={() => fileRef.current?.click()} disabled={uploading} title="attach a file — PDF, DOCX, TXT (parsed to text she can read and ingest)"
             style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: 'transparent', color: uploading ? accent : 'var(--t2)', cursor: uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
             {uploading ? '…' : '📎'}
+          </button>
+          <button onClick={seeMe} disabled={loading || seeing || uploading}
+            title="Let Elle SEE — one photo, no live feed. She reads it like any attached image."
+            style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: 'transparent', color: seeing ? accent : 'var(--t2)', cursor: loading || seeing || uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
+            {seeing ? '…' : '📷'}
           </button>
           <textarea ref={taRef} value={q} rows={1}
             onChange={e => { setQ(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 140) + 'px' }}
