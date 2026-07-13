@@ -232,7 +232,7 @@ function writeTmp(content, ext) {
 // protocol, only what the model chose to say.
 const { stripThinking } = require('./sovereign-duplex.cjs');
 const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
-const DEFAULT_LOCAL_MODEL = 'elle:latest'; // keep in step with sovereign-duplex's DEFAULT_MODEL — one local mind
+const DEFAULT_LOCAL_MODEL = 'qwen3.5:4b'; // keep in step with sovereign-duplex's DEFAULT_MODEL — one local mind
 const LLM_MAX_CONTENT = 32_000;
 
 async function handleLlm(job, s) {
