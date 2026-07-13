@@ -26,13 +26,13 @@
 //   ELLE_WORKER_URL          worker origin; same fallback as the sandbox agent.
 //   ELLE_OLLAMA_URL          local model host  (default http://127.0.0.1:11434)
 //   ELLE_LOCAL_MODEL         the local model — the EXACT `ollama list` name
-//                            (default elle:latest)
+//                            (default qwen3.5:4b — the one local mind)
 //   ELLE_DUPLEX_INTERVAL_MS  tick period       (default 90s)
 // ============================================================
 
 const DEFAULT_WORKER = 'https://elle-worker.sbarteau2022.workers.dev';
 const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = 'elle:latest';
+const DEFAULT_MODEL = 'qwen3.5:4b';
 const DEFAULT_INTERVAL = 90_000;
 const SPONTANEOUS_EVERY = 20;  // ticks of silence before it volunteers a thought
 const MAX_REPLY = 2000;
