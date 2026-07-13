@@ -55,14 +55,16 @@ export function useWorkbenchVoice(): WorkbenchVoice {
   return v
 }
 
-// Her own TTS leaking back through the mic would transcribe her answers into
-// the composer. Cheap, robust guard: drop anything heard while she's speaking.
-// (With AirPods there's no acoustic path at all; this covers open speakers.)
-const herOwnVoice = () => !!window.speechSynthesis?.speaking
-
 export function VoiceProvider({ accent, children }: { accent: string; children: ReactNode }) {
   const voice = useVoice()
   const presence = usePresence()
+
+  // Her own TTS leaking back through the mic would transcribe her answers
+  // into the composer. Cheap, robust guard: drop anything heard while she's
+  // speaking — voice.isSpeaking() covers both the system voice and
+  // ElevenLabs playback. (With AirPods there's no acoustic path at all;
+  // this covers open speakers.)
+  const herOwnVoice = () => voice.isSpeaking()
 
   const [micConsent, setMicConsent] = useState<MicConsent>(() => {
     const v = localStorage.getItem(MIC_CONSENT_KEY)

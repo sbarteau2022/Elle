@@ -1,12 +1,16 @@
 // ============================================================
 // useVoice — Elle speaks, and listens.
 //
-// TTS: Web Speech `speechSynthesis` speaks her answers. The chosen voice is
-//   the best available "en" system voice (macOS ships good ones); when AirPods
-//   are connected they ARE the OS default output, so she speaks into your ears
-//   with no extra wiring. The synth backend is isolated behind speak()/stop()
-//   so a higher-quality provider (worker-side neural TTS) can drop in later
-//   without touching callers.
+// TTS: ElevenLabs when VITE_ELEVENLABS_API_KEY is set (a local-only opt-in —
+//   the key ships in the browser bundle, so this is for running elle
+//   yourself, never for a build handed to someone else), otherwise the free
+//   Web Speech `speechSynthesis`. Either way the chosen voice is exposed
+//   through the same speak()/stop() pair, so callers never know which one is
+//   live. ElevenLabs also engages per-call fallback: a network error, bad
+//   key, or exhausted free-tier quota drops that one reply back to the
+//   system voice instead of going silent, and replies longer than
+//   VITE_ELEVENLABS_MAX_CHARS skip ElevenLabs entirely to protect a small
+//   monthly character budget.
 // STT: Web Speech `SpeechRecognition` transcribes from the default input —
 //   again, the AirPods mic when connected. Two modes through one API:
 //   push-to-talk (default: one utterance, recognition ends itself) and
@@ -22,6 +26,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const VOICE_ENABLED_KEY = 'elle_voice_enabled'
+
+// ElevenLabs — optional, local-use-only higher-quality voice. Unset by
+// default; see .env.example for what each var does and where to get a key.
+const EL_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined
+const EL_VOICE_ID = (import.meta.env.VITE_ELEVENLABS_VOICE_ID as string | undefined) || '21m00Tcm4TlvDq8ikWAM' // "Rachel", ElevenLabs' default premade voice
+const EL_MODEL_ID = (import.meta.env.VITE_ELEVENLABS_MODEL_ID as string | undefined) || 'eleven_turbo_v2_5'
+const EL_MAX_CHARS = Number(import.meta.env.VITE_ELEVENLABS_MAX_CHARS) || 500
 
 // The known high-quality neural/enhanced system voices, best first. These are
 // the difference between "robot" and "person": macOS ships Ava/Samantha/Zoe,
@@ -73,6 +84,9 @@ export interface VoiceApi {
   enabled: boolean            // auto-speak her answers
   setEnabled: (v: boolean) => void
   speaking: boolean
+  /** Same as `speaking`, but a live read (not a stale closure) — for use
+   *  inside callbacks registered once, like a recognition `onresult`. */
+  isSpeaking: () => boolean
   listening: boolean
   speak: (text: string) => void
   stopSpeaking: () => void
@@ -125,7 +139,9 @@ function downsample(arr: number[], count: number, voicedOnly = false): number[] 
 }
 
 export function useVoice(): VoiceApi {
-  const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
+  const webSpeechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
+  const elevenLabsConfigured = !!EL_API_KEY
+  const ttsSupported = webSpeechSupported || elevenLabsConfigured
   const sttSupported = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
   const [enabled, setEnabledState] = useState<boolean>(() => localStorage.getItem(VOICE_ENABLED_KEY) === '1')
@@ -136,30 +152,45 @@ export function useVoice(): VoiceApi {
   // True while a listening session is wanted; continuous mode uses it to
   // decide whether an `onend` means "restart" or "we're done".
   const wantRef = useRef(false)
+  // Live speaking flag for callbacks (recognition handlers, gesture effects)
+  // that were registered once and would otherwise read a stale `speaking`.
+  const speakingRef = useRef(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioAbortRef = useRef<AbortController | null>(null)
+
+  const setSpeakingBoth = useCallback((v: boolean) => { speakingRef.current = v; setSpeaking(v) }, [])
+  const isSpeaking = useCallback(() => speakingRef.current, [])
 
   const setEnabled = useCallback((v: boolean) => {
     setEnabledState(v); localStorage.setItem(VOICE_ENABLED_KEY, v ? '1' : '0')
-    if (!v && ttsSupported) { window.speechSynthesis.cancel(); setSpeaking(false) }
-  }, [ttsSupported])
+    if (!v) {
+      audioAbortRef.current?.abort(); audioAbortRef.current = null
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+      if (webSpeechSupported) window.speechSynthesis.cancel()
+      setSpeakingBoth(false)
+    }
+  }, [webSpeechSupported, setSpeakingBoth])
 
   // Voices load async in Chromium — resolve once available.
   useEffect(() => {
-    if (!ttsSupported) return
+    if (!webSpeechSupported) return
     const load = () => { voiceRef.current = pickVoice() }
     load()
     window.speechSynthesis.addEventListener('voiceschanged', load)
     return () => window.speechSynthesis.removeEventListener('voiceschanged', load)
-  }, [ttsSupported])
+  }, [webSpeechSupported])
 
   const stopSpeaking = useCallback(() => {
-    if (!ttsSupported) return
-    window.speechSynthesis.cancel(); setSpeaking(false)
-  }, [ttsSupported])
+    audioAbortRef.current?.abort(); audioAbortRef.current = null
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    if (webSpeechSupported) window.speechSynthesis.cancel()
+    setSpeakingBoth(false)
+  }, [webSpeechSupported, setSpeakingBoth])
 
-  const speak = useCallback((text: string) => {
-    if (!ttsSupported) return
-    const clean = forSpeech(text)
-    if (!clean) return
+  // The Web Speech fallback/default path — unchanged behavior from before
+  // ElevenLabs existed.
+  const speakWithWebSpeech = useCallback((clean: string) => {
+    if (!webSpeechSupported) { setSpeakingBoth(false); return }
     window.speechSynthesis.cancel()
     // Group sentences into LARGER blocks (~260 chars) instead of one utterance
     // per sentence. Every utterance boundary is an audible gap where the engine
@@ -177,16 +208,57 @@ export function useVoice(): VoiceApi {
 
     let i = 0
     const next = () => {
-      if (i >= chunks.length) { setSpeaking(false); return }
+      if (i >= chunks.length) { setSpeakingBoth(false); return }
       const u = new SpeechSynthesisUtterance(chunks[i++])
       if (voiceRef.current) u.voice = voiceRef.current
       u.rate = 0.98; u.pitch = 1.02   // a hair slower + warmer than the flat default
       u.onend = next
-      u.onerror = () => { setSpeaking(false) }
+      u.onerror = () => { setSpeakingBoth(false) }
       window.speechSynthesis.speak(u)
     }
-    setSpeaking(true); next()
-  }, [ttsSupported])
+    setSpeakingBoth(true); next()
+  }, [webSpeechSupported, setSpeakingBoth])
+
+  // ElevenLabs — one request for the whole reply (no streaming; replies are
+  // short enough that the extra complexity isn't worth it). Any failure
+  // (bad key, offline, 401/429 quota exhausted) falls back to the system
+  // voice for that reply rather than going silent.
+  const speakWithElevenLabs = useCallback((clean: string) => {
+    const controller = new AbortController()
+    audioAbortRef.current = controller
+    setSpeakingBoth(true)
+    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${EL_VOICE_ID}`, {
+      method: 'POST',
+      headers: { 'xi-api-key': EL_API_KEY as string, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({ text: clean, model_id: EL_MODEL_ID, voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+      signal: controller.signal,
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error(`elevenlabs ${res.status}`)
+        const url = URL.createObjectURL(await res.blob())
+        const audio = new Audio(url)
+        audioRef.current = audio
+        audio.onended = () => { URL.revokeObjectURL(url); setSpeakingBoth(false) }
+        audio.onerror = () => { URL.revokeObjectURL(url); setSpeakingBoth(false) }
+        await audio.play()
+      })
+      .catch(err => {
+        if (controller.signal.aborted) return // stopSpeaking()/barge-in, not a failure
+        console.warn('ElevenLabs TTS failed, falling back to the system voice:', err)
+        speakWithWebSpeech(clean)
+      })
+  }, [speakWithWebSpeech, setSpeakingBoth])
+
+  const speak = useCallback((text: string) => {
+    if (!ttsSupported) return
+    const clean = forSpeech(text)
+    if (!clean) return
+    stopSpeaking()
+    // Long replies skip ElevenLabs even when configured — one long answer
+    // shouldn't blow a whole month's free-tier character budget.
+    if (elevenLabsConfigured && clean.length <= EL_MAX_CHARS) speakWithElevenLabs(clean)
+    else speakWithWebSpeech(clean)
+  }, [ttsSupported, elevenLabsConfigured, stopSpeaking, speakWithElevenLabs, speakWithWebSpeech])
 
   const stopListening = useCallback(() => {
     wantRef.current = false
@@ -274,7 +346,13 @@ export function useVoice(): VoiceApi {
   }, [stopSpeaking])
 
   // Clean up on unmount.
-  useEffect(() => () => { wantRef.current = false; try { window.speechSynthesis?.cancel() } catch {}; try { recRef.current?.stop() } catch {} }, [])
+  useEffect(() => () => {
+    wantRef.current = false
+    audioAbortRef.current?.abort()
+    try { audioRef.current?.pause() } catch { /* ignore */ }
+    try { window.speechSynthesis?.cancel() } catch { /* ignore */ }
+    try { recRef.current?.stop() } catch { /* ignore */ }
+  }, [])
 
-  return { ttsSupported, sttSupported, enabled, setEnabled, speaking, listening, speak, stopSpeaking, startListening, stopListening, captureProsody }
+  return { ttsSupported, sttSupported, enabled, setEnabled, speaking, isSpeaking, listening, speak, stopSpeaking, startListening, stopListening, captureProsody }
 }
