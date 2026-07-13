@@ -48,7 +48,7 @@ export type KappaMemory = {
 const f = (x: number | null | undefined, d = 3): string =>
   (x === null || x === undefined || Number.isNaN(x)) ? '—' : x.toFixed(d)
 
-export default function KappaHeader({ dyn, mem, hold }: { dyn: KappaDynamics; mem?: KappaMemory; hold?: HoldingState | null }) {
+export default function KappaHeader({ dyn, mem, hold, fast }: { dyn: KappaDynamics; mem?: KappaMemory; hold?: HoldingState | null; fast?: HoldingState | null }) {
   const row: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap',
     fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t3)',
@@ -83,6 +83,23 @@ export default function KappaHeader({ dyn, mem, hold }: { dyn: KappaDynamics; me
     </>
   ) : null
 
+  // Pressure Test II recommendation #1: a second valve at ρ=0.10 (5× the
+  // leak rate) shares the SAME strain threshold as the slow one via the
+  // λ=ρ property, and detects a real incident in ~5 turns where the shipped
+  // valve at ρ=0.02 detected it in 0 (never, inside a 20-turn episode) — at
+  // the cost of nothing shown until it actually fires. Deliberately renders
+  // NOTHING when calm, per the report's own instruction: the readout stays
+  // quiet, this is a smoke alarm, not a second instrument to read every turn.
+  const fastSeg = fast && fast.status === 'strained' ? (
+    <>
+      {sep}
+      <span title={`fast companion — ρ ${fast.rho} (half-life ${fast.halfLifeTurns.toFixed(1)} turns) · detects in ~5 turns what the slow valve can miss inside a short episode · docs/HOLDING_UNDER_ARCHITECTURE.md`}
+        style={{ color: '#D9A441' }}>
+        ⚡ fast strain {f(fast.loss)}
+      </span>
+    </>
+  ) : null
+
   const memSeg = mem ? (() => {
     const live = mem.ranks
     const pill: CSSProperties = {
@@ -108,6 +125,7 @@ export default function KappaHeader({ dyn, mem, hold }: { dyn: KappaDynamics; me
         <span style={{ opacity: 0.6 }}>κ dynamics</span>
         <span style={{ opacity: 0.45 }}>— awaiting first turn</span>
         {holdSeg}
+        {fastSeg}
         {memSeg}
       </div>
     )
@@ -123,6 +141,7 @@ export default function KappaHeader({ dyn, mem, hold }: { dyn: KappaDynamics; me
       {sep}{cell('j', f(dyn.jerk))}
       {sep}{cell('∫', f(dyn.reserve, 2))}
       {holdSeg}
+      {fastSeg}
       {memSeg}
     </div>
   )

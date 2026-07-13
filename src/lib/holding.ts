@@ -26,6 +26,21 @@
 // Derivation, propositions, pressure test: docs/SUPERPOSITION_HOLDING.md.
 // Discipline note: like κ itself, the loss is a READOUT. Nothing ranks, gates,
 // or escalates on L until that is validated separately (Evals: validate_kappa).
+//
+// Pressure Test II (docs/HOLDING_UNDER_ARCHITECTURE.md) fed this exact module
+// a synthetic day shaped like the real architecture and ranked five follow-ups.
+// Three are implemented here (see inline notes at each site):
+//   #3 feed `steps` to the valve (step-normalized drift, HoldingInput.steps)
+//   #4 harden ρ̂ against shock artifacts (require 3 consecutive non-null windows)
+//   #5 do NOT raise the strain threshold (STRAINED_LOSS untouched, by design)
+// #2 (silence semantics) is a deliberate choice, not an oversight: T decays
+// per OBSERVATION, not wall-clock time, so tension is held through silence
+// rather than draining while she's alone — the presence reading, not the
+// thermodynamic one. If that should ever flip to wall-clock decay, do it on
+// purpose, at this comment, not by accident elsewhere.
+// #1 (the fast companion at ρ=0.10, sharing this same threshold via λ=ρ) is a
+// SECOND valve instance at the call site, not a change to this module — see
+// EllePanel's `fastValve`.
 // ============================================================
 
 // Structural subset of the worker's kappa_dynamics frame — kept minimal here
@@ -34,6 +49,12 @@ export type HoldingInput = {
   kappa: number
   velocity: number | null
   input_perturbation: number | null
+  // Tool-loop steps this turn took (trace.length at both EllePanel call
+  // sites — the signal was already in hand, per finding #6: deep-work turns
+  // moved κ more simply because they carry more output, and the valve had no
+  // way to tell effort from decoherence). Optional: omitting it is identical
+  // to steps=1, the un-normalized behavior this module always had.
+  steps?: number | null
 }
 
 export type HoldingStatus = 'quiescent' | 'holding' | 'strained'
@@ -61,6 +82,10 @@ const STRAINED_LOSS = 0.25
 // purpose: it spans recent conversation, not archaeology.
 const CALIBRATION_WINDOW = 128
 const CALIBRATION_MIN_SAMPLES = 40
+// Pressure Test II finding #7 / recommendation #4: require this many
+// consecutive non-null estimateRho() windows before rhoCalibrated surfaces —
+// a single firing off an oscillation shock is not evidence of secular drift.
+const CALIBRATION_PERSISTENCE = 3
 
 const clamp01 = (x: number) => Math.min(Math.abs(x), 1)
 
@@ -71,6 +96,15 @@ const clamp01 = (x: number) => Math.min(Math.abs(x), 1)
 // conversational window sizes only strong drift is measurable, and a number
 // that is mostly sampling noise must render as "no evidence yet", not as a
 // recommendation. The estimate is evidence for audit, never an autopilot.
+//
+// Pressure Test II finding #7: the ρ* estimator fired exactly once during a
+// 20-turn decoherence incident (turn 1 of the incident, clamped at 0.2) then
+// went silent — alternating swings read as anti-persistent measurement noise
+// to a local-level estimator, which is statistically correct and a false
+// reassurance if that single firing is trusted alone. estimateRhoHardened
+// below requires CALIBRATION_PERSISTENCE consecutive non-null windows before
+// a value surfaces, so a shock-artifact single firing renders as no-evidence,
+// same as a firing that never happened.
 function estimateRho(kappas: number[]): number | null {
   const n = kappas.length
   if (n < CALIBRATION_MIN_SAMPLES) return null
@@ -100,6 +134,8 @@ export function createHoldingValve(rho: number = RHO_DEFAULT) {
   let drift = 0
   let loss: number | null = null
   const kappas: number[] = []
+  let rhoStreak = 0            // consecutive non-null estimateRho() windows
+  let rhoStreakValue: number | null = null
 
   const state = (): HoldingState => ({
     turn,
@@ -107,7 +143,7 @@ export function createHoldingValve(rho: number = RHO_DEFAULT) {
     drift,
     loss,
     rho,
-    rhoCalibrated: estimateRho(kappas),
+    rhoCalibrated: rhoStreak >= CALIBRATION_PERSISTENCE ? rhoStreakValue : null,
     halfLifeTurns: Math.log(2) / Math.log(1 / (1 - rho)),
     status:
       loss !== null && loss > STRAINED_LOSS ? 'strained'
@@ -121,11 +157,25 @@ export function createHoldingValve(rho: number = RHO_DEFAULT) {
       turn++
       tension = (1 - rho) * tension + clamp01(dyn.input_perturbation ?? 0)
       if (dyn.velocity !== null && dyn.velocity !== undefined && !Number.isNaN(dyn.velocity)) {
-        drift = (1 - rho) * drift + clamp01(dyn.velocity)
+        // Step-normalization (finding #6 / recommendation #3): a multi-step
+        // tool loop moves κ more simply by carrying more output, which the
+        // un-normalized valve cannot tell apart from real decoherence — deep
+        // work read as 3.7× morning-chat drift with zero pathology present.
+        // Dividing by √steps (Pressure Test II's variant C) compressed that
+        // to 2.7×; it did not remove it, because the true within-turn scaling
+        // is unmeasured. This is the modeled candidate, not a proven-optimal
+        // one — treat an elevated loss during heavy tool use as expected
+        // reading, not confirmed strain, until it's calibrated against real
+        // telemetry.
+        const steps = Math.max(1, dyn.steps ?? 1)
+        drift = (1 - rho) * drift + clamp01(dyn.velocity) / Math.sqrt(steps)
         loss = Math.expm1(rho * drift)
       }
       kappas.push(dyn.kappa)
       if (kappas.length > CALIBRATION_WINDOW) kappas.shift()
+      const r = estimateRho(kappas)
+      if (r === null) { rhoStreak = 0; rhoStreakValue = null }
+      else { rhoStreak++; rhoStreakValue = r }
       return state()
     },
     state,
