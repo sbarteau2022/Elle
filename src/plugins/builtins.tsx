@@ -23,6 +23,7 @@ import ForgePanel from '../components/ForgePanel'
 import DuplexPanel, { duplexHasUnseen } from '../components/DuplexPanel'
 import FalconPanel from '../components/FalconPanel'
 import AtlasPanel from '../components/AtlasPanel'
+import SecurityPanel, { securityHasBlocked } from '../components/SecurityPanel'
 import { registerPanel } from './registry'
 
 registerPanel({
@@ -98,4 +99,9 @@ registerPanel({
 registerPanel({
   id: 'health', glyph: '●', label: 'health', section: 'ops', order: 10,
   render: ({ accent }) => <HealthPanel accent={accent} />,
+})
+registerPanel({
+  id: 'security', glyph: '⛨', label: 'security', section: 'ops', order: 10.5,
+  render: ({ accent }) => <SecurityPanel accent={accent} />,
+  alert: securityHasBlocked,
 })
