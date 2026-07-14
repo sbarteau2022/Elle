@@ -22,6 +22,7 @@ import IdeasPanel from '../components/IdeasPanel'
 import ForgePanel from '../components/ForgePanel'
 import DuplexPanel, { duplexHasUnseen } from '../components/DuplexPanel'
 import FalconPanel from '../components/FalconPanel'
+import AtlasPanel from '../components/AtlasPanel'
 import { registerPanel } from './registry'
 
 registerPanel({
@@ -47,6 +48,10 @@ registerPanel({
 registerPanel({
   id: 'mirror', glyph: '◐', label: 'mirror', section: 'mind', order: 11,
   render: ({ worker, accent }) => <MirrorPanel worker={worker} accent={accent} />,
+})
+registerPanel({
+  id: 'atlas', glyph: '⌬', label: 'atlas', section: 'mind', order: 11.5,
+  render: ({ worker, accent }) => <AtlasPanel worker={worker} accent={accent} />,
 })
 registerPanel({
   id: 'optimus', glyph: 'φ', label: 'optimus', section: 'work', order: 5,
