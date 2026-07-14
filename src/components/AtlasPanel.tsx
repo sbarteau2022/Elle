@@ -12,6 +12,13 @@
 // as the real recognition signal); oxblood edges are bridges (pure
 // derivation, no loop). Small gold particles travel the cyclic edges as a
 // literal animation of "this is where recall runs around."
+//
+// REPLAY: every published snapshot persists server-side, and the device's
+// temporal embedding keeps coordinates coherent across builds — so scrubbing
+// the timeline (GET /api/atlas/history + /api/atlas/at) shows memories
+// actually drifting, splitting, and being absorbed, not a re-rolled layout
+// per frame. Frames are cached client-side after first fetch; the scrubber's
+// last stop is always the live latest.
 // ============================================================
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import ForceGraph3D from 'react-force-graph-3d'
@@ -44,27 +51,72 @@ const Center = ({ children }: { children: React.ReactNode }) => (
   </div>
 )
 
+interface HistoryEntry { hash: string; version: string; created_at: number; node_count: number; edge_count: number; drift_mean: number | null }
+
 export default function AtlasPanel({ worker, accent }: any) {
-  const [data, setData] = useState<AtlasSnapshot | null>(null)
+  const [latest, setLatest] = useState<AtlasSnapshot | null>(null)
+  const [frame, setFrame] = useState<AtlasSnapshot | null>(null)  // replay frame; null = live latest
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [frameIdx, setFrameIdx] = useState<number | null>(null)   // index into history; null = live
+  const [playing, setPlaying] = useState(false)
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
   const fgRef = useRef<any>(null)
+  const frameCache = useRef(new Map<string, AtlasSnapshot>())
+
+  const auth = { headers: { Authorization: `Bearer ${getToken()}` } }
 
   const load = useCallback(async () => {
     setLoading(true); setNote('')
     try {
-      const r = await fetch(worker.url + '/api/atlas/latest', {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
-      if (r.status === 404) { setData(null); setNote("no atlas published yet — the device cartographer hasn't pushed a snapshot"); return }
-      const d = await r.json()
-      if (!r.ok) { setNote(d.error || `HTTP ${r.status}`); setData(null); return }
-      setData(d)
+      const [rLatest, rHistory] = await Promise.all([
+        fetch(worker.url + '/api/atlas/latest', auth),
+        fetch(worker.url + '/api/atlas/history', auth),
+      ])
+      if (rLatest.status === 404) { setLatest(null); setNote("no atlas published yet — the device cartographer hasn't pushed a snapshot"); return }
+      const d = await rLatest.json()
+      if (!rLatest.ok) { setNote(d.error || `HTTP ${rLatest.status}`); setLatest(null); return }
+      setLatest(d)
+      if (rHistory.ok) setHistory(((await rHistory.json()).snapshots || []) as HistoryEntry[])
+      setFrameIdx(null); setFrame(null); setPlaying(false)   // a refresh always returns to live
     } catch (e: any) {
       setNote('load failed: ' + (e.message || e))
     } finally { setLoading(false) }
   }, [worker.url])
   useEffect(() => { load() }, [load])
+
+  // Scrub: fetch (and cache) the selected historical frame. The last history
+  // entry IS the latest snapshot, so scrubbing to the end returns to live.
+  const showFrame = useCallback(async (idx: number | null) => {
+    setFrameIdx(idx)
+    if (idx == null || !history.length || idx >= history.length - 1) { setFrameIdx(null); setFrame(null); return }
+    const h = history[idx]
+    const cached = frameCache.current.get(h.hash)
+    if (cached) { setFrame(cached); return }
+    try {
+      const r = await fetch(worker.url + `/api/atlas/at?hash=${encodeURIComponent(h.hash)}`, auth)
+      if (!r.ok) { setNote(`frame ${h.hash.slice(0, 8)} unavailable (HTTP ${r.status})`); return }
+      const d = (await r.json()) as AtlasSnapshot
+      frameCache.current.set(h.hash, d)
+      setFrame(d)
+    } catch (e: any) { setNote('frame load failed: ' + (e.message || e)) }
+  }, [history, worker.url])
+
+  // Play: step one frame per beat from wherever the scrubber sits, stop at live.
+  useEffect(() => {
+    if (!playing) return
+    const t = setInterval(() => {
+      setFrameIdx((cur) => {
+        const next = (cur ?? -1) + 1
+        if (next >= history.length - 1) { setPlaying(false); showFrame(null); return null }
+        showFrame(next)
+        return next
+      })
+    }, 900)
+    return () => clearInterval(t)
+  }, [playing, history.length, showFrame])
+
+  const data = frame ?? latest   // what the scene and the stats row render
 
   const graphData = useMemo(() => {
     if (!data) return { nodes: [] as any[], links: [] as any[] }
@@ -103,12 +155,30 @@ export default function AtlasPanel({ worker, accent }: any) {
         {note && <div style={{ ...mono(10), color: '#D06565', marginTop: 8 }}>{note}</div>}
         {data && (
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 10, ...mono(9.5), color: 'var(--dim)' }}>
-            <span>v{data.version} · {data.hash.slice(0, 10)}</span>
+            <span style={frame ? { color: accent } : undefined}>{frame ? `replay · v${data.version}` : `live · v${data.version}`} · {data.hash.slice(0, 10)}</span>
             <span>{data.nodes.length} nodes · {data.edges.length} edges</span>
             <span>cycle rank b₁={data.structure.invariants.cycle_rank}</span>
             <span>mix ℍ {Math.round(data.product.mix.hyperbolic * 100)}% · 𝕋 {Math.round(data.product.mix.toroidal * 100)}%</span>
             {data.hyper.drift && <span>drift {data.hyper.drift.mean.toFixed(4)} ({data.hyper.drift.moved} moved)</span>}
             <span>{new Date(data.created_at).toLocaleString()}</span>
+          </div>
+        )}
+        {history.length >= 2 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+            <button onClick={() => { if (playing) { setPlaying(false) } else { if (frameIdx == null) showFrame(0); setPlaying(true) } }}
+              title={playing ? 'pause replay' : 'replay the graph from its first build'}
+              style={{ background: 'none', border: `0.5px solid ${accent}55`, borderRadius: 5, color: accent, cursor: 'pointer', ...mono(10), padding: '2px 9px', width: 34 }}>
+              {playing ? '❚❚' : '▶'}
+            </button>
+            <input
+              type="range" min={0} max={history.length - 1}
+              value={frameIdx ?? history.length - 1}
+              onChange={(e) => { setPlaying(false); showFrame(Number(e.target.value)) }}
+              style={{ flex: 1, accentColor: accent, height: 3 }}
+            />
+            <span style={{ ...mono(9), color: frame ? accent : 'var(--dim)', width: 110, flexShrink: 0, textAlign: 'right' }}>
+              {frame ? `${(frameIdx ?? 0) + 1} / ${history.length}` : `live · ${history.length} builds`}
+            </span>
           </div>
         )}
       </div>
