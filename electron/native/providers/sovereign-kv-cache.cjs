@@ -11,12 +11,25 @@
 // owns: the local machine. The pure logic (dynamicBudget, normalization, keying)
 // is identical to the worker's — a working set is a working set. What changes is
 // the store: Cloudflare KV → the local filesystem under the app's userData dir,
-// one JSON file per session, LRU + TTL evicted. And it is gated: unless the
-// build is running sovereign (ELLE_SOVEREIGN / SOVEREIGN truthy — the flag that
-// flips Elle off the hosted worker and onto the local model we train), every
-// entry point is inert. This is the cache "just for the sovereign model": when
-// the hosted worker is answering, its own KV cache does this job; the moment we
-// go local, this one takes over with no code above it changing.
+// one JSON file per session, LRU + TTL evicted. And it is gated: every entry
+// point is inert unless sovereign mode is live. This is the cache "just for the
+// sovereign model": when the hosted worker is answering, its own KV cache does
+// this job; the moment we go local, this one takes over with no code above it
+// changing.
+//
+// Sovereign is DETECTED, not declared. There used to be a required
+// ELLE_SOVEREIGN=true switch — that meant the cache stayed inert on a machine
+// where Ollama was genuinely up unless someone remembered to flip it, and
+// stayed "on" on a machine where Ollama had gone down. Every other local-lane
+// component (sovereign-duplex.cjs, sandbox-agent.cjs) already does the right
+// thing here — it just tries Ollama and no-ops/demotes on failure, live, every
+// time. isSovereign() now matches that: it live-probes Ollama (GET /api/tags,
+// cheap — lists models, never invokes one) and caches the verdict for
+// PROBE_TTL_MS so the hot path (getCached/putCached, called often per turn)
+// never blocks on a network round trip. ELLE_SOVEREIGN/SOVEREIGN still work as
+// an explicit override (true or false) for testing — set either to skip the
+// probe entirely — but the *default*, unset behavior is: sovereign is live
+// exactly when the laptop's local model is actually reachable, full stop.
 //
 // Seam parity with the worker: assembleWorkingSet delegates the actual recall
 // to an injected `recall(query, budget)` — the future sovereign memory kernel —
@@ -34,11 +47,53 @@ const os = require('os');
 const path = require('path');
 
 // ── sovereign gate ───────────────────────────────────────────
-// The one switch. Everything below is inert unless this is true, so the module
-// is safe to register and expose in the hosted build — it simply never engages.
-function isSovereign() {
-  return process.env.ELLE_SOVEREIGN === 'true' || process.env.SOVEREIGN === 'true';
+// Everything below is inert unless this reads true, so the module is safe to
+// register and expose in the hosted build — it simply never engages there.
+const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
+const PROBE_TTL_MS = 5000;      // how long a "reachable"/"unreachable" verdict is trusted
+const PROBE_TIMEOUT_MS = 800;   // never let a dead Ollama stall a cache call this long
+
+// Explicit override: ELLE_SOVEREIGN or SOVEREIGN set to exactly 'true'/'false'
+// skips the probe and wins outright — used by tests and anyone deliberately
+// forcing one mode. Unset (the normal case) returns null: detect live instead.
+function envOverride() {
+  const v = String(process.env.ELLE_SOVEREIGN || process.env.SOVEREIGN || '').toLowerCase();
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  return null;
 }
+
+let _probe = { value: false, checkedAt: 0, inFlight: false };
+
+// Fire-and-forget refresh — never awaited by isSovereign() itself, so a dead
+// or slow Ollama can never add latency to a cache read/write. Updates _probe
+// when it resolves; callers in the meantime keep getting the last known value.
+async function refreshProbe() {
+  if (_probe.inFlight) return;
+  _probe.inFlight = true;
+  const base = String(process.env.ELLE_OLLAMA_URL || DEFAULT_OLLAMA).replace(/\/+$/, '');
+  let reachable = false;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
+    const r = await fetch(`${base}/api/tags`, { signal: ctrl.signal }).catch(() => null);
+    clearTimeout(t);
+    reachable = !!(r && r.ok);
+  } catch { reachable = false; }
+  _probe = { value: reachable, checkedAt: Date.now(), inFlight: false };
+}
+
+function isSovereign() {
+  const override = envOverride();
+  if (override !== null) return override;
+  if (Date.now() - _probe.checkedAt > PROBE_TTL_MS) void refreshProbe();
+  return _probe.value;
+}
+void refreshProbe(); // kick off the first probe at module load, before any turn needs it
+
+// Test hook: force the next isSovereign() call to re-probe instead of trusting
+// a cached verdict from a prior test's mocked Ollama port.
+function _resetProbe() { _probe = { value: false, checkedAt: 0, inFlight: false }; }
 
 // Warm, not durable: a short window bounds staleness while catching the
 // "keep going" / rephrase follow-ups that actually repeat the recall.
@@ -240,6 +295,9 @@ module.exports = {
   stats,
   assembleWorkingSet,
 
-  // test hook: force base-dir re-resolution after changing env
-  _resetBaseDir() { _baseDir = null; },
+  // test hooks
+  _resetBaseDir() { _baseDir = null; },      // force base-dir re-resolution after changing env
+  _resetProbe,                                // force the next isSovereign() to re-probe / re-read override
+  refreshProbe,                               // await a live probe directly (bypasses the TTL cache)
+  PROBE_TTL_MS,
 };

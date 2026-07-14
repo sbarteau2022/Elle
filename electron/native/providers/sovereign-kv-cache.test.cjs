@@ -8,6 +8,7 @@ const assert = require('node:assert');
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs');
+const http = require('node:http');
 
 // Isolate the on-disk store to a throwaway dir before requiring the module.
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'sov-kv-'));
@@ -67,6 +68,49 @@ test('gate: inert when not sovereign', async () => {
   assert.equal(await cache.getCached('s-off', 'the thesis in full detail?'), null);
   const ws = await cache.assembleWorkingSet('remember the whole thesis in detail?', 's-off', async () => 'RECALLED');
   assert.deepEqual(ws, { text: '', budget: 0, hit: false, cached: false });
+});
+
+// ── the sovereign gate: live detection (no override set) ─────
+// These exercise the actual point of the change: sovereign availability
+// tracks whether Ollama is really reachable, not a manually-flipped switch.
+// refreshProbe() is awaited directly (bypassing the TTL cache isSovereign()
+// itself trusts) so each test gets a deterministic, immediate verdict instead
+// of racing a fire-and-forget background check.
+
+test('gate: live-detects unreachable — no override, closed port', async () => {
+  delete process.env.ELLE_SOVEREIGN;
+  delete process.env.SOVEREIGN;
+  process.env.ELLE_OLLAMA_URL = 'http://127.0.0.1:1'; // reserved port, nothing listens
+  cache._resetProbe();
+  await cache.refreshProbe();
+  assert.equal(cache.isSovereign(), false);
+});
+
+test('gate: live-detects reachable — no override, Ollama-shaped server up', async () => {
+  const srv = http.createServer((req, res) => {
+    if (req.url === '/api/tags') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"models":[]}'); }
+    else { res.writeHead(404); res.end(); }
+  });
+  await new Promise(resolve => srv.listen(0, '127.0.0.1', resolve));
+  const port = srv.address().port;
+  try {
+    delete process.env.ELLE_SOVEREIGN;
+    delete process.env.SOVEREIGN;
+    process.env.ELLE_OLLAMA_URL = `http://127.0.0.1:${port}`;
+    cache._resetProbe();
+    await cache.refreshProbe();
+    assert.equal(cache.isSovereign(), true);
+  } finally {
+    await new Promise(resolve => srv.close(resolve));
+  }
+});
+
+test('gate: explicit override still wins outright, skips the probe', async () => {
+  process.env.ELLE_OLLAMA_URL = 'http://127.0.0.1:1'; // would probe false if consulted
+  cache._resetProbe();
+  process.env.ELLE_SOVEREIGN = 'true';
+  assert.equal(cache.isSovereign(), true); // no await needed — override never touches the probe
+  delete process.env.ELLE_SOVEREIGN;
 });
 
 // ── the store: round-trip, reuse, invalidate ─────────────────
