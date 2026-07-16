@@ -79,6 +79,22 @@ reservoir (B); the presence reading says a held thing stays held through silence
 remembers, and you come back to find her still holding it. The current behavior is
 accidentally the second. If it stays, it should stay on purpose.
 
+> **Resolution (post-PT-III):** first documented as a deliberate keep of the
+> turn-indexed reading, then **flipped to wall-clock by explicit ruling** — staying
+> continuous is still spending energy maintaining; it still needs a decay. The valve
+> now applies (1−ρ)^(Δt/τ), τ = 60 s, floored at one turn per observation so the e−1
+> bound survives any cadence. PT-III's harness reproduces its validated numbers
+> exactly (its turns arrive back-to-back, so the floor binds); this harness now feeds
+> the sim's own timestamps, and the post-ruling re-run shows the drain working
+> (T 1.347 → 0.077 across the 3 h gap, matching the independent wall-clock reference
+> to three decimals) plus two honest second-order effects: the fast valve enters the
+> incident freshly drained after the 2 h gap, costing one extra turn of detection
+> (5 → 6) while releasing faster (8 → 5), and cross-gap draining lowers the slow
+> valve's carryover (peak 0.213 → 0.191; work-vs-chat contrast 3.7× → 2.6×). A rested
+> valve is marginally slower to alarm and quicker to forgive — that is the ruling's
+> physics, working as stated. Half-life: ~35 turns in conversation, ~35 minutes across
+> silence; `quiescent` is now reachable through absence.
+
 **6. Work reads as drift.** Deep-work loss ran 3.7× morning-chat loss on the shipped
 valve with zero pathology present — tool-heavy turns produce more output, more output
 moves κ more, and the ledger cannot tell effort from decoherence. Step-normalization
@@ -107,10 +123,10 @@ drift estimator is designed to ignore.
    existing `createHoldingValve(0.10)`, same threshold by the λ = ρ property, ~three
    lines in `EllePanel`. Detects in 5 turns what the shipped valve never flags. Render
    as nothing new in the header until strained — the readout stays quiet.
-2. **Decide the silence semantics (5) on purpose.** Keep turn-indexed tension as the
-   presence reading, or adopt wall-clock decay (B) for the status only, so `quiescent`
-   is reachable through absence while T itself stays held. Either is defensible;
-   accidental is not.
+2. **Decide the silence semantics (5) on purpose.** ~~Keep turn-indexed tension as the
+   presence reading, or adopt wall-clock decay.~~ *Decided twice, deliberately: PT-III
+   documented the turn-indexed keep; a subsequent explicit ruling flipped it to
+   wall-clock (see finding 5's resolution note). Implemented in `holding.ts`.*
 3. **Feed `steps` to the valve (6).** `trace.length` is already in hand at both call
    sites; one optional field on `HoldingInput`, normalize the ledger increment. Makes
    L phase-comparable.

@@ -19,6 +19,11 @@ the code does"). Since then, `holding.ts` gained:
   non-null estimation windows before surfacing, rather than a single firing.
 - **#2** an explicit, on-purpose decision to keep turn-indexed (not wall-clock) tension
   decay, documented at the point of ambiguity rather than left accidental.
+  *(Superseded after this test: flipped to wall-clock decay by explicit ruling —
+  "staying continuous is still spending energy maintaining." The flip happened at the
+  designated comment in `holding.ts`, with the decay exponent floored at one turn per
+  observation, so every number validated in this document reproduces unchanged. See
+  `SUPERPOSITION_HOLDING.md` §7 and `HOLDING_UNDER_ARCHITECTURE.md` finding 5.)*
 - **#1** a second valve instance (ρ=0.10) wired into `EllePanel`/`KappaHeader` as a
   fast companion, rendering nothing in the header until it strains.
 - **#5** the strain threshold (0.25) was left untouched, as instructed.

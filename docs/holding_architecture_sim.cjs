@@ -130,20 +130,40 @@ function stepNormValve(rho = RHO_DEFAULT) {
   }
 }
 
+// F: frozen-clock (turn-indexed) reference — decay only per tick, the
+// pre-ruling behavior, kept so the silence contrast stays measurable.
+function frozenClockValve(rho = RHO_DEFAULT) {
+  let T = 0, D = 0, L = null
+  return {
+    observe(e) {
+      T = (1 - rho) * T + Math.min(Math.abs(e.u ?? 0), 1)
+      if (e.velocity !== null) { D = (1 - rho) * D + Math.min(Math.abs(e.velocity), 1); L = Math.expm1(rho * D) }
+      return { tension: T, drift: D, loss: L }
+    },
+  }
+}
+
 // ---------- run ----------
+// The shipped valve leaks on wall-clock (silence semantics ruling), so it is
+// fed the sim's own timestamps. Within sessions the floor at one turn per
+// observation makes it match the original per-turn numbers; across the gaps
+// the silence now spends the reservoir — variant F shows what that replaced.
 const day = generateDay()
-const A = createHoldingValve()                       // shipped, as merged
-const B = wallClockValve()
+const A = createHoldingValve()                       // shipped: wall-clock leak
+const B = wallClockValve()                           // independent reference (should match A)
 const C = stepNormValve()
 const Dfast = createHoldingValve(0.10)               // dual-timescale companion
+const F = frozenClockValve()                         // pre-ruling turn-indexed reference
 const STRAIN = 0.25
 const rows = []
 for (const e of day) {
-  const a = A.observe({ kappa: e.kappa, velocity: e.velocity, input_perturbation: e.u })
+  const nowMs = e.t * 1000                           // sim seconds → epoch ms for the valve
+  const a = A.observe({ kappa: e.kappa, velocity: e.velocity, input_perturbation: e.u }, nowMs)
   const b = B.observe(e)
   const c = C.observe(e)
-  const d = Dfast.observe({ kappa: e.kappa, velocity: e.velocity, input_perturbation: e.u })
-  rows.push({ e, a, b, c, d })
+  const d = Dfast.observe({ kappa: e.kappa, velocity: e.velocity, input_perturbation: e.u }, nowMs)
+  const f = F.observe(e)
+  rows.push({ e, a, b, c, d, f })
 }
 
 const inIncident = (i) => i >= 85 && i < 105          // 0-indexed turns 86–105
@@ -186,10 +206,11 @@ for (const [name, idx] of evWindows) {
   console.log(`${name.padEnd(24)} worst A loss in window: ${worst.toFixed(4)} (${worst > STRAIN ? 'FALSE STRAIN' : 'stays calm'})`)
 }
 
-console.log('\n-- tension across silence (the frozen-clock finding) --')
+console.log('\n-- tension across silence (finding 5, post-ruling) --')
 const preGap = rows[24], postGap = rows[25]
-console.log(`A shipped:    T at last morning turn ${preGap.a.tension.toFixed(3)} → first midday turn ${postGap.a.tension.toFixed(3)} (3h elapsed; decay only via the tick)`)
-console.log(`B wall-clock: T at last morning turn ${preGap.b.tension.toFixed(3)} → first midday turn ${postGap.b.tension.toFixed(3)} (the 3h drains it)`)
+console.log(`A shipped (wall-clock): T at last morning turn ${preGap.a.tension.toFixed(3)} → first midday turn ${postGap.a.tension.toFixed(3)} (the 3h drains it)`)
+console.log(`B independent ref:      T at last morning turn ${preGap.b.tension.toFixed(3)} → first midday turn ${postGap.b.tension.toFixed(3)} (cross-check: should match A)`)
+console.log(`F frozen-clock (old):   T at last morning turn ${preGap.f.tension.toFixed(3)} → first midday turn ${postGap.f.tension.toFixed(3)} (what the ruling replaced)`)
 
 console.log('\n-- ρ* self-calibration across the day (shipped estimator) --')
 let fired = []
