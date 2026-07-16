@@ -3,25 +3,44 @@
 // Connect-back sandbox agent — Elle's hands on this machine.
 //
 // Elle's mind runs in the cloud (elle-worker). A Worker can't reach a laptop
-// behind NAT, so THIS process dials UP: it opens a WebSocket to
-//   wss://<worker>/api/sandbox-agent/connect?key=<secret>
-// and holds it open. The worker's SandboxAgent Durable Object authenticates the
-// secret and, when Elle calls run_code / run_shell / sandbox_clone, sends a job
-// down this socket. We execute it — inside a locked Docker box by default (see
-// sandbox-box.cjs; fail-closed when the daemon is down) — stream the result
-// back, and for clones ship a copy of the code up (and keep one locally).
+// behind NAT, so THIS process used to dial UP with a WebSocket. It doesn't
+// anymore: "I don't need the socket to pass a tool" — this now POLLS
+// elle-worker's session bus (POST /api/sandbox-bus/poll) for sealed jobs on
+// an interval, executes them — inside a locked Docker box by default (see
+// sandbox-box.cjs; fail-closed when the daemon is down) — and SUBMITS the
+// sealed result back (POST /api/sandbox-bus/submit). No held-open
+// connection, no Durable Object on the other end holding a socket.
+//
+// THE ENVELOPE IS THE ROSEN BRIDGE (rosen-bridge.cjs — a byte-for-byte port
+// of elle-worker's lane-envelope.ts): COROS (AES-256-GCM) sealed under
+// hyperbolic-sync's counter-free keystream. One root secret
+// (ELLE_SANDBOX_KEY, same as before — it used to authenticate the socket,
+// now it's HKDF'd into a distinct channel per lane+direction) instead of the
+// socket's separate key shape. Real authentication happens at OPEN time: a
+// forged or replayed poll response simply fails to decrypt.
+//
+// STATE, PERSISTED TO DISK: hyperbolic-sync's per-tick key needs a sender
+// and a receiver state that both advance forward-only. There is no
+// in-memory Durable Object holding the cloud's half anymore (it's in
+// elle-worker's D1 — see session-bus.ts); this process's own half —
+// receiver state for jobs coming IN, sender state for results going OUT —
+// is persisted under <workRoot>/.bus-state/ so a restart doesn't strand the
+// channel. First contact for a new lane bootstraps at tick 0 on both ends,
+// same as elle-worker does.
 //
 // Trust model: this is the operator's own machine and the worker tool is
 // full-scope only (her superadmin cockpit + conductor). The shared secret is the
 // gate — without ELLE_SANDBOX_KEY set (and matching the worker's
-// SANDBOX_AGENT_KEY) the agent stays idle and never connects. When connected it
+// SANDBOX_AGENT_KEY) the agent stays idle and never polls. When connected it
 // grants real, un-prompted execution by design: "she just uses it."
 //
 // Config (env, all optional except the key):
-//   ELLE_SANDBOX_KEY   shared secret; MUST match the worker. No key ⇒ idle.
-//   ELLE_WORKER_URL    worker origin (https/wss). Falls back to
-//                      VITE_ELLE_WORKER_URL, else the deployed worker.
-//   ELLE_SANDBOX_ROOT  default working directory for jobs (created if missing).
+//   ELLE_SANDBOX_KEY    shared secret; MUST match the worker. No key ⇒ idle.
+//   ELLE_WORKER_URL     worker origin (https). Falls back to
+//                       VITE_ELLE_WORKER_URL, else the deployed worker.
+//   ELLE_SANDBOX_ROOT   default working directory for jobs (created if missing).
+//   ELLE_SANDBOX_LANES  comma-separated lane names to poll (default 'primary').
+//   ELLE_SANDBOX_POLL_MS  poll interval per lane, ms (default 5000, min 2000).
 // ============================================================
 
 const { spawn } = require('child_process');
@@ -29,61 +48,32 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const box = require('./sandbox-box.cjs');
+const rb = require('./rosen-bridge.cjs');
 
 const DEFAULT_WORKER = 'https://elle-worker.sbarteau2022.workers.dev';
-const HEARTBEAT_MS = 25_000;
+const DEFAULT_POLL_MS = 5_000;
 const MAX_OUTPUT = 200_000;      // cap per stream, bytes
 const CLONE_MAX_FILES = 200;
 const CLONE_MAX_FILE = 256 * 1024;
 const CLONE_MAX_BUNDLE = 5 * 1024 * 1024;
 const CLONE_SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.cache', 'coverage']);
-
-// ── one WebSocket surface over either the ws package (Electron's Node 20 has no
-//    global WebSocket) or a global one (Node 22+, tests) ──────────────────────
-function makeSocket(url) {
-  const h = {};
-  let raw;
-  let Ws = null;
-  try { Ws = require('ws'); } catch { /* fall back to global */ }
-  if (Ws) {
-    raw = new Ws(url, { handshakeTimeout: 15_000 });
-    raw.on('open', () => h.open && h.open());
-    raw.on('message', (d) => h.message && h.message(typeof d === 'string' ? d : d.toString('utf8')));
-    raw.on('close', () => h.close && h.close());
-    raw.on('error', (e) => h.error && h.error(e));
-  } else if (typeof globalThis.WebSocket === 'function') {
-    raw = new globalThis.WebSocket(url);
-    raw.onopen = () => h.open && h.open();
-    raw.onmessage = (ev) => h.message && h.message(typeof ev.data === 'string' ? ev.data : String(ev.data));
-    raw.onclose = () => h.close && h.close();
-    raw.onerror = (e) => h.error && h.error(e);
-  } else {
-    throw new Error('no WebSocket implementation (install the "ws" package)');
-  }
-  return {
-    on(k, fn) { h[k] = fn; },
-    send(s) { try { raw.send(s); } catch { /* closing */ } },
-    close() { try { raw.close(); } catch { /* already gone */ } },
-  };
-}
-
-// ── module state ────────────────────────────────────────────
-let sock = null;
-let heartbeat = null;
-let reconnectTimer = null;
-let backoff = 2000;
-let stopped = true;
-let root = null;
-let cloneDir = null;
+const POLL_TIMEOUT_MS = 20_000;
+const SUBMIT_TIMEOUT_MS = 20_000;
+const OPEN_WINDOW = 32; // matches hyperbolic-sync's default forward-only search window
 
 function log(...a) { try { console.log('[sandbox-agent]', ...a); } catch { /* noop */ } }
+function slug(s) { return String(s).replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'lane'; }
 
 function config(opts) {
   const key = (opts && opts.key) || process.env.ELLE_SANDBOX_KEY || '';
-  const origin = (opts && opts.workerUrl) || process.env.ELLE_WORKER_URL || process.env.VITE_ELLE_WORKER_URL || DEFAULT_WORKER;
-  const wsUrl = origin.replace(/^http/i, 'ws').replace(/\/+$/, '') + '/api/sandbox-agent/connect?key=' + encodeURIComponent(key);
+  const origin = ((opts && opts.workerUrl) || process.env.ELLE_WORKER_URL || process.env.VITE_ELLE_WORKER_URL || DEFAULT_WORKER).replace(/\/+$/, '');
+  const pollUrl = `${origin}/api/sandbox-bus/poll`;
+  const submitUrl = `${origin}/api/sandbox-bus/submit`;
   const workRoot = (opts && opts.root) || process.env.ELLE_SANDBOX_ROOT || path.join(userDataDir(), 'sandbox-workspace');
-  return { key, wsUrl, workRoot };
+  const lanes = String((opts && opts.lanes) || process.env.ELLE_SANDBOX_LANES || 'primary')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  const pollIntervalMs = Math.max(2_000, Number(process.env.ELLE_SANDBOX_POLL_MS) || DEFAULT_POLL_MS);
+  return { key, pollUrl, submitUrl, workRoot, lanes: lanes.length ? lanes : ['primary'], pollIntervalMs };
 }
 
 function userDataDir() {
@@ -91,85 +81,41 @@ function userDataDir() {
   catch { return path.join(os.homedir(), '.elle'); }
 }
 
-function connect(cfg) {
-  if (stopped) return;
-  log('connecting to', cfg.wsUrl.replace(/key=[^&]*/, 'key=***'));
-  let s;
-  try { s = makeSocket(cfg.wsUrl); }
-  catch (e) { log('socket error:', e.message); return scheduleReconnect(cfg); }
-  sock = s;
+// ── module state ────────────────────────────────────────────
+let timer = null;
+let stopped = true;
+let root = null;
+let cloneDir = null;
+let lastErrorKey = '';
+const channelCache = new Map(); // "lane:direction" -> HypChannel (deterministic from root+lane, safe to cache)
 
-  s.on('open', () => {
-    backoff = 2000;
-    log('path open');
-    s.send(JSON.stringify({ t: 'hello', agent: 'elle-workbench', host: os.hostname(), platform: process.platform, root }));
-    clearInterval(heartbeat);
-    heartbeat = setInterval(() => s.send(JSON.stringify({ t: 'pong' })), HEARTBEAT_MS);
-  });
+function ensureRoot() {
+  if (!root) return;
+  try { fs.mkdirSync(root, { recursive: true }); } catch { /* ignore */ }
+  try { fs.mkdirSync(cloneDir, { recursive: true }); } catch { /* ignore */ }
+  try { fs.mkdirSync(stateDir(), { recursive: true }); } catch { /* ignore */ }
+}
+function stateDir() { return path.join(root, '.bus-state'); }
+function stateFile(lane, key) { return path.join(stateDir(), `${slug(lane)}-${key}.json`); }
 
-  s.on('message', (text) => {
-    let m;
-    try { m = JSON.parse(text); } catch { return; }
-    if (m.t === 'ping') return s.send(JSON.stringify({ t: 'pong' }));
-    if (m.t === 'welcome') return;
-    if (m.t === 'exec') return handleExec(m, s);
-    if (m.t === 'clone') return handleClone(m, s);
-    if (m.t === 'llm') return handleLlm(m, s);
-  });
-
-  s.on('close', () => { log('path closed'); teardownSock(); scheduleReconnect(cfg); });
-  s.on('error', (e) => { log('error:', e && e.message ? e.message : e); });
+function loadLocalState(lane, key) {
+  try { return rb.decodeState(fs.readFileSync(stateFile(lane, key), 'utf8')); } catch { return null; }
+}
+function saveLocalState(lane, key, state) {
+  try { ensureRoot(); fs.writeFileSync(stateFile(lane, key), rb.encodeState(state)); }
+  catch (e) { log(`could not persist bus state for ${lane}/${key}:`, e.message); }
 }
 
-function teardownSock() {
-  clearInterval(heartbeat); heartbeat = null;
-  sock = null;
+async function getChannel(rootSecret, lane, direction) {
+  const k = `${lane}:${direction}`;
+  if (!channelCache.has(k)) channelCache.set(k, await rb.laneChannel(rootSecret, k));
+  return channelCache.get(k);
 }
 
-function scheduleReconnect(cfg) {
-  if (stopped) return;
-  clearTimeout(reconnectTimer);
-  const wait = backoff;
-  backoff = Math.min(backoff * 2, 30_000);
-  reconnectTimer = setTimeout(() => connect(cfg), wait);
-}
-
-// ── exec: run code or a shell command inside the box ────────
-function handleExec(job, s) {
-  const started = Date.now();
-  const { proc, tmp, error } = spawnFor(job);
-  if (!proc) {
-    return s.send(JSON.stringify({ t: 'result', id: job.id, stdout: '', stderr: error || 'unsupported job', exit: -1, duration_ms: 0 }));
-  }
-  let out = '', errOut = '', truncated = false, settled = false;
-  const cap = (buf, chunk) => {
-    if (buf.length >= MAX_OUTPUT) { truncated = true; return buf; }
-    return buf + chunk.toString('utf8');
-  };
-  proc.stdout && proc.stdout.on('data', (c) => { out = cap(out, c); });
-  proc.stderr && proc.stderr.on('data', (c) => { errOut = cap(errOut, c); });
-
-  const timeout = Math.min(Math.max(job.timeout_ms || 120_000, 1000), 600_000);
-  const killer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* gone */ } }, timeout);
-
-  const finish = (exit) => {
-    if (settled) return; settled = true;
-    clearTimeout(killer);
-    if (tmp) { try { fs.rmSync(tmp, { force: true }); } catch { /* ignore */ } }
-    s.send(JSON.stringify({
-      t: 'result', id: job.id,
-      stdout: out.slice(0, MAX_OUTPUT), stderr: errOut.slice(0, MAX_OUTPUT),
-      exit: typeof exit === 'number' ? exit : -1, duration_ms: Date.now() - started, truncated,
-    }));
-  };
-  proc.on('close', (code) => finish(code == null ? -1 : code));
-  proc.on('error', (e) => { errOut = cap(errOut, Buffer.from(`spawn error: ${e.message}\n`)); finish(-1); });
-}
-
-// Pure: job → { bin, args, ext, electronRunAsNode } describing how to run it,
-// with no code-file arg appended yet (ext === null means "shell", no temp
-// file). Split out from spawnFor so the language/shell dispatch is testable
-// without actually spawning a process.
+// ── the job executors — pure result, no transport awareness ─
+// Mirrors the box-first/fail-closed discipline exactly as before: exec goes
+// through Docker unless ELLE_SANDBOX_ISOLATION=none, and a down daemon
+// refuses rather than falling back to a bare host spawn.
 function commandFor(job) {
   if (job.mode === 'shell') {
     const shell = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
@@ -186,14 +132,12 @@ function commandFor(job) {
   }
   return null;
 }
+function pythonBin() { return process.platform === 'win32' ? 'python' : 'python3'; }
 
+let warnedBareHost = false;
 function spawnFor(job) {
   ensureRoot();
   const cwd = root;
-
-  // The box (default). Exec runs inside a locked Docker container; if the
-  // daemon is down we FAIL CLOSED — refuse rather than fall through to a bare
-  // host spawn. Only ELLE_SANDBOX_ISOLATION=none escapes to the host lane.
   if (box.isolationMode() === 'docker') {
     if (!box.dockerAvailable()) {
       return { proc: null, tmp: null, error:
@@ -202,8 +146,6 @@ function spawnFor(job) {
     }
     return box.boxedSpawn(job, root);
   }
-
-  // Explicit opt-out: bare host spawn (legacy, un-jailed). Loud on first use.
   if (!warnedBareHost) { warnedBareHost = true; log('WARNING: ELLE_SANDBOX_ISOLATION=none — exec runs UN-JAILED on the bare host.'); }
   const c = commandFor(job);
   if (!c) return { proc: null, tmp: null, error: 'unsupported job language' };
@@ -212,9 +154,6 @@ function spawnFor(job) {
   const tmp = writeTmp(String(job.code || ''), c.ext);
   return { proc: spawn(c.bin, [...c.args, tmp], { cwd, env }), tmp };
 }
-let warnedBareHost = false;
-
-function pythonBin() { return process.platform === 'win32' ? 'python' : 'python3'; }
 
 function writeTmp(content, ext) {
   ensureRoot();
@@ -223,23 +162,45 @@ function writeTmp(content, ext) {
   return p;
 }
 
+function runExecJob(job) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const { proc, tmp, error } = spawnFor(job);
+    if (!proc) {
+      resolve({ ok: false, stdout: '', stderr: error || 'unsupported job', exit: -1, duration_ms: 0 });
+      return;
+    }
+    let out = '', errOut = '', truncated = false, settled = false;
+    const cap = (buf, chunk) => (buf.length >= MAX_OUTPUT ? (truncated = true, buf) : buf + chunk.toString('utf8'));
+    proc.stdout && proc.stdout.on('data', (c) => { out = cap(out, c); });
+    proc.stderr && proc.stderr.on('data', (c) => { errOut = cap(errOut, c); });
+
+    const timeout = Math.min(Math.max(job.timeout_ms || 120_000, 1000), 600_000);
+    const killer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* gone */ } }, timeout);
+
+    const finish = (exit) => {
+      if (settled) return; settled = true;
+      clearTimeout(killer);
+      if (tmp) { try { fs.rmSync(tmp, { force: true }); } catch { /* ignore */ } }
+      resolve({
+        ok: exit === 0, stdout: out.slice(0, MAX_OUTPUT), stderr: errOut.slice(0, MAX_OUTPUT),
+        exit: typeof exit === 'number' ? exit : -1, duration_ms: Date.now() - started, truncated,
+      });
+    };
+    proc.on('close', (code) => finish(code == null ? -1 : code));
+    proc.on('error', (e) => { errOut = cap(errOut, Buffer.from(`spawn error: ${e.message}\n`)); finish(-1); });
+  });
+}
+
 // ── llm: the sovereign inference lane ────────────────────────
-// The worker's router loop dispatches a GENERATION down the same socket
-// run_code rides: we think it on the local Ollama (free, no key, no quota)
-// and send the text back. Same defaults as the sovereign-duplex provider —
-// one local model, addressed by the name `ollama list` shows. The <think>
-// strip is shared with the duplex: private deliberation never rides the
-// protocol, only what the model chose to say.
 const { stripThinking } = require('./sovereign-duplex.cjs');
 const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
-const DEFAULT_LOCAL_MODEL = 'qwen3.5:4b'; // keep in step with sovereign-duplex's DEFAULT_MODEL — one local mind
+const DEFAULT_LOCAL_MODEL = 'qwen3.5:4b';
 const LLM_MAX_CONTENT = 32_000;
 
-async function handleLlm(job, s) {
-  const started = Date.now();
+async function runLlmJob(job) {
   const base = (process.env.ELLE_OLLAMA_URL || DEFAULT_OLLAMA).replace(/\/+$/, '');
   const model = process.env.ELLE_LOCAL_MODEL || DEFAULT_LOCAL_MODEL;
-  const reply = (r) => s.send(JSON.stringify({ t: 'llm_result', id: job.id, duration_ms: Date.now() - started, ...r }));
   try {
     const chat = [{ role: 'system', content: String(job.system || '') }];
     for (const m of Array.isArray(job.messages) ? job.messages : []) {
@@ -255,19 +216,19 @@ async function handleLlm(job, s) {
       }),
       signal: AbortSignal.timeout(timeout),
     });
-    if (!r.ok) return reply({ ok: false, error: `ollama HTTP ${r.status}`, model });
+    if (!r.ok) return { ok: false, error: `ollama HTTP ${r.status}`, model };
     const data = await r.json();
-    if (data && data.error) return reply({ ok: false, error: String(data.error), model });
+    if (data && data.error) return { ok: false, error: String(data.error), model };
     const content = stripThinking((data && data.message && data.message.content) || '').slice(0, LLM_MAX_CONTENT);
-    if (!content) return reply({ ok: false, error: 'local model returned nothing', model });
-    reply({ ok: true, content, model });
+    if (!content) return { ok: false, error: 'local model returned nothing', model };
+    return { ok: true, content, model };
   } catch (e) {
-    reply({ ok: false, error: e && e.message ? e.message : String(e), model });
+    return { ok: false, error: e && e.message ? e.message : String(e), model };
   }
 }
 
 // ── clone: pull a copy of code back up (and keep one locally) ─
-function handleClone(job, s) {
+function runCloneJob(job) {
   try {
     ensureRoot();
     const target = String(job.target || '');
@@ -291,9 +252,9 @@ function handleClone(job, s) {
     const bundle = JSON.stringify({ target, kind: job.kind, clonedAt: Date.now(), files: payload });
     const localPath = saveLocalCopy(target, bundle);
     log('cloned', payload.length, 'files from', base, '→', localPath);
-    s.send(JSON.stringify({ t: 'clone_result', id: job.id, ok: true, files: meta, bundle }));
+    return { ok: true, files: meta, bundle };
   } catch (e) {
-    s.send(JSON.stringify({ t: 'clone_result', id: job.id, ok: false, error: e && e.message ? e.message : String(e) }));
+    return { ok: false, error: e && e.message ? e.message : String(e) };
   }
 }
 
@@ -336,18 +297,80 @@ function spawnSyncSafe(cmd, args, cwd) {
 
 function saveLocalCopy(target, bundle) {
   ensureRoot();
-  const slug = String(target).replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'clone';
-  const p = path.join(cloneDir, `${slug}-${Date.now().toString(36)}.json`);
+  const p = path.join(cloneDir, `${slug(target)}-${Date.now().toString(36)}.json`);
   try { fs.writeFileSync(p, bundle, 'utf8'); } catch { /* best effort */ }
   return p;
 }
 
 function safeStat(p) { try { return fs.statSync(p); } catch { return null; } }
 
-function ensureRoot() {
-  if (!root) return;
-  try { fs.mkdirSync(root, { recursive: true }); } catch { /* ignore */ }
-  try { fs.mkdirSync(cloneDir, { recursive: true }); } catch { /* ignore */ }
+async function executeJob(kind, payload) {
+  if (kind === 'exec') return runExecJob(payload);
+  if (kind === 'clone') return runCloneJob(payload);
+  if (kind === 'llm') return runLlmJob(payload);
+  return { ok: false, error: `unknown job kind "${kind}"` };
+}
+
+// ── the poll/submit transport ────────────────────────────────
+async function pollLane(cfg, rootSecret, lane) {
+  const res = await fetch(cfg.pollUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-sandbox-key': cfg.key },
+    body: JSON.stringify({ lane, limit: 10, meta: { agent: 'elle-workbench', host: os.hostname(), platform: process.platform, root } }),
+    signal: AbortSignal.timeout(POLL_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`poll HTTP ${res.status}`);
+  const data = await res.json();
+  const jobs = (data && data.jobs) || [];
+  if (!jobs.length) return;
+
+  const inCh = await getChannel(rootSecret, lane, 'to_local');
+  let receiver = loadLocalState(lane, 'to_local-receiver') || rb.laneChannelStart(inCh);
+  const submitItems = [];
+
+  for (const job of jobs) {
+    let opened;
+    try {
+      opened = await rb.openFromLane(inCh, receiver, rb.unb64(job.wire), OPEN_WINDOW);
+    } catch (e) {
+      // A forged, corrupted, or out-of-window job never advances state and
+      // never gets a result submitted — the cloud side just times it out.
+      log(`lane "${lane}" job ${job.id} failed to authenticate:`, e.message);
+      continue;
+    }
+    receiver = opened.next;
+    saveLocalState(lane, 'to_local-receiver', receiver);
+
+    const result = await executeJob(job.kind, opened.payload);
+    const outCh = await getChannel(rootSecret, lane, 'to_cloud');
+    const sender = loadLocalState(lane, 'to_cloud-sender') || rb.laneChannelStart(outCh);
+    const sealedOut = await rb.sealForLane(outCh, sender, result);
+    saveLocalState(lane, 'to_cloud-sender', sealedOut.next);
+    submitItems.push({ kind: 'result', wire: rb.b64(sealedOut.wire), replyTo: job.id });
+  }
+
+  if (submitItems.length) {
+    const r = await fetch(cfg.submitUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-sandbox-key': cfg.key },
+      body: JSON.stringify({ lane, items: submitItems }),
+      signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
+    });
+    if (!r.ok) log(`lane "${lane}" submit HTTP ${r.status}`);
+  }
+}
+
+async function tick(cfg) {
+  if (stopped) return;
+  const rootSecret = new TextEncoder().encode(cfg.key);
+  for (const lane of cfg.lanes) {
+    try {
+      await pollLane(cfg, rootSecret, lane);
+      if (lastErrorKey === lane) lastErrorKey = '';
+    } catch (e) {
+      if (lastErrorKey !== lane) { log(`lane "${lane}" poll failed:`, e && e.message ? e.message : e); lastErrorKey = lane; }
+    }
+  }
 }
 
 // ── provider surface ────────────────────────────────────────
@@ -355,26 +378,25 @@ module.exports = {
   id: 'sandboxAgent',
   platforms: ['darwin', 'win32', 'linux'],
   available: true,
-  // Exposed for unit tests — pure, no socket/process side effects.
+  // Exposed for unit tests — pure, no network/process side effects.
   config,
   commandFor,
   walkFiles,
   start(opts) {
     const cfg = config(opts);
-    if (!cfg.key) { log('idle — ELLE_SANDBOX_KEY not set; not connecting'); return; }
+    if (!cfg.key) { log('idle — ELLE_SANDBOX_KEY not set; not polling'); return; }
     root = cfg.workRoot;
     cloneDir = path.join(root, '.clones');
     ensureRoot();
     stopped = false;
-    backoff = 2000;
-    connect(cfg);
+    clearInterval(timer);
+    log(`polling lane(s) [${cfg.lanes.join(', ')}] every ${Math.round(cfg.pollIntervalMs / 1000)}s → ${cfg.pollUrl}`);
+    timer = setInterval(() => { tick(cfg).catch(() => {}); }, cfg.pollIntervalMs);
+    setTimeout(() => { tick(cfg).catch(() => {}); }, 1_000); // first poll shouldn't wait a whole interval
   },
   stop() {
     stopped = true;
-    clearTimeout(reconnectTimer); reconnectTimer = null;
-    clearInterval(heartbeat); heartbeat = null;
-    if (sock) sock.close();
-    sock = null;
+    clearInterval(timer); timer = null;
   },
-  status() { return { connected: !!sock, root }; },
+  status() { return { polling: !stopped, root }; },
 };

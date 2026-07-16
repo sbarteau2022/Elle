@@ -6,15 +6,17 @@ const os = require('os');
 const path = require('path');
 const agent = require('./sandbox-agent.cjs');
 
-test('config: builds a wss URL from an https worker origin, key url-encoded', () => {
+test('config: builds poll/submit URLs from an https worker origin, trailing slash trimmed', () => {
   const cfg = agent.config({ key: 'a b&c', workerUrl: 'https://example.workers.dev/' });
   assert.equal(cfg.key, 'a b&c');
-  assert.equal(cfg.wsUrl, 'wss://example.workers.dev/api/sandbox-agent/connect?key=a%20b%26c');
+  assert.equal(cfg.pollUrl, 'https://example.workers.dev/api/sandbox-bus/poll');
+  assert.equal(cfg.submitUrl, 'https://example.workers.dev/api/sandbox-bus/submit');
 });
 
-test('config: http origin becomes ws, trailing slashes trimmed', () => {
+test('config: http origin stays http (no socket to upgrade to wss anymore), trailing slashes trimmed', () => {
   const cfg = agent.config({ key: 'k', workerUrl: 'http://localhost:8787///' });
-  assert.equal(cfg.wsUrl, 'ws://localhost:8787/api/sandbox-agent/connect?key=k');
+  assert.equal(cfg.pollUrl, 'http://localhost:8787/api/sandbox-bus/poll');
+  assert.equal(cfg.submitUrl, 'http://localhost:8787/api/sandbox-bus/submit');
 });
 
 test('config: falls back to the deployed worker default when no origin given', () => {
@@ -23,23 +25,28 @@ test('config: falls back to the deployed worker default when no origin given', (
   delete process.env.VITE_ELLE_WORKER_URL;
   try {
     const cfg = agent.config({ key: 'k' });
-    assert.match(cfg.wsUrl, /^wss:\/\/elle-worker\.sbarteau2022\.workers\.dev\/api\/sandbox-agent\/connect\?key=k$/);
+    assert.equal(cfg.pollUrl, 'https://elle-worker.sbarteau2022.workers.dev/api/sandbox-bus/poll');
   } finally {
     if (prev.ELLE_WORKER_URL !== undefined) process.env.ELLE_WORKER_URL = prev.ELLE_WORKER_URL;
     if (prev.VITE_ELLE_WORKER_URL !== undefined) process.env.VITE_ELLE_WORKER_URL = prev.VITE_ELLE_WORKER_URL;
   }
 });
 
-test('config: an unset key still builds a URL (start() is what refuses to connect)', () => {
+test('config: an unset key still builds URLs (start() is what refuses to poll)', () => {
   const prev = process.env.ELLE_SANDBOX_KEY;
   delete process.env.ELLE_SANDBOX_KEY;
   try {
     const cfg = agent.config({ workerUrl: 'https://x.dev' });
     assert.equal(cfg.key, '');
-    assert.equal(cfg.wsUrl, 'wss://x.dev/api/sandbox-agent/connect?key=');
+    assert.equal(cfg.pollUrl, 'https://x.dev/api/sandbox-bus/poll');
   } finally {
     if (prev !== undefined) process.env.ELLE_SANDBOX_KEY = prev;
   }
+});
+
+test('config: lanes default to ["primary"], or split from a comma-separated list', () => {
+  assert.deepEqual(agent.config({ key: 'k', workerUrl: 'https://x.dev' }).lanes, ['primary']);
+  assert.deepEqual(agent.config({ key: 'k', workerUrl: 'https://x.dev', lanes: 'alpha, beta ,, ' }).lanes, ['alpha', 'beta']);
 });
 
 test('commandFor: shell mode on this platform', () => {

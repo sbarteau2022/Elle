@@ -115,7 +115,7 @@ grouped as `router.ts` renders it:
 | --- | --- |
 | **Mind & memory** | `search_corpus`, `find_document`, `fetch_document`, `read_sql`, `recall_memory`, `remember`, `self_state`, `scratchpad_write`, `scratchpad_read` |
 | **World** | `web_search`, `fetch_url`, `calc`, `diagnose`, `code_engine` |
-| **Real execution** | `run_code`, `run_shell`, `sandbox_clone`, `sandbox_status`, `sandbox_report` — the **connect-back sandbox**: this app dials a WebSocket up to the worker and holds it open; a tool call dispatches down that socket and runs on this real machine via `child_process`. Watch it live in the **sandbox** tab. Path closed ⇒ the tools report that plainly rather than hanging — see elle-worker's README, **"Getting the sandbox path open."** |
+| **Real execution** | `run_code`, `run_shell`, `sandbox_clone`, `sandbox_status`, `sandbox_report`, `sandbox_lane` — the **connect-back sandbox**: no socket — this app POLLS the worker's session bus for sealed jobs on an interval and executes them via `child_process`, sealing results back the same way. Watch it live in the **sandbox** tab. Path closed ⇒ the tools report that plainly rather than hanging — see elle-worker's `docs/SESSION_BUS.md`. |
 | **Reasoning about herself** | `constraint_analyzer` — find the single binding constraint stopping progress, not another answer |
 | **Signal analysis** | `pfar` — Prosody·FreeQ·Analytic Ripper: rip structure from a stream (spectrum over a numeric series · prosody over pitch/energy · rhetoric over text) |
 | **Her codebase & the forge** | `repo_read`, `repo_search`, `github_read_file`, `github_list_files`, `github_search_code`, `forge_open`, `forge_write`, `forge_check`, `forge_pr` |
@@ -237,11 +237,14 @@ token:
 | diagnose | `POST /api/diagnose` |
 | health | `GET /health` (×3 workers) |
 
-Separately, the **Electron main process** (not a panel — no browser tab) dials
-`wss://<worker>/api/sandbox-agent/connect?key=<ELLE_SANDBOX_KEY>` on launch
-(`electron/native/providers/sandbox-agent.cjs`) and holds that socket open for
-the life of the app; the sandbox tab above is just the read side watching what
-that connection is doing.
+Separately, the **Electron main process** (not a panel — no browser tab) polls
+`POST <worker>/api/sandbox-bus/poll` (and submits results to
+`/api/sandbox-bus/submit`) on an interval for the life of the app
+(`electron/native/providers/sandbox-agent.cjs` — no socket, no held-open
+connection); the sandbox tab above is just the read side watching what those
+polls are doing. Jobs and results are sealed with `rosen-bridge.cjs`, a
+byte-for-byte port of elle-worker's `lane-envelope.ts` (COROS over
+hyperbolic-sync — see elle-worker's `docs/SESSION_BUS.md`).
 
 The visual system is deliberate: void black, one gold, hairline borders; serif
 only for her name, mono for anything that is data. No decoration that isn't
