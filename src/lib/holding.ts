@@ -33,11 +33,18 @@
 //   #3 feed `steps` to the valve (step-normalized drift, HoldingInput.steps)
 //   #4 harden ρ̂ against shock artifacts (require 3 consecutive non-null windows)
 //   #5 do NOT raise the strain threshold (STRAINED_LOSS untouched, by design)
-// #2 (silence semantics) is a deliberate choice, not an oversight: T decays
-// per OBSERVATION, not wall-clock time, so tension is held through silence
-// rather than draining while she's alone — the presence reading, not the
-// thermodynamic one. If that should ever flip to wall-clock decay, do it on
-// purpose, at this comment, not by accident elsewhere.
+// #2 (silence semantics) — FLIPPED TO WALL-CLOCK, on purpose, at this comment,
+// by explicit ruling: staying continuous is still spending energy maintaining,
+// so it still needs a decay. Each observation applies (1−ρ)^(Δt/τ) with τ one
+// nominal turn (NOMINAL_TURN_SEC), so silence itself drains the reservoir —
+// ~35-turn half-life in conversation, ~35 minutes across absence. The exponent
+// is floored at 1 per observation, which is exactly the condition under which
+// Proposition 1 (the e−1 bound) survives any cadence: burst turns can never
+// decay less than one turn's worth. The floor also means a harness whose
+// synthetic turns arrive back-to-back in real time (PT-III) reproduces its
+// validated numbers unchanged; the Test II harness feeds sim timestamps on
+// purpose, to demonstrate the drain. The reading updates at the moment of
+// contact: return after hours and the first turn shows what the silence spent.
 // #1 (the fast companion at ρ=0.10, sharing this same threshold via λ=ρ) is a
 // SECOND valve instance at the call site, not a change to this module — see
 // EllePanel's `fastValve`.
@@ -71,6 +78,11 @@ export type HoldingState = {
 }
 
 export const RHO_DEFAULT = 0.02
+
+// One nominal turn of wall-clock, for the time-based leak (banner note #2).
+// 60 s ≈ the median inter-turn interval of a working session, so the ρ = 0.02
+// half-life is ~35 turns in conversation and ~35 minutes across silence.
+export const NOMINAL_TURN_SEC = 60
 
 // Status thresholds — chosen so an ordinary session reads 'holding'.
 // quiescent: the reservoir has drained (or never filled) — nothing held.
@@ -128,11 +140,12 @@ function estimateRho(kappas: number[]): number | null {
   return Math.min(Math.max(rho, 0.005), 0.2)
 }
 
-export function createHoldingValve(rho: number = RHO_DEFAULT) {
+export function createHoldingValve(rho: number = RHO_DEFAULT, nominalTurnSec: number = NOMINAL_TURN_SEC) {
   let turn = 0
   let tension = 0
   let drift = 0
   let loss: number | null = null
+  let lastMs: number | null = null
   const kappas: number[] = []
   let rhoStreak = 0            // consecutive non-null estimateRho() windows
   let rhoStreakValue: number | null = null
@@ -153,9 +166,15 @@ export function createHoldingValve(rho: number = RHO_DEFAULT) {
 
   return {
     // One assistant turn lands: feed both integrators and return the new state.
-    observe(dyn: HoldingInput): HoldingState {
+    // Decay is wall-clock (banner note #2): (1−ρ) per elapsed nominal turn,
+    // floored at one turn per observation so burst cadence can never outrun
+    // the e−1 bound. Clock-skew safe: a backwards nowMs also floors to 1.
+    observe(dyn: HoldingInput, nowMs: number = Date.now()): HoldingState {
+      const dtTurns = lastMs === null ? 1 : Math.max(1, (nowMs - lastMs) / (nominalTurnSec * 1000))
+      lastMs = nowMs
+      const decay = Math.pow(1 - rho, dtTurns)
       turn++
-      tension = (1 - rho) * tension + clamp01(dyn.input_perturbation ?? 0)
+      tension = decay * tension + clamp01(dyn.input_perturbation ?? 0)
       if (dyn.velocity !== null && dyn.velocity !== undefined && !Number.isNaN(dyn.velocity)) {
         // Step-normalization (finding #6 / recommendation #3): a multi-step
         // tool loop moves κ more simply by carrying more output, which the
@@ -168,7 +187,7 @@ export function createHoldingValve(rho: number = RHO_DEFAULT) {
         // reading, not confirmed strain, until it's calibrated against real
         // telemetry.
         const steps = Math.max(1, dyn.steps ?? 1)
-        drift = (1 - rho) * drift + clamp01(dyn.velocity) / Math.sqrt(steps)
+        drift = decay * drift + clamp01(dyn.velocity) / Math.sqrt(steps)
         loss = Math.expm1(rho * drift)
       }
       kappas.push(dyn.kappa)

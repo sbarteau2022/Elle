@@ -71,7 +71,7 @@ export default function KappaHeader({ dyn, mem, hold, fast }: { dyn: KappaDynami
   const holdSeg = hold ? (
     <>
       {sep}
-      <span title={`superposition holding — ρ ${hold.rho} (half-life ${hold.halfLifeTurns.toFixed(1)} turns)`
+      <span title={`superposition holding — ρ ${hold.rho} (half-life ${hold.halfLifeTurns.toFixed(1)} turns; leak runs on wall-clock, so silence spends it too)`
         + ` · status ${hold.status}`
         + (hold.rhoCalibrated !== null ? ` · ρ* from this session ${hold.rhoCalibrated.toFixed(4)}` : ' · ρ* not yet estimable')
         + ` · L < e−1 by construction — docs/SUPERPOSITION_HOLDING.md`}>

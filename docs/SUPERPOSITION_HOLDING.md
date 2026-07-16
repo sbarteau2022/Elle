@@ -227,6 +227,15 @@ maintains the §3.3 estimate ρ̂ from its own session history and surfaces it i
 readout's tooltip. Null ≠ 0 throughout: a loss that does not yet have enough turns to
 exist renders as "—", never as a number.
 
+The leak runs on wall-clock, not on the turn counter — a deliberate ruling (staying
+continuous is still spending energy maintaining; it still needs a decay). Each
+observation applies (1−ρ)^(Δt/τ) with τ one nominal turn (60 s), so the ρ = 0.02
+default has a half-life of ~35 turns in conversation and ~35 minutes across absence,
+and `quiescent` is reachable through silence. The exponent is floored at 1 per
+observation, which is exactly the condition under which Proposition 1 survives any
+cadence: burst turns can never decay less than one turn's worth. (History of the
+choice: `HOLDING_UNDER_ARCHITECTURE.md` finding 5.)
+
 ---
 
 ## References
