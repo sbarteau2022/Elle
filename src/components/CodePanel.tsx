@@ -12,6 +12,7 @@
 // ============================================================
 import { useState, useRef, useEffect } from 'react'
 import { Md } from '../lib/md'
+import HistoryRail, { fetchTranscript } from './HistoryRail'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
@@ -94,15 +95,27 @@ export default function CodePanel({ worker, accent }: any) {
     await analyze(text, guessed || lang)
   }
 
-  // A coding thread has its own memory, separate from the elle tab.
-  const sid = () => {
-    let s = localStorage.getItem('elle_code_session')
-    if (!s) { s = crypto.randomUUID?.() || `c_${Date.now()}`; localStorage.setItem('elle_code_session', s) }
+  // A coding thread has its own memory, separate from the elle tab. Session is
+  // state so the history rail can swap threads live.
+  const SID_KEY = 'elle_code_session'
+  const [session, setSession] = useState(() => {
+    let s = localStorage.getItem(SID_KEY)
+    if (!s) { s = crypto.randomUUID?.() || `c_${Date.now()}`; localStorage.setItem(SID_KEY, s) }
     return s
-  }
+  })
   const newThread = () => {
-    localStorage.setItem('elle_code_session', crypto.randomUUID?.() || `c_${Date.now()}`)
-    setTurns([]); setNote('')
+    const id = crypto.randomUUID?.() || `c_${Date.now()}`
+    localStorage.setItem(SID_KEY, id)
+    setSession(id); setTurns([]); setNote('')
+  }
+  const resume = async (id: string) => {
+    if (id === session) return
+    localStorage.setItem(SID_KEY, id)
+    setSession(id); setNote('')
+    try {
+      const pairs = await fetchTranscript(worker.url, id)
+      setTurns(pairs.map(p => ({ q: p.q, answer: p.answer, trace: [], open: false, pending: false })))
+    } catch (e: any) { setTurns([]); setNote('Could not load that thread: ' + (e.message || e)) }
   }
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [turns])
@@ -121,7 +134,7 @@ export default function CodePanel({ worker, accent }: any) {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: question, session_id: sid() }),
+        body: JSON.stringify({ q: question, session_id: session }),
       })
       const d = await r.json()
       if (!r.ok || d.error) setNote(d.error || `HTTP ${r.status}`)
@@ -160,6 +173,7 @@ export default function CodePanel({ worker, accent }: any) {
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+      <HistoryRail worker={worker} accent={accent} currentSid={session} onResume={resume} onNew={newThread} />
 
       {/* ── left: the conversation ── */}
       <div style={{ flex: 1.15, display: 'flex', flexDirection: 'column', minWidth: 0, borderRight: '0.5px solid var(--b1)' }}>

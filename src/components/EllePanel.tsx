@@ -16,6 +16,7 @@ import { on } from '../lib/commands'
 import { Md, printAnswer, emailAnswer } from '../lib/md'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
 import { getTier } from '../lib/elle'
+import HistoryRail, { fetchTranscript } from './HistoryRail'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 
@@ -185,6 +186,25 @@ export default function EllePanel({ worker, accent }: any) {
   const [preferLocal, setPreferLocal] = useState(localStorage.getItem(LOCAL_KEY) === '1')
   const toggleLocal = () => setPreferLocal(v => { localStorage.setItem(LOCAL_KEY, v ? '0' : '1'); return !v })
 
+  // The session is state (not just localStorage) so the history rail can swap
+  // threads live: resume rehydrates the transcript from the worker, and the
+  // router's memory picks the thread back up because session_id is its key.
+  const [session, setSession] = useState(sid())
+  const resume = async (id: string) => {
+    if (id === session) return
+    localStorage.setItem(SID_KEY, id)
+    setSession(id); setNote(''); setDyn(null)
+    try {
+      const pairs = await fetchTranscript(worker.url, id)
+      setTurns(pairs.map(p => ({ q: p.q, answer: p.answer, trace: [], open: false, pending: false })))
+    } catch (e: any) { setTurns([]); setNote('Could not load that thread: ' + (e.message || e)) }
+  }
+  const newThread = () => {
+    const id = crypto.randomUUID()
+    localStorage.setItem(SID_KEY, id)
+    setSession(id); setTurns([]); setNote(''); setDyn(null)
+  }
+
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, [turns])
   // Load the κ memory / seam state on mount so the header shows it before the
   // first turn; each answered turn refreshes it (a trace was just written).
@@ -237,7 +257,7 @@ export default function EllePanel({ worker, accent }: any) {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: sentQ, session_id: sid(), voice: register, prefer: preferLocal ? 'local' : undefined, voice_prosody: extra?.voice_prosody, stream: true }),
+        body: JSON.stringify({ q: sentQ, session_id: session, voice: register, prefer: preferLocal ? 'local' : undefined, voice_prosody: extra?.voice_prosody, stream: true }),
       })
       // LIVE MODE: the worker streams the loop as SSE frames — each step's
       // thought + tool the moment she commits to it, each observation as it
@@ -372,7 +392,9 @@ export default function EllePanel({ worker, accent }: any) {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }}>
+      <HistoryRail worker={worker} accent={accent} currentSid={session} onResume={resume} onNew={newThread} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       {/* κ instrument line — her live coherence readout */}
       <KappaHeader dyn={dyn} mem={mem} hold={hold} fast={fastHold} />
 
@@ -579,6 +601,7 @@ export default function EllePanel({ worker, accent }: any) {
             {loading ? '…' : '↑'}
           </button>
         </div>
+      </div>
       </div>
     </div>
   )
