@@ -73,7 +73,7 @@ function config(opts) {
   const lanes = String((opts && opts.lanes) || process.env.ELLE_SANDBOX_LANES || 'primary')
     .split(',').map((s) => s.trim()).filter(Boolean);
   const pollIntervalMs = Math.max(2_000, Number(process.env.ELLE_SANDBOX_POLL_MS) || DEFAULT_POLL_MS);
-  return { key, pollUrl, submitUrl, workRoot, lanes: lanes.length ? lanes : ['primary'], pollIntervalMs };
+  return { key, origin, pollUrl, submitUrl, workRoot, lanes: lanes.length ? lanes : ['primary'], pollIntervalMs };
 }
 
 function userDataDir() {
@@ -87,6 +87,10 @@ let stopped = true;
 let root = null;
 let cloneDir = null;
 let lastErrorKey = '';
+// The last config() start() ran with — the local ReAct loop (react_goal jobs)
+// needs the worker origin + shared key to call back over /api/elle-tool, and
+// reads this instead of threading its own copy through every job.
+let activeCfg = null;
 const channelCache = new Map(); // "lane:direction" -> HypChannel (deterministic from root+lane, safe to cache)
 
 function ensureRoot() {
@@ -308,6 +312,15 @@ async function executeJob(kind, payload) {
   if (kind === 'exec') return runExecJob(payload);
   if (kind === 'clone') return runCloneJob(payload);
   if (kind === 'llm') return runLlmJob(payload);
+  // The whole delegate_local GOAL, worked to completion right here: the local
+  // ReAct loop (local-react-agent.cjs) now does the orchestration the worker
+  // used to do — deciding each step from the model's own reasoning, running
+  // run_shell/run_code natively (via runExecJob, same as above) and every
+  // other tool over HTTP against elle-worker's /api/elle-tool. This function
+  // runs INSIDE this same tick, so it must never itself wait on a job coming
+  // back over this bus — it doesn't: exec is native, tool calls are plain
+  // synchronous fetches.
+  if (kind === 'react_goal') return require('./local-react-agent.cjs').runGoalJob(payload, activeCfg || config(), { runExecJob, runLlmJob });
   return { ok: false, error: `unknown job kind "${kind}"` };
 }
 
@@ -382,9 +395,17 @@ module.exports = {
   config,
   commandFor,
   walkFiles,
+  // Exposed so local-react-agent.cjs can reuse the SAME exec-in-the-box and
+  // Ollama-call primitives a worker-dispatched job already uses, instead of
+  // duplicating the fail-closed Docker check / output capping / stripThinking
+  // logic. Both are already pure given their job argument (runExecJob reads
+  // module-level `root`, same as every other job kind above).
+  runExecJob,
+  runLlmJob,
   start(opts) {
     const cfg = config(opts);
     if (!cfg.key) { log('idle — ELLE_SANDBOX_KEY not set; not polling'); return; }
+    activeCfg = cfg;
     root = cfg.workRoot;
     cloneDir = path.join(root, '.clones');
     ensureRoot();
