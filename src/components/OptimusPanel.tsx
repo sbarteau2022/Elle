@@ -14,7 +14,13 @@ import { Md } from '../lib/md'
 
 const tok = () => localStorage.getItem('elle_dev_jwt') || ''
 const PLOTLY = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.0/plotly.min.js'
-const sci = (x: number, d = 3) => { if (x === 0) return '0'; const a = Math.abs(x); return (a < 1e-3 || a >= 1e5) ? x.toExponential(d) : String(+x.toFixed(6)) }
+// velocity/accel are genuinely null for a thread's first (and, for accel,
+// second) entry — derivePhaseState has no prior sample to difference against
+// yet (see kappa-dynamics.ts's velocityAt/accelerationAt). Every entry in the
+// manuscript renders this via its κ chip, so a null here used to throw
+// mid-render (`null.toExponential`) with nothing catching it — blanking the
+// whole workbench.
+const sci = (x: number | null | undefined, d = 3) => { if (x == null) return '—'; if (x === 0) return '0'; const a = Math.abs(x); return (a < 1e-3 || a >= 1e5) ? x.toExponential(d) : String(+x.toFixed(6)) }
 const fmt = (t: number) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
 const STYLE = `
@@ -117,7 +123,7 @@ const STYLE = `
 .opt .arow button{padding:0 18px;border:0;border-radius:9px;background:var(--gold);color:#fff;cursor:pointer;font-size:13px;font-weight:600}
 `
 
-type Entry = { id: string; role: string; content: string; off_record: number; kappa: number; kappa_ts: number; reserve: number; velocity: number; accel: number }
+type Entry = { id: string; role: string; content: string; off_record: number; kappa: number; kappa_ts: number; reserve: number; velocity: number | null; accel: number | null }
 type Marg = { id: string; entry_id: string; note: string }
 type Thread = { id: string; title: string; anchor_topic?: string; updated_at: number }
 type Msg = { role: 'user' | 'assistant'; content: string; pending?: boolean }
@@ -189,7 +195,7 @@ export default function OptimusPanel({ worker }: any) {
     const ax = (t: string) => ({ title: { text: t, font: { family: 'DM Mono', size: 10, color: '#C9C3B5' } }, gridcolor: 'rgba(233,225,209,.14)', zerolinecolor: 'rgba(233,225,209,.32)', tickfont: { family: 'DM Mono', size: 9, color: '#A9A395' }, backgroundcolor: 'rgba(255,255,255,.02)', showbackground: true })
     P.react(plotEl.current, [{
       type: 'scatter3d', mode: 'lines+markers',
-      x: entries.map(e => e.kappa), y: entries.map(e => e.velocity * 86400), z: entries.map(e => e.accel * 86400 * 86400),
+      x: entries.map(e => e.kappa), y: entries.map(e => (e.velocity ?? 0) * 86400), z: entries.map(e => (e.accel ?? 0) * 86400 * 86400),
       text: entries.map(e => `${e.role === 'elle' ? 'Elle' : 'Reader'} · ${fmt(e.kappa_ts)}<br>κ ${e.kappa.toFixed(4)}<br>∫κdt ${sci(e.reserve)}<br>dκ/dt ${sci(e.velocity)} /s`),
       hoverinfo: 'text', line: { color: '#E8C77A', width: 4 },
       marker: { size: 6, color: entries.map(e => e.reserve), colorscale: [[0, '#5B8BC9'], [1, '#E8C77A']], showscale: true, colorbar: { title: { text: '∫κdt', font: { size: 10, color: '#C9C3B5' } }, thickness: 8, len: 0.6, x: 1.02, tickfont: { size: 9, color: '#C9C3B5' } }, line: { color: '#13203B', width: 1 } },
