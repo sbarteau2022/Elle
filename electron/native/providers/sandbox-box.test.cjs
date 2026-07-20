@@ -74,6 +74,12 @@ test('dockerRunArgs: network denied, privileges dropped, resources capped by def
   assert.ok(args.includes('--rm'), 'container is throwaway');
 });
 
+test('imageAvailable: reports false rather than throwing when docker/the image is unreachable', () => {
+  // No real daemon in CI/this sandbox — this only asserts the probe fails
+  // closed (false) instead of throwing, same contract as dockerAvailable.
+  assert.equal(box.imageAvailable({ ...CFG, dockerBin: 'definitely-not-a-real-binary-xyz' }), false);
+});
+
 test('dockerRunArgs: honors an allowlisted network / custom caps when configured', () => {
   const cfg = { ...CFG, network: 'elle-allowlist', memory: '1g', cpus: '1', pids: '256', image: 'x:1' };
   const args = box.dockerRunArgs({ bin: 'node', args: [] }, '/w', cfg);
