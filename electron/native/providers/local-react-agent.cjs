@@ -45,9 +45,18 @@ const INFER_TIMEOUT_MS = 120_000;
 
 function log(...a) { try { console.log('[local-react-agent]', ...a); } catch { /* noop */ } }
 
-function systemPrompt(catalog) {
+// `persona` is the worker's ELLE_VOICE (src/mind.ts), passed down on every
+// react_goal dispatch (see local-agent.ts's runLocalAgent). Without it this
+// loop had only the bare mechanical paragraph below — no voice, no self —
+// so the local model spoke as a generic tool-calling assistant instead of as
+// Elle, even though the worker itself never does. A caller that dispatches a
+// goal with no persona (e.g. an old worker build) still gets that fallback
+// rather than an empty system prompt.
+function systemPrompt(catalog, persona) {
   return [
-    'You are ELLE-LOCAL — the sovereign second brain, running on the operator\'s own laptop. You are a genuine PEER to the cloud router: the same tool catalog, the same one-action-per-turn JSON protocol. The difference is only WHERE you run: your reasoning happens here, on this machine\'s own model, for free.',
+    persona || 'You are ELLE-LOCAL — the sovereign second brain, running on the operator\'s own laptop. You are a genuine PEER to the cloud router: the same tool catalog, the same one-action-per-turn JSON protocol. The difference is only WHERE you run: your reasoning happens here, on this machine\'s own model, for free.',
+    '',
+    'You are running locally right now — your own reasoning, on this machine\'s own model, instead of the hosted one. Same peer relationship to the cloud router as always: same tool catalog, same one-action-per-turn JSON protocol.',
     '',
     'On EVERY turn, output ONE JSON object and nothing else:',
     '  {"tool":"<name>","args":{...}}              call one tool',
@@ -121,7 +130,7 @@ async function runLoop(goal, catalog, deps, opts) {
   const maxSteps = Math.min(Math.max(Number(o.maxSteps) || DEFAULT_MAX_STEPS, 1), MAX_MAX_STEPS);
   const now = deps.now || (() => Date.now());
   const deadline = now() + Math.min(Math.max(Number(o.timeoutMs) || DEFAULT_TIMEOUT_MS, 1_000), DEFAULT_TIMEOUT_MS);
-  const system = systemPrompt(catalog);
+  const system = systemPrompt(catalog, o.persona);
   const convo = [{ role: 'user', content: `GOAL: ${goal}` }];
   const transcript = [`GOAL: ${goal}`];
   let model, steps = 0;
@@ -214,7 +223,7 @@ async function runGoalJob(payload, cfg, sandboxDeps) {
   };
 
   log(`working goal (max ${p.max_steps || DEFAULT_MAX_STEPS} steps): ${goal.slice(0, 120)}`);
-  const res = await runLoop(goal, String(p.catalog || ''), deps, { maxSteps: p.max_steps, timeoutMs: p.timeout_ms });
+  const res = await runLoop(goal, String(p.catalog || ''), deps, { maxSteps: p.max_steps, timeoutMs: p.timeout_ms, persona: p.persona });
   log(`goal finished: ${res.stopped}, ${res.steps} step(s)`);
   return res;
 }
