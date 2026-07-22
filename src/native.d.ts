@@ -28,6 +28,12 @@ declare global {
       getCapabilities: () => Promise<Capabilities>;
       setPermission: (name: PermissionName, allow: boolean) => Promise<PermissionGrants>;
       getPermissions: () => Promise<PermissionGrants>;
+      // Auto-launch at login. supported is false on platforms Electron can't
+      // do this on (Linux) — the workbench toggle hides itself in that case.
+      loginItem?: {
+        get: () => Promise<{ supported: boolean; openAtLogin: boolean }>;
+        set: (enable: boolean) => Promise<{ supported: boolean; openAtLogin: boolean }>;
+      };
       onHeadMotion: (cb: (data: HeadMotion) => void) => void;
       offHeadMotion: () => void;
       headMotionAvailable: () => Promise<boolean>;

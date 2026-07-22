@@ -112,6 +112,37 @@ function ListenControl() {
   )
 }
 
+// Auto-launch at login — reads the OS's actual login-item state and lets you
+// flip it. Renders nothing outside Electron, and nothing on platforms
+// Electron can't do this on (Linux — see electron/native/login-item.cjs).
+function LoginItemControl() {
+  const [state, setState] = useState<{ supported: boolean; openAtLogin: boolean } | null>(null)
+  const bridge = window.elleNative?.loginItem
+
+  useEffect(() => {
+    if (!bridge) return
+    let alive = true
+    bridge.get().then(s => { if (alive) setState(s) }).catch(() => {})
+    return () => { alive = false }
+  }, [bridge])
+
+  if (!bridge || !state?.supported) return null
+
+  const toggle = async () => {
+    const next = await bridge.set(!state.openAtLogin)
+    setState(next)
+  }
+
+  return (
+    <button onClick={toggle}
+      title={state.openAtLogin ? 'Elle opens automatically when you log in — click to turn off' : 'click to open Elle automatically when you log in'}
+      style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: state.openAtLogin ? 'var(--good)' : 'var(--t4)' }} />
+      {state.openAtLogin ? 'auto-launch on' : 'auto-launch off'}
+    </button>
+  )
+}
+
 // One quiet dot: is she alive right now. Polls /health at 30s.
 function Heartbeat() {
   const [ok, setOk] = useState<boolean | null>(null)
@@ -248,6 +279,7 @@ export function App() {
                 {theme === 'light' ? '◐ dark' : '◑ light'}
               </button>
               <ListenControl />
+              <LoginItemControl />
               <Heartbeat />
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 title={`${getEmail()} · ${getTier() || 'admin'}`}>

@@ -11,7 +11,7 @@
 // ============================================================
 
 export type WorkbenchEvent =
-  | { kind: 'nav'; panel: string }            // "open trading" → switch tab
+  | { kind: 'nav'; panel: string; sub?: string } // "open trading" → switch tab (sub: land on a sub-tab, e.g. forge's)
   | { kind: 'listen.stop' }                   // "stop listening" → exit listen mode
   | { kind: 'tts.stop' }                      // "quiet" → cut her off mid-sentence
   | { kind: 'tts.set'; on: boolean }          // "mute" / "voice on"
