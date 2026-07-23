@@ -15,6 +15,8 @@ type Any = Record<string, any>
 const money = (n: any) => n == null ? '—' : '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
 const pct = (n: any) => n == null ? '—' : (Number(n) >= 0 ? '+' : '') + Number(n).toFixed(2) + '%'
 const pnlColor = (n: any) => n == null ? 'var(--t3)' : Number(n) >= 0 ? '#4ADE80' : '#D06565'
+const verdictColor = (v: any, accent: string) =>
+  v === 'buy' ? '#4ADE80' : v === 'short' ? '#D06565' : v === 'avoid' ? 'var(--t4)' : accent
 const TRADE_ACTIONS = ['all', 'buy', 'sell', 'short', 'cover', 'watch', 'hold']
 const TRADE_STATUSES = ['all', 'open', 'closed']
 const TRADE_SORTS = [
@@ -47,6 +49,7 @@ export default function TradingPanel({ accent }: any) {
   const theses: Any[] = d?.theses || []
   const journal: Any[] = d?.journal || []
   const observations: Any[] = d?.observations || []
+  const research: Any[] = d?.research || []
   const marketOpen = d?.market_open !== false
   // Today's trades, for the off-hours replay header.
   const today = new Date().toISOString().slice(0, 10)
@@ -143,6 +146,37 @@ export default function TradingPanel({ accent }: any) {
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>{t.thesis_type} · conf {t.confidence}</span>
                   </div>
                   <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.6, marginTop: 3 }}>{t.thesis}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+
+        {/* research desk — symbols she scouted and researched herself, once per
+            trading day. Each note is her own grounded web research: why she
+            picked it, what she found, the thesis, catalyst, risks, verdict. */}
+        <Section title="research desk — symbols she picked herself">
+          {research.length === 0 ? <Empty>nothing researched yet — the scout runs once per trading day and logs its notes here</Empty> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {research.map((r, i) => (
+                <div key={r.id || i} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    <b style={{ color: 'var(--t1)', fontSize: 13 }}>{r.symbol}</b>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: verdictColor(r.verdict, accent), border: `0.5px solid ${verdictColor(r.verdict, accent)}66`, borderRadius: 4, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                      {r.verdict || 'watch'}
+                    </span>
+                    {r.confidence != null && <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>conf {Number(r.confidence).toFixed(2)}</span>}
+                    <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>{String(r.created_at || '').slice(0, 10)}</span>
+                  </div>
+                  {r.picked_because && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t3)', marginTop: 5, fontStyle: 'italic' }}>picked because: {r.picked_because}</div>}
+                  {r.thesis && <div style={{ fontSize: 11.5, color: 'var(--t1)', lineHeight: 1.6, marginTop: 6 }}>{r.thesis}</div>}
+                  {r.findings && <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.6, marginTop: 4 }}>{r.findings}</div>}
+                  {(r.expected_catalyst || r.risks) && (
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)', marginTop: 6, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      {r.expected_catalyst && <span>catalyst: {r.expected_catalyst}</span>}
+                      {r.risks && <span>risks: {r.risks}</span>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
