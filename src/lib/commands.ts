@@ -22,6 +22,7 @@ export type WorkbenchEvent =
   | { kind: 'gesture.nod' }                   // embodied "yes" — confirm/send
   | { kind: 'gesture.shake' }                 // embodied "no" — cancel/stop
   | { kind: 'forge.ship'; ideaId: string; name?: string } // "ship this bubble" → the Forge panel streams it
+  | { kind: 'paper.open'; paperId: string }   // a chat trace cites a real corpus paper → open it in Library
 
 type Kind = WorkbenchEvent['kind']
 type Of<K extends Kind> = Extract<WorkbenchEvent, { kind: K }>
@@ -39,6 +40,29 @@ export function emit(e: WorkbenchEvent): void {
   handlers.get(e.kind)?.forEach(fn => {
     try { fn(e) } catch (err) { console.error('[commands] handler failed for', e.kind, err) }
   })
+}
+
+// 'paper.open' is a special case: unlike every other event here, its
+// natural recipient (LibraryPanel) usually isn't mounted yet when it fires
+// — App.tsx switches to the library tab IN RESPONSE to the same event, and
+// only then does LibraryPanel exist to call `on('paper.open', ...)`. This
+// tiny latch bridges that one gap so a panel mounting as a direct
+// consequence of the request can still catch it (see takePendingPaper).
+// Cleared shortly after so a later, unrelated mount never replays a stale
+// request. No other event kind needs this — everything else's listener
+// (the shell, an already-open panel) is always live when it fires.
+let pendingPaperId: string | null = null
+
+export function requestOpenPaper(paperId: string): void {
+  pendingPaperId = paperId
+  emit({ kind: 'paper.open', paperId })
+  setTimeout(() => { if (pendingPaperId === paperId) pendingPaperId = null }, 0)
+}
+
+export function takePendingPaper(): string | null {
+  const id = pendingPaperId
+  pendingPaperId = null
+  return id
 }
 
 // ── the spoken grammar ──────────────────────────────────────
