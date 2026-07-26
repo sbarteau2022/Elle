@@ -206,6 +206,11 @@ export function App() {
   // arrives here from the voice pipeline as a nav event.
   useEffect(() => on('nav', e => setTab(e.panel)), [])
 
+  // A chat trace entry citing a real corpus paper (see commands.ts's
+  // requestOpenPaper/'paper.open') switches to the library tab; LibraryPanel
+  // itself (mounted or not — see its own listener) loads and displays it.
+  useEffect(() => on('paper.open', () => setTab('library')), [])
+
   // Panels that define alert() get polled; while one returns true its rail tab
   // flashes (see .navbtn.flash). Only panels that opt in are polled.
   useEffect(() => {

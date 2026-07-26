@@ -7,6 +7,7 @@
 // ============================================================
 import { useEffect, useState } from 'react'
 import { WORKER, getToken } from '../lib/elle'
+import { on, takePendingPaper } from '../lib/commands'
 
 type Paper = { id: string; title: string; series: string; word_count?: number }
 type Full = { id: string; title: string; series: string; full_text: string; word_count?: number }
@@ -54,6 +55,18 @@ export default function LibraryPanel({ accent }: any) {
     const d = await post('/api/corpus-paper', { id })
     if (d.paper) setOpen(d.paper)
   }
+
+  // A chat trace entry citing this paper (see commands.ts's requestOpenPaper)
+  // opens it here — takePendingPaper() catches a request that fired just
+  // before this panel mounted (App.tsx switches to this tab in response to
+  // the same request); on('paper.open', ...) catches one that arrives while
+  // this panel is already open.
+  useEffect(() => {
+    const pendingId = takePendingPaper()
+    if (pendingId) openPaper(pendingId)
+    return on('paper.open', e => openPaper(e.paperId))
+  }, [])
+
   const openArtifact = async (id: string) => {
     const d = await post('/api/elle-sandbox', { action: 'get', item_id: id })
     if (d.item) setOpen({ id: d.item.id, title: d.item.title, series: d.item.type, full_text: d.item.content, word_count: undefined })

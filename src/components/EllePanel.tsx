@@ -12,7 +12,7 @@ import { createHoldingValve, type HoldingState } from '../lib/holding'
 import VoiceOrb from './VoiceOrb'
 import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { useWorkbenchCamera } from '../lib/CameraContext'
-import { on } from '../lib/commands'
+import { on, requestOpenPaper } from '../lib/commands'
 import { Md, printAnswer, emailAnswer } from '../lib/md'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
 import { getTier } from '../lib/elle'
@@ -115,6 +115,35 @@ const TOOLS: [string, string][] = [
 const SHIP_DENY = new Set(['forge_open', 'forge_write', 'forge_pr', 'run_shell'])
 const visibleTools = (): [string, string][] =>
   getTier() === 'cofounder' ? TOOLS.filter(([n]) => !SHIP_DENY.has(n)) : TOOLS
+
+// A tool observation naming a real corpus paper carries a "· id X]" suffix
+// (ragSearch()/find_document on the worker both emit this same convention).
+// Parsed here so the chain-of-thought trace offers a real link into the
+// library reader instead of a title a user would have to go search for by
+// hand — the framework/paper itself stays out of her spoken answer; this is
+// where "what did that actually come from" lives.
+const CORPUS_REF_RE = /\[(.+?) · id ([^\]]+)\]/g
+
+function renderResultText(text: string, accent: string) {
+  const parts: Array<JSX.Element | string> = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let key = 0
+  CORPUS_REF_RE.lastIndex = 0
+  while ((match = CORPUS_REF_RE.exec(text))) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index))
+    const [full, label, id] = match
+    parts.push(
+      <button key={key++} onClick={() => requestOpenPaper(id)} title="open in the library reader"
+        style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: accent, textDecoration: 'underline', textUnderlineOffset: 2, cursor: 'pointer' }}>
+        [{label}]
+      </button>
+    )
+    lastIndex = match.index + full.length
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts
+}
 
 type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean; finalThought?: string }
 
@@ -515,7 +544,7 @@ export default function EllePanel({ worker, accent }: any) {
                             )}
                           </div>
                           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, whiteSpace: 'pre-wrap', color: 'var(--t3)', lineHeight: 1.55, marginTop: 2, maxHeight: 180, overflowY: 'auto' }}>
-                            {String(s.result || '')}
+                            {renderResultText(String(s.result || ''), accent)}
                           </div>
                           {/* the model's native reasoning tokens for this step, folded */}
                           {s.thinking && (
