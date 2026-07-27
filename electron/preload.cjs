@@ -52,6 +52,32 @@ contextBridge.exposeInMainWorld('elleNative', {
   // embedding on any failure, and the failure is never silent.
   embedLocal: (text) => ipcRenderer.invoke('local-embed:text', String(text || '')),
 
+  // Integrated terminal — real shells, the way an IDE has them. create()
+  // returns { id, shell, cwd, pty }: `pty` false means node-pty didn't build
+  // here and the session is piped (line-oriented commands only), which the
+  // terminal panel surfaces rather than hides. Output arrives on onData;
+  // onExit fires once when the shell ends. Both listeners are per-session
+  // filtered here so one terminal tab never sees another's bytes.
+  terminal: {
+    create: (opts) => ipcRenderer.invoke('terminal:create', opts || {}),
+    write: (id, data) => ipcRenderer.invoke('terminal:write', String(id), String(data)),
+    resize: (id, cols, rows) => ipcRenderer.invoke('terminal:resize', String(id), cols | 0, rows | 0),
+    kill: (id) => ipcRenderer.invoke('terminal:kill', String(id)),
+    list: () => ipcRenderer.invoke('terminal:list'),
+    // Returns an unsubscribe fn — panels must call it on unmount, or a
+    // remounted tab stacks duplicate handlers and doubles every keystroke.
+    onData: (id, cb) => {
+      const h = (_e, sid, data) => { if (sid === id) cb(data); };
+      ipcRenderer.on('terminal:data', h);
+      return () => ipcRenderer.removeListener('terminal:data', h);
+    },
+    onExit: (id, cb) => {
+      const h = (_e, sid, code) => { if (sid === id) cb(code); };
+      ipcRenderer.on('terminal:exit', h);
+      return () => ipcRenderer.removeListener('terminal:exit', h);
+    },
+  },
+
   // Sovereign dynamic KV cache — the local-model working-set cache. Inert in
   // the hosted build (every call resolves to a no-op/empty result); live only
   // when running sovereign. The local-model orchestration uses these to size

@@ -11,7 +11,8 @@
     "electron": "electron .",
     "electron:dev": "concurrently -k -n vite,electron -c cyan,magenta \"vite --host 127.0.0.1\" \"wait-on http-get://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "cross-env ELECTRON=1 vite build",
-    "test": "node --test electron/native/*.test.cjs electron/native/providers/*.test.cjs"
+    "test": "node --test electron/native/*.test.cjs electron/native/providers/*.test.cjs",
+    "rebuild:pty": "electron-rebuild -f -w node-pty"
   },
   "dependencies": {
     "@fontsource/dm-mono": "^5.2.7",
@@ -20,12 +21,16 @@
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/playfair-display": "^5.2.8",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-force-graph-3d": "^1.29.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.0.3",
@@ -39,5 +44,8 @@
     "vite": "^8.1.2",
     "wait-on": "^8.0.5",
     "wrangler": "^4.105.0"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
   }
 }

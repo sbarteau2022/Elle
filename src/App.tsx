@@ -21,6 +21,8 @@ import { worker, getEmail, getTier, clearAuth, verifyToken, WORKER } from './lib
 import { VoiceProvider, useWorkbenchVoice } from './lib/VoiceContext'
 import { CameraProvider } from './lib/CameraContext'
 import { on } from './lib/commands'
+import Terminals from './components/Terminal'
+import { retheme as rethemeTerminals } from './lib/terminals'
 
 const ACCENT = '#C9A84C'
 
@@ -63,6 +65,47 @@ letter-spacing:.02em;transition:background .13s,color .13s}
 /* a hairline of gold along the very top edge — the room has a pulse */
 .topglow{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.5),transparent);pointer-events:none;z-index:10}
 `
+
+// The terminal drawer: a shell under whatever panel you're in, the way an
+// IDE does it — ⌃` toggles, the top edge drags to resize, and the height
+// persists. It is deliberately a sibling of <main>, not inside a panel, so
+// the shells outlive every tab switch (the sessions themselves live in
+// lib/terminals.ts, outside React, for exactly the same reason).
+const DRAWER_MIN = 120
+const DRAWER_KEY = 'elle_terminal_height'
+
+function TerminalDrawer({ height, setHeight, onClose }: {
+  height: number; setHeight: (h: number) => void; onClose: () => void
+}) {
+  const [dragging, setDragging] = useState(false)
+
+  useEffect(() => {
+    if (!dragging) return
+    const onMove = (e: MouseEvent) => {
+      // Measured from the bottom of the window; capped so the drawer can
+      // never swallow the panel it's supposed to be helping you watch.
+      const next = Math.max(DRAWER_MIN, Math.min(window.innerHeight - 180, window.innerHeight - e.clientY))
+      setHeight(next)
+    }
+    const onUp = () => setDragging(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [dragging, setHeight])
+
+  return (
+    <div style={{ height, flexShrink: 0, display: 'flex', flexDirection: 'column', borderTop: '0.5px solid var(--b1)', background: 'var(--base)', position: 'relative' }}>
+      <div onMouseDown={() => setDragging(true)}
+        title="drag to resize"
+        style={{ position: 'absolute', top: -3, left: 0, right: 0, height: 6, cursor: 'ns-resize', zIndex: 5 }} />
+      <button onClick={onClose} title="hide the terminal (⌃`)"
+        style={{ position: 'absolute', top: 5, right: 10, zIndex: 6, background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 13, lineHeight: 1, padding: 2 }}>
+        ⌄
+      </button>
+      <Terminals compact />
+    </div>
+  )
+}
 
 // Registered once at module load (plugins/builtins side effect above).
 // Reading it into a const here — not inside the component — keeps the nav
@@ -179,10 +222,21 @@ export function App() {
   // Theme: dark by default (the console's native look); light for when the low
   // -contrast tiers get hard to read. Stamped on <html> so the CSS overrides win.
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('elle_theme') === 'light' ? 'light' : 'dark'))
+  // Terminal drawer: open state is per-session (a shell you left running is
+  // still there when you reopen), height persists across launches.
+  const [termOpen, setTermOpen] = useState(false)
+  const [termHeight, setTermHeight] = useState(() => {
+    const saved = parseInt(localStorage.getItem(DRAWER_KEY) || '', 10)
+    return Number.isFinite(saved) && saved >= DRAWER_MIN ? saved : 260
+  })
+  useEffect(() => { localStorage.setItem(DRAWER_KEY, String(termHeight)) }, [termHeight])
+
   useEffect(() => {
     if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light')
     else document.documentElement.removeAttribute('data-theme')
     localStorage.setItem('elle_theme', theme)
+    // Open shells follow the theme instead of staying stuck in the old palette.
+    rethemeTerminals()
   }, [theme])
 
   useEffect(() => {
@@ -197,6 +251,20 @@ export function App() {
       if (!(e.metaKey || e.ctrlKey)) return
       const n = parseInt(e.key, 10)
       if (n >= 1 && n <= PANELS.length) { e.preventDefault(); setTab(PANELS[n - 1].id) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // ⌃` — the terminal drawer, the reflex every IDE trained into your hands.
+  // Ctrl (not ⌘) even on macOS, matching VS Code/Cursor, and deliberately not
+  // swallowed while you're typing in a panel's composer: it's a global toggle.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key !== '`' && e.code !== 'Backquote') return
+      e.preventDefault()
+      setTermOpen(v => !v)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -283,6 +351,11 @@ export function App() {
                 style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
                 {theme === 'light' ? '◐ dark' : '◑ light'}
               </button>
+              <button onClick={() => setTermOpen(v => !v)}
+                title={termOpen ? 'hide the terminal drawer (⌃`)' : 'open a shell under this panel (⌃`)'}
+                style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, background: termOpen ? 'var(--gold-dim)' : 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: termOpen ? 'var(--gold)' : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
+                ❯ terminal <span style={{ color: 'var(--t4)', fontSize: 9 }}>⌃`</span>
+              </button>
               <ListenControl />
               <LoginItemControl />
               <Heartbeat />
@@ -297,10 +370,15 @@ export function App() {
             </div>
           </aside>
 
-          {/* ── instrument panel ── */}
-          <main className="rise" key={tab} style={{ flex: 1, display: 'flex', minWidth: 0, background: 'var(--void)' }}>
-            {activePanel?.render({ worker, accent: ACCENT })}
-          </main>
+          {/* ── instrument panel, with the shell drawer under it ── */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+            <main className="rise" key={tab} style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0, background: 'var(--void)' }}>
+              {activePanel?.render({ worker, accent: ACCENT })}
+            </main>
+            {termOpen && tab !== 'terminal' && (
+              <TerminalDrawer height={termHeight} setHeight={setTermHeight} onClose={() => setTermOpen(false)} />
+            )}
+          </div>
         </div>
       </div>
     </CameraProvider>
