@@ -42,6 +42,42 @@ const localEmbed = native.getProvider('localEmbed');
 ipcMain.handle('local-embed:text', (_e, text) =>
   localEmbed ? localEmbed.embedText(String(text || '')) : { ok: false, error: 'local embed provider unavailable' });
 
+// ── integrated terminal (the workbench's own shells) ───────────────────────
+// Real shells, driven from the renderer's xterm.js surface. Output and exit
+// are pushed to whichever window owns the session; the provider itself keeps
+// no renderer references, so a closed window can't leak one. node-pty gives
+// a true TTY when it built on this machine — otherwise the provider falls
+// back to piped child_process and tells the renderer which it got, so the
+// tab degrades visibly instead of lying about what it can run.
+const terminal = native.getProvider('terminal');
+const termOwners = new Map(); // session id → WebContents
+
+if (terminal) {
+  terminal.onData((id, data) => {
+    const wc = termOwners.get(id);
+    if (wc && !wc.isDestroyed()) wc.send('terminal:data', id, data);
+  });
+  terminal.onExit((id, code) => {
+    const wc = termOwners.get(id);
+    if (wc && !wc.isDestroyed()) wc.send('terminal:exit', id, code);
+    termOwners.delete(id);
+  });
+
+  ipcMain.handle('terminal:create', (e, opts) => {
+    const info = terminal.create(opts);
+    termOwners.set(info.id, e.sender);
+    return info;
+  });
+  // write/resize/kill are owner-scoped: a session belongs to the window that
+  // created it, and only that window can drive or end it.
+  const owned = (e, id) => termOwners.get(id) === e.sender;
+  ipcMain.handle('terminal:write', (e, id, data) => { if (owned(e, id)) terminal.write(id, data); });
+  ipcMain.handle('terminal:resize', (e, id, cols, rows) => { if (owned(e, id)) terminal.resize(id, cols, rows); });
+  ipcMain.handle('terminal:kill', (e, id) => { if (owned(e, id)) { terminal.kill(id); termOwners.delete(id); } });
+  ipcMain.handle('terminal:list', (e) =>
+    terminal.list().filter((s) => termOwners.get(s.id) === e.sender));
+}
+
 // ── device permissions: deny by default, granted only by the user ──────────
 // Electron's default permission handler GRANTS everything, silently. That is
 // the opposite of "permissioned, never auto accept", so we replace it: every
@@ -140,6 +176,14 @@ function createWindow() {
 
   hardenNavigation(win);
 
+  // A window that goes away takes its shells with it — otherwise a closed
+  // tab leaves orphaned login shells running for the life of the app.
+  win.webContents.on('destroyed', () => {
+    for (const [id, wc] of [...termOwners.entries()]) {
+      if (wc === win.webContents) { terminal?.kill(id); termOwners.delete(id); }
+    }
+  });
+
   if (isDev) {
     win.loadURL('http://localhost:5173');
     win.webContents.openDevTools({ mode: 'detach' });
@@ -187,6 +231,7 @@ app.whenReady().then(() => {
 
 function cleanupNative() {
   native.getProvider('headMotion')?.stop();
+  terminal?.disposeAll();
 }
 
 app.on('window-all-closed', () => {

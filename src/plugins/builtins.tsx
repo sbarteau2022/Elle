@@ -21,6 +21,7 @@ import MasterForgePanel, { forgeHasAlert } from '../components/MasterForgePanel'
 import FalconPanel from '../components/FalconPanel'
 import AtlasPanel from '../components/AtlasPanel'
 import SecurityPanel, { securityHasBlocked } from '../components/SecurityPanel'
+import TerminalPanel from '../components/TerminalPanel'
 import { registerPanel } from './registry'
 
 registerPanel({
@@ -62,6 +63,10 @@ registerPanel({
 registerPanel({
   id: 'code', glyph: '{}', label: 'code', section: 'work', order: 7,
   render: ({ worker, accent }) => <CodePanel worker={worker} accent={accent} />,
+})
+registerPanel({
+  id: 'terminal', glyph: '❯', label: 'terminal', section: 'work', order: 7.5,
+  render: () => <TerminalPanel />,
 })
 registerPanel({
   id: 'evals', glyph: '▤', label: 'evals', section: 'work', order: 8,
