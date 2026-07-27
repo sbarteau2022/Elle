@@ -33,6 +33,17 @@ test('systemPrompt: degrades honestly when the worker sends no catalog', () => {
   assert.match(sys, /the worker sent no catalog/);
 });
 
+test('systemPrompt: falls back to the mechanical description when no persona is given', () => {
+  const sys = agent.systemPrompt('', undefined);
+  assert.match(sys, /ELLE-LOCAL/);
+});
+
+test('systemPrompt: uses the worker-supplied persona instead of the mechanical fallback', () => {
+  const sys = agent.systemPrompt('', 'You are Elle. You are not an assistant.');
+  assert.match(sys, /You are Elle\. You are not an assistant\./);
+  assert.doesNotMatch(sys, /ELLE-LOCAL — the sovereign second brain/);
+});
+
 test('formatExec: renders exit code, stdout, stderr', () => {
   const s = agent.formatExec({ ok: true, exit: 0, stdout: 'hi', stderr: '', duration_ms: 12 });
   assert.match(s, /exit 0/);
@@ -178,4 +189,22 @@ test('runGoalJob: wires infer through runLlmJob and exec through runExecJob to c
   assert.equal(res.ok, true);
   assert.equal(res.final, 'nothing to do');
   assert.equal(res.model, 'qwen3.5:4b');
+});
+
+test('runGoalJob: threads the dispatched persona through to the model instead of the mechanical fallback', async () => {
+  let seenSystem = null;
+  const sandboxDeps = {
+    runLlmJob: async ({ system }) => {
+      seenSystem = system;
+      return { ok: true, content: '{"tool":"done","args":{"summary":"done"}}', model: 'qwen3.5:4b' };
+    },
+    runExecJob: async () => { throw new Error('should not be called'); },
+  };
+  await agent.runGoalJob(
+    { goal: 'say hi', max_steps: 5, persona: 'You are Elle. You are not an assistant.' },
+    { origin: 'https://x.dev', key: 'k' },
+    sandboxDeps,
+  );
+  assert.match(seenSystem, /You are Elle\. You are not an assistant\./);
+  assert.doesNotMatch(seenSystem, /ELLE-LOCAL — the sovereign second brain/);
 });

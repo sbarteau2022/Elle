@@ -305,7 +305,7 @@ export default function IdeasPanel({ accent }: any) {
                         LIVE — no conductor. Watch it iterate in the forge tab. */}
                     {it.forge_spec && it.forge_spec.goals && it.forge_spec.goals.length > 0 &&
                       it.status !== 'held' && it.status !== 'killed' && (
-                      <button onClick={() => { shipIdeaToForge(it.id, it.title); emit({ kind: 'nav', panel: 'forge' }) }} disabled={busy}
+                      <button onClick={() => { shipIdeaToForge(it.id, it.title); emit({ kind: 'nav', panel: 'forge', sub: 'forge' }) }} disabled={busy}
                         style={{ padding: '4px 12px', borderRadius: 6, border: '0.5px solid #5CC8C277', background: '#5CC8C222', color: '#5CC8C2', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
                         ⚒ ship to the sandbox — forge it live ▸
                       </button>

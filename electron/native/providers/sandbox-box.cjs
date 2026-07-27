@@ -131,6 +131,31 @@ function dockerAvailable(cfg) {
   return ok;
 }
 
+// Is the configured image actually present LOCALLY? The daemon can be up and
+// happily accept `docker run elle-sandbox:latest` and still fail every single
+// job with "Unable to find image ... locally" — that error lands in the job's
+// stderr as a generic exec failure indistinguishable from the job's own code
+// being broken. This is the one-time manual-build step (see
+// electron/sandbox.Dockerfile's header comment) that nothing auto-runs, so a
+// fresh checkout with Docker Desktop running still produces zero working
+// forges until it's built once. Cached the same way dockerAvailable is: a
+// present image is assumed present for a while, a missing one is re-checked
+// every call (so a build that just finished is picked up immediately).
+let _imageProbe = { at: 0, image: '', ok: false };
+function imageAvailable(cfg) {
+  const c = cfg || boxConfig();
+  const now = Date.now();
+  if (_imageProbe.ok && _imageProbe.image === c.image && now - _imageProbe.at < 30_000) return true;
+  let ok = false;
+  try {
+    const r = spawnSync(c.dockerBin, ['image', 'inspect', c.image, '--format', '{{.Id}}'],
+      { encoding: 'utf8', timeout: 8_000 });
+    ok = r.status === 0 && !!String(r.stdout || '').trim();
+  } catch { ok = false; }
+  _imageProbe = { at: now, image: c.image, ok };
+  return ok;
+}
+
 function writeTmp(root, content, ext) {
   const p = path.join(root, `.elle-run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}${ext}`);
   fs.writeFileSync(p, content, 'utf8');
@@ -170,5 +195,6 @@ module.exports = {
   containerCommandFor,
   dockerRunArgs,
   dockerAvailable,
+  imageAvailable,
   boxedSpawn,
 };

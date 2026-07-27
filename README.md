@@ -121,7 +121,7 @@ grouped as `router.ts` renders it:
 | **Signal analysis** | `pfar` — Prosody·FreeQ·Analytic Ripper: rip structure from a stream (spectrum over a numeric series · prosody over pitch/energy · rhetoric over text) |
 | **Her codebase & the forge** | `repo_read`, `repo_search`, `github_read_file`, `github_list_files`, `github_search_code`, `forge_open`, `forge_write`, `forge_check`, `forge_pr` |
 | **Skills** | `skill_list`, `skill_read`, `skill_write` |
-| **MCP** | `mcp_add`, `mcp_tools`, `mcp_call` (Hugging Face pre-mounted) |
+| **MCP** | `mcp_library` (the curated connector shelf — mount by name), `mcp_add`, `mcp_tools`, `mcp_call` (Hugging Face pre-mounted) |
 | **Autonomy** | `intent`, `review_runs` |
 | **Provenance** | `provenance` — read the event bus: replay a run's ordered step stream (State Replay) or trace where an answer came from |
 | **Journal** | `journal_read`, `journal_thread`, `journal_write`, `journal_annotate` |

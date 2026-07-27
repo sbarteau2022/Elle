@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('elleNative', {
   setPermission: (name, allow) => ipcRenderer.invoke('permissions:set', String(name), !!allow),
   getPermissions: () => ipcRenderer.invoke('permissions:get'),
 
+  // Auto-launch at login (macOS/Windows only — { supported: false } on
+  // Linux). get() reads the OS's actual login-item state; set() flips it.
+  loginItem: {
+    get: () => ipcRenderer.invoke('login-item:get'),
+    set: (enable) => ipcRenderer.invoke('login-item:set', !!enable),
+  },
+
   // AirPods (H2+) head pose via CMHeadphoneMotionManager. cb receives
   // { pitch, roll, yaw } in radians. Present only when capabilities.headMotion
   // is true (addon built, macOS 11+, AirPods Pro connected).

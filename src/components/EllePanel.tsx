@@ -84,7 +84,8 @@ const TOOLS: [string, string][] = [
   ['skill_read', 'load a distilled procedure'],
   ['skill_write', 'author/refine a skill'],
   // mcp
-  ['mcp_add', 'mount an MCP server by URL'],
+  ['mcp_library', 'the connector shelf · mount by name'],
+  ['mcp_add', 'mount an MCP server by name or URL'],
   ['mcp_tools', 'mounted external tool servers'],
   ['mcp_call', 'call any MCP tool · HF pre-mounted'],
   // autonomy

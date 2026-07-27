@@ -148,6 +148,13 @@ function spawnFor(job) {
         'sandbox box refused: Docker daemon not reachable. Exec is fail-closed — ' +
         'start Docker Desktop (or set ELLE_SANDBOX_ISOLATION=none to run on the bare host, NOT recommended).' };
     }
+    const cfg = box.boxConfig();
+    if (!box.imageAvailable(cfg)) {
+      return { proc: null, tmp: null, error:
+        `sandbox box refused: Docker image '${cfg.image}' not found locally. Build it once from the elle repo root: ` +
+        `docker build -f electron/sandbox.Dockerfile -t ${cfg.image} . (see electron/sandbox.Dockerfile) — ` +
+        'nothing builds this automatically.' };
+    }
     return box.boxedSpawn(job, root);
   }
   if (!warnedBareHost) { warnedBareHost = true; log('WARNING: ELLE_SANDBOX_ISOLATION=none — exec runs UN-JAILED on the bare host.'); }

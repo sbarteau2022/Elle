@@ -10,6 +10,7 @@ require('./native/load-env.cjs').loadDotEnv();
 const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const path = require('path');
 const native = require('./native/index.cjs');
+const loginItem = require('./native/login-item.cjs');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -57,6 +58,13 @@ ipcMain.handle('permissions:set', (_e, name, allow) => {
   return { ...grants };
 });
 ipcMain.handle('permissions:get', () => ({ ...grants }));
+
+// ── auto-launch at login ────────────────────────────────────────────────
+// Reflects and flips the OS-level login item (see native/login-item.cjs).
+// { supported: false, openAtLogin: false } on platforms Electron can't do
+// this on (Linux) — the toggle just hides itself in that case.
+ipcMain.handle('login-item:get', () => loginItem.get());
+ipcMain.handle('login-item:set', (_e, enable) => loginItem.set(!!enable));
 
 // Map Chromium's permission vocabulary onto our two grants. Returns null for
 // permissions that aren't media at all (handled separately below).
@@ -154,6 +162,12 @@ function createWindow() {
 app.whenReady().then(() => {
   installPermissionPolicy(session.defaultSession);
   createWindow();
+
+  // First launch on this machine only: turn on "open at login" so the
+  // sandbox agent below is actually live without opening the app by hand.
+  // A no-op on Linux (unsupported) and a no-op on every later launch (the
+  // marker file is already there) — see native/login-item.cjs.
+  loginItem.ensureDefaultOn();
 
   // Elle's hands on this box: dial the connect-back sandbox UP to the worker.
   // Idle unless ELLE_SANDBOX_KEY is set (and matches the worker's
