@@ -50,6 +50,7 @@ export default function TradingPanel({ accent }: any) {
   const journal: Any[] = d?.journal || []
   const observations: Any[] = d?.observations || []
   const research: Any[] = d?.research || []
+  const perf: Any | null = d?.performance || null
   const marketOpen = d?.market_open !== false
   // Today's trades, for the off-hours replay header.
   const today = new Date().toISOString().slice(0, 10)
@@ -116,6 +117,17 @@ export default function TradingPanel({ accent }: any) {
           <Tile label="unrealized p&l" value={money(acct.unrealized_pnl)} color={pnlColor(acct.unrealized_pnl)} />
           <Tile label="day p&l" value={money(acct.day_pnl)} color={pnlColor(acct.day_pnl)} />
         </div>
+
+        {/* the money scoreboard — is she actually making money? Realized
+            results from closed trades, straight off the API's `performance`. */}
+        {perf && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
+            <Tile label="realized p&l (closed)" value={money(perf.total_pnl)} color={pnlColor(perf.total_pnl)} />
+            <Tile label="win rate" value={perf.n > 0 ? `${perf.win_rate}%` : '—'} accent={accent} />
+            <Tile label="wins / losses" value={perf.n > 0 ? `${perf.wins} / ${perf.losses}` : '—'} accent={accent} />
+            <Tile label="avg win · avg loss" value={perf.n > 0 ? `${money(perf.avg_win)} · ${money(perf.avg_loss)}` : '—'} accent={accent} />
+          </div>
+        )}
 
         {/* positions */}
         <Section title="open positions">
