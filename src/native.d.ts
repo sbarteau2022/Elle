@@ -34,6 +34,20 @@ declare global {
         get: () => Promise<{ supported: boolean; openAtLogin: boolean }>;
         set: (enable: boolean) => Promise<{ supported: boolean; openAtLogin: boolean }>;
       };
+      // Integrated terminal. `pty: false` on a created session means node-pty
+      // is unavailable on this machine and the shell is piped — line-oriented
+      // commands work, full-screen TUIs do not. onData/onExit return their own
+      // unsubscribe function; call it on unmount.
+      terminal?: {
+        create: (opts?: { cwd?: string; cols?: number; rows?: number }) =>
+          Promise<{ id: string; shell: string; cwd: string; pty: boolean }>;
+        write: (id: string, data: string) => Promise<void>;
+        resize: (id: string, cols: number, rows: number) => Promise<void>;
+        kill: (id: string) => Promise<void>;
+        list: () => Promise<{ id: string; shell: string; cwd: string; pty: boolean }[]>;
+        onData: (id: string, cb: (data: string) => void) => () => void;
+        onExit: (id: string, cb: (code: number) => void) => () => void;
+      };
       onHeadMotion: (cb: (data: HeadMotion) => void) => void;
       offHeadMotion: () => void;
       headMotionAvailable: () => Promise<boolean>;

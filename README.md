@@ -83,6 +83,17 @@ onto it. For the mind/router/conductor architecture, read that repo's
   the cron; this is the window.
 - **code** — the code-engine bench (analyze / debug / refactor / explain /
   generate / migrate).
+- **terminal** — real shells on this machine, the way an IDE has them. Full
+  `zsh`/`bash`/`cmd` sessions through a true PTY: prompts, colors, readline
+  editing, `vim`, `htop`, `ssh`, `git`, `npm run …` — all of it. Multiple
+  tabbed shells, each spawned as a login shell so `PATH` matches the terminal
+  you already use. **⌃`** toggles the same shells as a drawer under *any*
+  panel, dragged to whatever height you want — start a build in the drawer,
+  go read the corpus, come back and it's still streaming. Sessions live
+  outside React (`src/lib/terminals.ts`), so switching tabs or hiding the
+  drawer never restarts a shell or loses scrollback. This is the local
+  counterpart to **sandbox**: that tab watches what *she* runs remotely, this
+  one is your own hands on the box.
 - **evals** — the eval / training bench.
 - **sandbox** — the connect-back box, watched live (`/api/elle-sandbox-runs`).
   Path OPEN/CLOSED status (host, platform, root, last beat) at the top; every
@@ -151,8 +162,17 @@ click on GitHub.
 
 ```bash
 npm install
+npm run rebuild:pty     # build node-pty against Electron's ABI (integrated terminal)
 cp .env.example .env    # set VITE_ELLE_WORKER_URL (defaults to the deployed worker)
 ```
+
+`node-pty` is a native module and an **optional** dependency: it must be
+compiled against Electron's ABI, not plain Node's, which is what
+`rebuild:pty` does. Skip it and nothing breaks — the terminal falls back to
+piped shells (commands run and print; full-screen programs like `vim` and
+`htop` don't render) and the terminal tab says so with a `piped · no tty`
+badge rather than pretending. Run `npm run rebuild:pty` again after any
+Electron version bump.
 
 `VITE_ELLE_WORKER_URL` points the renderer at a worker; it defaults to
 `https://elle-worker.sbarteau2022.workers.dev`. No service key lives in the
@@ -214,6 +234,8 @@ Point it at a different clone location or fork with `ELLE_APP_DIR` /
 | `npm run electron:build` | Production renderer build (`ELECTRON=1`) |
 | `npm run build` | Plain Vite build |
 | `npm run preview` | Preview a production renderer build |
+| `npm run rebuild:pty` | Rebuild `node-pty` against Electron's ABI (real PTY in the terminal) |
+| `npm test` | Native provider tests (`node --test`) |
 
 ---
 
@@ -266,6 +288,10 @@ the CSS variables every panel reads.
 | `src/components/TradingPanel.tsx` | account, positions, trades, theses, journal |
 | `src/components/CodePanel.tsx` | code-engine bench |
 | `src/components/Evals.tsx` | eval / training bench |
+| `src/components/Terminal.tsx` | terminal chrome — tab strip + xterm mount (drawer and panel share it) |
+| `src/components/TerminalPanel.tsx` | full-height terminal tab |
+| `src/lib/terminals.ts` | live shell sessions + their xterm instances, owned outside React |
+| `electron/native/providers/terminal.cjs` | spawns the actual shells (node-pty, piped fallback) |
 | `src/components/DiagnosePanel.tsx` | error → on-stack fix |
 | `src/components/HealthPanel.tsx` | cross-worker health |
 | `src/components/KappaHeader.tsx` | live κ · v · a · j · ∫ readout |
