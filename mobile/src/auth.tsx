@@ -105,6 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Release this device's push registration while the token still works —
     // a signed-out phone must stop receiving the old account's knocks.
     if (token) await unregisterForKnocks(token);
+    // Then surrender the token itself: the worker revokes its jti, so this
+    // session dies server-side too, not just on this device. Best-effort —
+    // an offline sign-out must still sign out locally.
+    if (token) await authApi.logout(token).catch(() => {});
     await googleSignOut(); // drop the native session so the picker shows next time
     await clear();
   }, [clear, token]);

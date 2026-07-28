@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { WORKER, setAuth, clearAuth, tierAllowed } from '../lib/elle'
+import { WORKER, setAuth, clearAuth, revokeToken, tierAllowed } from '../lib/elle'
 
 export default function Login({ onAuth }: { onAuth: () => void }) {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
@@ -18,6 +18,9 @@ export default function Login({ onAuth }: { onAuth: () => void }) {
   const land = (d: any, em: string) => {
     const tier = String(d.user?.tier || 'standard')
     if (!tierAllowed(tier)) {
+      // The login just minted a real 30-day token for an account this console
+      // rejects — revoke it rather than leaving it live and unused.
+      revokeToken(String(d.access_token || ''))
       clearAuth()
       throw new Error(`this is the admin workbench — "${tier}" tier accounts cannot open it`)
     }

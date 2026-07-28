@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react'
 import Login from './components/Login'
 import './plugins/builtins'
 import { listPanels, listSections } from './plugins/registry'
-import { worker, getEmail, getTier, clearAuth, verifyToken, WORKER } from './lib/elle'
+import { worker, getEmail, getTier, signOut, verifyToken, WORKER } from './lib/elle'
 import { VoiceProvider, useWorkbenchVoice } from './lib/VoiceContext'
 import { CameraProvider } from './lib/CameraContext'
 import { on } from './lib/commands'
@@ -363,7 +363,7 @@ export function App() {
                 title={`${getEmail()} · ${getTier() || 'admin'}`}>
                 {getEmail() || worker.label}
               </div>
-              <button onClick={() => { clearAuth(); setAuthed(false) }}
+              <button onClick={() => { signOut(); setAuthed(false) }}
                 style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px' }}>
                 sign out
               </button>

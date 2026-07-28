@@ -89,6 +89,10 @@ export const auth = {
     call<AuthResult>('/api/elle-auth', { body: { action: 'set_password', email, password, new_password: newPassword } }),
   verify: (token: string) =>
     call<{ valid: boolean; user: User }>('/api/elle-auth', { body: { action: 'verify', token } }),
+  // Server-side revocation: the worker deletes the token's jti, so every
+  // stored copy of it dies now instead of at its 30-day exp.
+  logout: (token: string) =>
+    call<{ success: boolean }>('/api/elle-auth', { body: { action: 'logout', token } }),
   // Google sign-in: trade a Google ID token for the same JWT password login
   // mints. The worker verifies it server-side (audience + email_verified);
   // the app never trusts the Google token by itself.

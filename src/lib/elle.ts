@@ -44,6 +44,22 @@ export const clearAuth = () => {
 }
 // Backwards-compatible alias — clears the whole session.
 export const clearToken = clearAuth
+// Revoke a token server-side: the worker deletes its jti from AUTH_TOKENS, so
+// every stored copy dies now instead of at its 30-day exp. Fire-and-forget —
+// a dead connection must never block a sign-out.
+export const revokeToken = (token: string) => {
+  if (!token) return
+  fetch(`${WORKER}/api/elle-auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'logout', token }),
+  }).catch(() => {})
+}
+// Sign out for real: revoke the stored token, then clear the local session.
+export const signOut = () => {
+  revokeToken(getToken())
+  clearAuth()
+}
 export const worker = { url: WORKER, label: 'elle-worker' }
 
 // Network-backed token check — the worker revokes by jti, so a stored token
