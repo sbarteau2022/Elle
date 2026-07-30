@@ -112,6 +112,14 @@ A third-party panel would plug in the same way, no change to `App.tsx`.
   open positions, recent trades **with the reasoning that placed each one and
   what she was testing**, active theses, and her trading journal. She trades on
   the cron; this is the window.
+- **tax** — the small-business tax suite, as five tabs (onboarding /
+  dashboard / transactions / contractors ("1099s") / credits). Onboarding is
+  just this panel's default tab until a business exists — no separate wizard.
+  Talks to two doors: `/api/tax/data` (structured JSON, no LLM round trip —
+  every tab's lists/tables/calculations) and `/api/tax/onboarding` (business
+  + fact-group CRUD). The conversational `/api/tax` door — actually asking
+  Elle about it — isn't used by this panel; that's reachable through the
+  **elle** chat panel like any other tool.
 - **code** — the code-engine bench (analyze / debug / refactor / explain /
   generate / migrate).
 - **terminal** — real shells on this machine, the way an IDE has them. Full
@@ -372,6 +380,7 @@ token:
 | atlas | `GET /api/atlas/latest` · `/api/atlas/history` · `/api/atlas/at` |
 | optimus | `POST /api/optimus-journal` |
 | trading | `POST /api/elle-trading` |
+| tax | `POST /api/tax/data` · `/api/tax/onboarding` |
 | code | `POST /api/elle-code-engine` |
 | forge → ideas | `POST /api/elle-ideas` |
 | forge → forge | `POST /api/elle-forge` (SSE) |
@@ -440,6 +449,12 @@ Elle/
 | `src/components/AtlasPanel.tsx` | the 3D memory graph |
 | `src/components/OptimusPanel.tsx` | phase-state journal + coherence explainer |
 | `src/components/TradingPanel.tsx` | account, positions, trades, theses, journal |
+| `src/components/TaxPanel.tsx` | tax suite shell — business picker + 5-tab layout |
+| `src/components/TaxOnboarding.tsx` | business + fact-group setup |
+| `src/components/TaxDashboard.tsx` | tax dashboard tab |
+| `src/components/TaxTransactions.tsx` | transactions tab |
+| `src/components/TaxContractors.tsx` | 1099s / contractors tab |
+| `src/components/TaxCredits.tsx` | credits tab |
 | `src/components/CodePanel.tsx` | code-engine bench |
 | `src/components/Evals.tsx` | eval / training bench |
 | `src/components/MasterForgePanel.tsx` | the forge tab's sub-tab shell (ideas/forge/sandbox/duplex) |
@@ -451,6 +466,9 @@ Elle/
 | `src/components/FlockPanel.tsx` | Flock — social-media studio: brand kits, on-brand content + Brand Guardian, image gen/edit, multi-channel fan-out (`/api/flock`) |
 | `src/components/Terminal.tsx` | terminal chrome — tab strip + xterm mount (drawer and panel share it) |
 | `src/components/TerminalPanel.tsx` | full-height terminal tab |
+| `src/components/HistoryRail.tsx` | past-conversation sidebar, shared by the elle and code tabs |
+| `src/components/VoiceOrb.tsx` | the breathing/speaking/listening orb (pure visual, state comes in as props) |
+| `src/components/PermissionGate.tsx` | the one consent modal for microphone/camera access |
 | `src/lib/terminals.ts` | live shell sessions + their xterm instances, owned outside React |
 | `electron/native/providers/terminal.cjs` | spawns the actual shells (node-pty, piped fallback) |
 | `src/components/DiagnosePanel.tsx` | error → on-stack fix |
