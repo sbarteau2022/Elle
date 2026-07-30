@@ -19,6 +19,7 @@ import DiagnosePanel from '../components/DiagnosePanel'
 import HealthPanel from '../components/HealthPanel'
 import MasterForgePanel, { forgeHasAlert } from '../components/MasterForgePanel'
 import FalconPanel from '../components/FalconPanel'
+import FlockPanel from '../components/FlockPanel'
 import AtlasPanel from '../components/AtlasPanel'
 import SecurityPanel, { securityHasBlocked } from '../components/SecurityPanel'
 import TerminalPanel from '../components/TerminalPanel'
@@ -80,6 +81,10 @@ registerPanel({
 registerPanel({
   id: 'falcon', glyph: '⌖', label: 'falcon', section: 'work', order: 8.9,
   render: ({ accent }) => <FalconPanel accent={accent} />,
+})
+registerPanel({
+  id: 'flock', glyph: '❋', label: 'flock', section: 'work', order: 8.95,
+  render: ({ accent }) => <FlockPanel accent={accent} />,
 })
 registerPanel({
   id: 'diagnose', glyph: '✚', label: 'diagnose', section: 'ops', order: 9,
