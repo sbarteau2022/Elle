@@ -13,6 +13,7 @@ import IdentityPanel from '../components/IdentityPanel'
 import MirrorPanel from '../components/MirrorPanel'
 import OptimusPanel from '../components/OptimusPanel'
 import TradingPanel from '../components/TradingPanel'
+import TaxPanel from '../components/TaxPanel'
 import CodePanel from '../components/CodePanel'
 import Evals from '../components/Evals'
 import DiagnosePanel from '../components/DiagnosePanel'
@@ -59,6 +60,10 @@ registerPanel({
 registerPanel({
   id: 'trading', glyph: '$', label: 'trading', section: 'work', order: 6,
   render: ({ accent }) => <TradingPanel accent={accent} />,
+})
+registerPanel({
+  id: 'tax', glyph: '§', label: 'tax', section: 'work', order: 6.5,
+  render: ({ accent }) => <TaxPanel accent={accent} />,
 })
 registerPanel({
   id: 'code', glyph: '{}', label: 'code', section: 'work', order: 7,
