@@ -156,6 +156,18 @@ A third-party panel would plug in the same way, no change to `App.tsx`.
   in flight. Every run is archived; a completed Rupture has an outcome form
   that records what actually got built, against what the engine named.
 
+- **flock** — the social-media intelligence studio, the workbench face of the
+  worker's `flock.ts` (`/api/flock`). The **brand kit** owns the left rail
+  (mission, voice, palette, fonts, audience, visual style, taboos); four tabs
+  on the right condition on it: *studio* (brief → on-brand concepts →
+  captions, each gate-checked by the **Brand Guardian** — a 0–100 continuity
+  score with a per-dimension breakdown and concrete fixes); *image*
+  (brand-conditioned generation + AI edit; a status strip flips to
+  "sovereign" when a self-hosted image model is wired on the worker); *flock*
+  (manage the channel roster, draft a post, pick channels, review for
+  continuity, then publish — dry-run per channel until OAuth is added);
+  *assets* (everything generated for the active brand).
+
 **ops**
 - **diagnose** — paste an error or stack trace, get the on-stack fix
   (`/api/diagnose`).
@@ -436,6 +448,7 @@ Elle/
 | `src/components/SandboxPanel.tsx` | connect-back sandbox run log |
 | `src/components/DuplexPanel.tsx` | sovereign/cloud duplex ledger |
 | `src/components/FalconPanel.tsx` | the 16-axis analysis engine |
+| `src/components/FlockPanel.tsx` | Flock — social-media studio: brand kits, on-brand content + Brand Guardian, image gen/edit, multi-channel fan-out (`/api/flock`) |
 | `src/components/Terminal.tsx` | terminal chrome — tab strip + xterm mount (drawer and panel share it) |
 | `src/components/TerminalPanel.tsx` | full-height terminal tab |
 | `src/lib/terminals.ts` | live shell sessions + their xterm instances, owned outside React |
