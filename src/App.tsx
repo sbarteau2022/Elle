@@ -76,6 +76,15 @@ letter-spacing:.02em;transition:background .13s,color .13s}
 .navbtn.on .glyph{opacity:1}
 .navbtn .kb{margin-left:auto;font-size:9px;color:var(--t4);opacity:0;transition:opacity .13s}
 .navbtn:hover .kb{opacity:1}
+.railsec{background:none;border:none;display:flex;align-items:center;gap:5px;width:100%;cursor:pointer;
+font-family:var(--mono);font-size:8px;color:var(--t4);letter-spacing:.18em;text-transform:uppercase;padding:4px 12px 2px}
+.railsec:hover{color:var(--t3)}
+.railsec .chev{display:inline-block;width:7px;flex-shrink:0;transition:transform .13s}
+.railsec.closed .chev{transform:rotate(-90deg)}
+.railfilter{width:100%;background:var(--raised);border:0.5px solid var(--b1);border-radius:0;color:var(--t1);
+font-family:var(--mono);font-size:10.5px;padding:6px 9px;outline:none;margin-bottom:8px}
+.railfilter::placeholder{color:var(--t4)}
+.railfilter:focus{border-color:var(--gold)}
 /* a hairline of accent along the very top edge — the room has a pulse */
 .topglow{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(89,128,166,.5),transparent);pointer-events:none;z-index:10}
 /* Industry's blueprint frame: square, hairline-bordered, "+" registration
@@ -240,11 +249,26 @@ function Heartbeat() {
   )
 }
 
+// Rail sections you've collapsed persist across sessions — a console with 19
+// tabs across 3 groups needs a way to put away the ones you're not using
+// today without losing them. Defaults to "everything open" (the old fixed
+// list's behavior) so a first run looks exactly like it always did.
+const RAIL_COLLAPSED_KEY = 'elle_rail_collapsed'
+const loadCollapsed = (): Record<string, boolean> => {
+  try { return JSON.parse(localStorage.getItem(RAIL_COLLAPSED_KEY) || '{}') } catch { return {} }
+}
+
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [tab, setTab] = useState<string>(PANELS[0]?.id ?? '')
   // Per-panel attention signals (PanelPlugin.alert) → a flashing rail tab.
   const [alerts, setAlerts] = useState<Record<string, boolean>>({})
+  // Type-to-jump: filters the rail by label instead of making you scan all
+  // 19 of them. A match auto-opens its section even if you'd collapsed it.
+  const [railFilter, setRailFilter] = useState('')
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed)
+  useEffect(() => { localStorage.setItem(RAIL_COLLAPSED_KEY, JSON.stringify(collapsed)) }, [collapsed])
+  const toggleSection = (sec: string) => setCollapsed(c => ({ ...c, [sec]: !c[sec] }))
   // Theme: dark by default (the console's native look); light for when the low
   // -contrast tiers get hard to read. Stamped on <html> so the CSS overrides win.
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('elle_theme') === 'light' ? 'light' : 'dark'))
@@ -342,8 +366,8 @@ export function App() {
 
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           {/* ── left rail ── */}
-          <aside style={{ width: 188, flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '4px 12px 14px', borderRight: '0.5px solid var(--b1)' }}>
-            <div style={{ padding: '2px 12px 16px' }}>
+          <aside style={{ width: 188, flexShrink: 0, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '4px 12px 14px', borderRight: '0.5px solid var(--b1)' }}>
+            <div style={{ padding: '2px 12px 16px', flexShrink: 0 }}>
               <div style={{ fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--t1)', letterSpacing: '.01em', lineHeight: 1 }}>
                 Elle<span style={{ color: ACCENT }}>.</span>
               </div>
@@ -352,26 +376,55 @@ export function App() {
               </div>
             </div>
 
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {SECTIONS.map(sec => (
-                <div key={sec} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 8, color: 'var(--t4)', letterSpacing: '.18em', textTransform: 'uppercase', padding: '4px 12px 2px' }}>{sec}</div>
-                  {PANELS.filter(p => p.section === sec).map(p => {
-                    const n = PANELS.findIndex(x => x.id === p.id) + 1
-                    return (
-                      <button key={p.id}
-                        className={'navbtn' + (tab === p.id ? ' on' : '') + (alerts[p.id] && tab !== p.id ? ' flash' : '')}
-                        onClick={() => { setTab(p.id); if (alerts[p.id]) setAlerts(a => ({ ...a, [p.id]: false })) }}>
-                        <span className="glyph">{p.glyph}</span>{p.label}
-                        <span className="kb">⌘{n}</span>
+            {/* type to jump — filters by label; Enter opens the sole match,
+                Escape clears. A section with a match forces itself open even
+                if you'd collapsed it, so filtering never hides the result. */}
+            <input value={railFilter} onChange={e => setRailFilter(e.target.value)}
+              placeholder={`filter ${PANELS.length} tabs…`} className="railfilter"
+              style={{ flexShrink: 0 }}
+              onKeyDown={e => {
+                if (e.key === 'Escape') { setRailFilter(''); (e.target as HTMLInputElement).blur() }
+                else if (e.key === 'Enter') {
+                  const hits = PANELS.filter(p => p.label.toLowerCase().includes(railFilter.trim().toLowerCase()))
+                  if (railFilter.trim() && hits.length === 1) { setTab(hits[0].id); setRailFilter('') }
+                }
+              }} />
+
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', minHeight: 0, flex: '1 1 auto' }}>
+              {(() => {
+                const needle = railFilter.trim().toLowerCase()
+                const filtered = needle ? PANELS.filter(p => p.label.toLowerCase().includes(needle)) : PANELS
+                if (needle && !filtered.length) {
+                  return <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t4)', padding: '6px 12px' }}>no tabs match "{railFilter.trim()}"</div>
+                }
+                return SECTIONS.map(sec => {
+                  const secPanels = filtered.filter(p => p.section === sec)
+                  if (!secPanels.length) return null
+                  const open = !!needle || !collapsed[sec]
+                  return (
+                    <div key={sec} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+                      <button className={'railsec' + (open ? '' : ' closed')} onClick={() => toggleSection(sec)}
+                        title={open ? `collapse ${sec}` : `expand ${sec}`}>
+                        <span className="chev">▾</span>{sec}
                       </button>
-                    )
-                  })}
-                </div>
-              ))}
+                      {open && secPanels.map(p => {
+                        const n = PANELS.findIndex(x => x.id === p.id) + 1
+                        return (
+                          <button key={p.id}
+                            className={'navbtn' + (tab === p.id ? ' on' : '') + (alerts[p.id] && tab !== p.id ? ' flash' : '')}
+                            onClick={() => { setTab(p.id); if (alerts[p.id]) setAlerts(a => ({ ...a, [p.id]: false })) }}>
+                            <span className="glyph">{p.glyph}</span>{p.label}
+                            <span className="kb">⌘{n}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )
+                })
+              })()}
             </nav>
 
-            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px' }}>
+            <div style={{ marginTop: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px' }}>
               <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
                 title={theme === 'light' ? 'switch to dark' : 'switch to light'}
                 style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
