@@ -95,7 +95,7 @@ function NewBusinessForm({ accent, onCreated }: { accent: string; onCreated: (id
         </div>
       )}
       <button onClick={create} disabled={busy || !name.trim()}
-        style={{ alignSelf: 'flex-start', padding: '6px 16px', borderRadius: 6, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+        style={{ alignSelf: 'flex-start', padding: '6px 16px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
         {busy ? '…' : 'create ▸'}
       </button>
     </div>
@@ -156,7 +156,7 @@ function FactCard({ group, accent, businessId, taxYear, done, onSaved }: {
   }
 
   return (
-    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <span style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 500 }}>{group.title}</span>
         {done && <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9.5, color: '#4ADE80' }}>✓ saved</span>}
@@ -172,7 +172,7 @@ function FactCard({ group, accent, businessId, taxYear, done, onSaved }: {
           )}
           {(f.kind === 'text' || f.kind === 'number') && (
             <input value={String(values[f.key] ?? '')} onChange={(e) => set(f.key, e.target.value)} type={f.kind === 'number' ? 'number' : 'text'}
-              style={{ width: 100, background: 'var(--base)', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t1)', padding: '4px 7px', fontSize: 10.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+              style={{ width: 100, background: 'var(--base)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '4px 7px', fontSize: 10.5, fontFamily: 'var(--mono)', outline: 'none' }} />
           )}
         </div>
       ))}

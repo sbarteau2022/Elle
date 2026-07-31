@@ -33,7 +33,7 @@ export async function duplexHasUnseen(): Promise<boolean> {
 
 const SPEAKER = {
   sovereign: { color: '#7FB4D8', label: 'sovereign · 7b local' },
-  cloud: { color: '#C9A84C', label: 'cloud · heavy + observer' },
+  cloud: { color: '#5980a6', label: 'cloud · heavy + observer' },
 }
 
 const when = (t: number) => {
@@ -104,7 +104,7 @@ export default function DuplexPanel({ accent }: any) {
                 {' '}· {when(m.created_at)}
               </div>
               <div style={{
-                maxWidth: '78%', padding: '9px 12px', borderRadius: 10,
+                maxWidth: '78%', padding: '9px 12px', borderRadius: 0,
                 background: 'var(--raised)', border: `0.5px solid ${s.color}44`,
                 borderTopLeftRadius: mine ? 10 : 3, borderTopRightRadius: mine ? 3 : 10,
                 fontSize: 11.5, color: 'var(--t1)', lineHeight: 1.6, whiteSpace: 'pre-wrap',

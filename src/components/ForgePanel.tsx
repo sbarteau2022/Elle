@@ -177,7 +177,7 @@ export default function ForgePanel({ accent }: any) {
             <Empty>nothing forging yet — define a tool and its goals below, or ship a bubble from the ideas column. she writes the code, runs it against every goal on the box, and refines until they pass.</Empty>
           )}
           {iters.map(it => (
-            <div key={it.iter} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, overflow: 'hidden' }}>
+            <div key={it.iter} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderBottom: '0.5px solid var(--b2)' }}>
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: accent }}>iteration {it.iter}</span>
                 {it.total != null && (
@@ -217,7 +217,7 @@ export default function ForgePanel({ accent }: any) {
 
           {review && (
             <Section title="heavy-model review">
-              <div style={{ background: review.verdict === 'approve' ? '#4ADE8014' : '#E0A45C18', border: `0.5px solid ${review.verdict === 'approve' ? '#4ADE8055' : '#E0A45C55'}`, borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ background: review.verdict === 'approve' ? '#4ADE8014' : '#E0A45C18', border: `0.5px solid ${review.verdict === 'approve' ? '#4ADE8055' : '#E0A45C55'}`, borderRadius: 0, padding: '10px 12px' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: review.verdict === 'approve' ? 'var(--good)' : '#E0A45C', letterSpacing: '.06em', textTransform: 'uppercase' }}>{review.verdict}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55, marginTop: 5, whiteSpace: 'pre-wrap' }}>{review.notes}</div>
               </div>
@@ -226,7 +226,7 @@ export default function ForgePanel({ accent }: any) {
 
           {merge && (
             <Section title="merge — bake into worker source">
-              <div style={{ background: merge.ok ? 'var(--gold-dim)' : '#D0656518', border: `0.5px solid ${merge.ok ? accent + '66' : '#D0656555'}`, borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ background: merge.ok ? 'var(--gold-dim)' : '#D0656518', border: `0.5px solid ${merge.ok ? accent + '66' : '#D0656555'}`, borderRadius: 0, padding: '10px 12px' }}>
                 <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{merge.note}</div>
                 {merge.url && <a href={merge.url} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: accent, marginTop: 6, display: 'inline-block' }}>PR #{merge.pr_number} — merge on GitHub to deploy ▸</a>}
               </div>
@@ -234,7 +234,7 @@ export default function ForgePanel({ accent }: any) {
           )}
 
           {done && (
-            <div style={{ background: 'var(--float)', border: `0.5px solid ${(STATUS_COLOR[done.status] || 'var(--b1)')}55`, borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ background: 'var(--float)', border: `0.5px solid ${(STATUS_COLOR[done.status] || 'var(--b1)')}55`, borderRadius: 0, padding: '10px 12px' }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: STATUS_COLOR[done.status] || 'var(--t2)', letterSpacing: '.06em', textTransform: 'uppercase' }}>{done.status} · {done.iterations} iteration(s)</div>
               <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.55, marginTop: 5 }}>{done.note}</div>
             </div>
@@ -249,28 +249,28 @@ export default function ForgePanel({ accent }: any) {
             <div style={{ display: 'flex', gap: 6 }}>
               {(['python', 'javascript'] as const).map(l => (
                 <button key={l} onClick={() => setLanguage(l)} disabled={running}
-                  style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: `0.5px solid ${language === l ? accent + '77' : 'var(--b1)'}`, background: language === l ? accent + '22' : 'transparent', color: language === l ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>{l}</button>
+                  style={{ flex: 1, padding: '5px 0', borderRadius: 0, border: `0.5px solid ${language === l ? accent + '77' : 'var(--b1)'}`, background: language === l ? accent + '22' : 'transparent', color: language === l ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>{l}</button>
               ))}
             </div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 8.5, color: 'var(--t4)', letterSpacing: '.1em', textTransform: 'uppercase', marginTop: 4 }}>acceptance goals</div>
             {goals.map((g, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, padding: 7 }}>
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: 7 }}>
                 <input value={g.describe} onChange={e => setGoals(gs => gs.map((x, j) => j === i ? { ...x, describe: e.target.value } : x))} placeholder="what this goal means" disabled={running} style={{ ...inp, marginBottom: 0, fontSize: 10.5 }} />
                 <input value={g.assert} onChange={e => setGoals(gs => gs.map((x, j) => j === i ? { ...x, assert: e.target.value } : x))} placeholder={language === 'python' ? "assert e.g. roman(4)=='IV'" : "assert e.g. slug('a b')==='a-b'"} disabled={running} style={{ ...inp, marginBottom: 0, fontSize: 10.5, color: accent }} />
               </div>
             ))}
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => setGoals(gs => [...gs, { describe: '', assert: '' }])} disabled={running || goals.length >= 12}
-                style={{ padding: '4px 10px', borderRadius: 6, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>+ goal</button>
+                style={{ padding: '4px 10px', borderRadius: 0, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>+ goal</button>
               {goals.length > 1 && <button onClick={() => setGoals(gs => gs.slice(0, -1))} disabled={running}
-                style={{ padding: '4px 10px', borderRadius: 6, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>−</button>}
+                style={{ padding: '4px 10px', borderRadius: 0, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>−</button>}
               <button onClick={forgeByHand} disabled={running || !canForge}
-                style={{ marginLeft: 'auto', padding: '5px 16px', borderRadius: 6, border: `0.5px solid ${accent}77`, background: accent + '22', color: accent, cursor: (running || !canForge) ? 'not-allowed' : 'pointer', opacity: canForge ? 1 : 0.5, fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+                style={{ marginLeft: 'auto', padding: '5px 16px', borderRadius: 0, border: `0.5px solid ${accent}77`, background: accent + '22', color: accent, cursor: (running || !canForge) ? 'not-allowed' : 'pointer', opacity: canForge ? 1 : 0.5, fontFamily: 'var(--mono)', fontSize: 10.5 }}>
                 {running ? 'forging…' : 'forge it ▸'}
               </button>
             </div>
             <button onClick={ideate} disabled={ideating || running}
-              style={{ marginTop: 4, padding: '6px 0', borderRadius: 6, border: '0.5px solid var(--b1)', background: 'var(--raised)', color: 'var(--t2)', cursor: (ideating || running) ? 'wait' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+              style={{ marginTop: 4, padding: '6px 0', borderRadius: 0, border: '0.5px solid var(--b1)', background: 'var(--raised)', color: 'var(--t2)', cursor: (ideating || running) ? 'wait' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
               {ideating ? 'the 70B is ideating…' : '✦ have the 70B propose tools → the idea column'}
             </button>
           </Section>
@@ -281,10 +281,10 @@ export default function ForgePanel({ accent }: any) {
             {reg.map(t => {
               const col = STATUS_COLOR[t.forge_status || ''] || 'var(--t4)'
               return (
-                <div key={t.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 7, padding: '8px 11px' }}>
+                <div key={t.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '8px 11px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span style={{ fontSize: 11.5, color: 'var(--t1)', fontWeight: 500, fontFamily: 'var(--mono)' }}>{t.name}</span>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 8.5, color: col, border: `0.5px solid ${col}55`, borderRadius: 4, padding: '1px 6px' }}>{t.forge_status || '—'}</span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 8.5, color: col, border: `0.5px solid ${col}55`, borderRadius: 0, padding: '1px 6px' }}>{t.forge_status || '—'}</span>
                     <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 8.5, color: 'var(--t4)' }}>{ago(t.updated_at)}</span>
                   </div>
                   <div style={{ fontSize: 10.5, color: 'var(--t3)', lineHeight: 1.45, marginTop: 3 }}>{t.description}</div>
@@ -300,7 +300,7 @@ export default function ForgePanel({ accent }: any) {
 }
 
 const inp: React.CSSProperties = {
-  width: '100%', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6,
+  width: '100%', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0,
   color: 'var(--t1)', padding: '6px 9px', fontSize: 11, fontFamily: 'var(--mono)', outline: 'none', marginBottom: 6,
 }
 
@@ -324,7 +324,7 @@ function GoalCard({ g }: { g: GoalRun }) {
   const col = g.pass ? 'var(--good)' : '#D06565'
   const out = g.stderr || g.stdout
   return (
-    <div style={{ border: `0.5px solid ${col}44`, borderRadius: 6, padding: '6px 9px', background: g.pass ? '#4ADE8010' : '#D0656510' }}>
+    <div style={{ border: `0.5px solid ${col}44`, borderRadius: 0, padding: '6px 9px', background: g.pass ? '#4ADE8010' : '#D0656510' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: col }}>{g.pass ? '✓' : '✕'} {g.goal_id}</span>
         <span style={{ fontSize: 10.5, color: 'var(--t2)' }}>{g.describe}</span>

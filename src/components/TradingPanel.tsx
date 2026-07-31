@@ -84,7 +84,7 @@ export default function TradingPanel({ accent }: any) {
           </span>
         </div>
         {!marketOpen && (
-          <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '14px 16px' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t3)', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 8 }}>
               today's session · what Elle did
             </div>
@@ -171,10 +171,10 @@ export default function TradingPanel({ accent }: any) {
           {research.length === 0 ? <Empty>nothing researched yet — the scout runs once per trading day and logs its notes here</Empty> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {research.map((r, i) => (
-                <div key={r.id || i} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: '10px 12px' }}>
+                <div key={r.id || i} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '10px 12px' }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
                     <b style={{ color: 'var(--t1)', fontSize: 13 }}>{r.symbol}</b>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: verdictColor(r.verdict, accent), border: `0.5px solid ${verdictColor(r.verdict, accent)}66`, borderRadius: 4, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: verdictColor(r.verdict, accent), border: `0.5px solid ${verdictColor(r.verdict, accent)}66`, borderRadius: 0, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                       {r.verdict || 'watch'}
                     </span>
                     {r.confidence != null && <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>conf {Number(r.confidence).toFixed(2)}</span>}
@@ -217,7 +217,7 @@ export default function TradingPanel({ accent }: any) {
                 <input
                   value={symbolFilter} onChange={e => setSymbolFilter(e.target.value)}
                   placeholder="filter by symbol…"
-                  style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, padding: '5px 9px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)', width: 140 }}
+                  style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '5px 9px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)', width: 140 }}
                 />
                 <Select value={actionFilter} onChange={setActionFilter} options={TRADE_ACTIONS} />
                 <Select value={statusFilter} onChange={setStatusFilter} options={TRADE_STATUSES} />
@@ -225,12 +225,12 @@ export default function TradingPanel({ accent }: any) {
                 <Select value={sortBy} onChange={v => setSortBy(v as typeof sortBy)} options={TRADE_SORTS.map(s => s.id)} labels={Object.fromEntries(TRADE_SORTS.map(s => [s.id, s.label]))} />
               </div>
               {visibleTrades.length === 0 ? <Empty>no trades match that filter</Empty> : visibleTrades.map((t, i) => (
-                <div key={i} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: '10px 12px' }}>
+                <div key={i} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '10px 12px' }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: t.action === 'buy' || t.action === 'cover' ? '#4ADE80' : t.action === 'sell' || t.action === 'short' ? '#D06565' : accent }}>{String(t.action || '').toUpperCase()}</span>
                     <b style={{ color: 'var(--t1)', fontSize: 13 }}>{t.underlying_symbol || t.symbol}</b>
                     {t.asset_class === 'option' && (
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: accent, border: `0.5px solid ${accent}66`, borderRadius: 4, padding: '1px 5px' }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: accent, border: `0.5px solid ${accent}66`, borderRadius: 0, padding: '1px 5px' }}>
                         {String(t.option_right || '').toUpperCase()} ${t.strike_price} · exp {t.expiration_date}
                       </span>
                     )}
@@ -238,7 +238,7 @@ export default function TradingPanel({ accent }: any) {
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>{t.status}{t.confidence != null ? ` · conf ${t.confidence}` : ''}</span>
                     {t.source && (
                       <span title={t.source === 'chat' ? 'placed in conversation via trade_execute' : 'placed by the autonomous trading cycle'}
-                        style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', border: '0.5px solid var(--b2)', borderRadius: 4, padding: '1px 5px' }}>
+                        style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', border: '0.5px solid var(--b2)', borderRadius: 0, padding: '1px 5px' }}>
                         {t.source === 'chat' ? 'via chat' : 'autonomous'}
                       </span>
                     )}
@@ -292,7 +292,7 @@ function Select({ value, onChange, options, labels }: { value: string; onChange:
   return (
     <select
       value={value} onChange={e => onChange(e.target.value)}
-      style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)' }}
+      style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)' }}
     >
       {options.map(o => <option key={o} value={o}>{labels?.[o] || o}</option>)}
     </select>
@@ -301,7 +301,7 @@ function Select({ value, onChange, options, labels }: { value: string; onChange:
 
 function Tile({ label, value, color, accent }: any) {
   return (
-    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 10, padding: '12px 14px' }}>
+    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '12px 14px' }}>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t3)', letterSpacing: '.1em', textTransform: 'uppercase' }}>{label}</div>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 19, color: color || accent, marginTop: 6 }}>{value}</div>
     </div>

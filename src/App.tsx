@@ -4,9 +4,10 @@
 // session is refused at the door (lib/elle.ts verifyToken + Login).
 //
 // Shell: a left rail (nav + live heartbeat) and one instrument panel. The
-// visual system is deliberate — void black, one gold, hairline borders, serif
-// only for her name; everything that is data is mono. No decoration that
-// isn't information.
+// visual system follows the Industry design system: steel-blue accent on a
+// technical ground, square corners, hairline borders, Barlow Condensed for
+// headings and her name, Barlow for interface text; everything that is data
+// stays mono. No decoration that isn't information.
 //
 // The tab bar below is a plugin surface, not a fixed list: './plugins/builtins'
 // registers the ten panels below it via registerPanel(), and this file reads
@@ -24,35 +25,48 @@ import { on } from './lib/commands'
 import Terminals from './components/Terminal'
 import { retheme as rethemeTerminals } from './lib/terminals'
 
-const ACCENT = '#C9A84C'
+const ACCENT = '#5980a6'
 
+// Industry design tokens (verbatim from
+// /home/user/.designref/industry-design-system/styles.css) recast as this
+// app's existing --void/--t1/--gold variable names, so every panel that
+// already reads them (34 files worth) repaints without being touched
+// individually. Fonts are self-hosted (see src/fonts.ts) — no @import.
+//
+// "dark" (the default, unattributed :root) uses the Industry pattern the
+// system's own readme calls out for an inverted plate: steel's own deep
+// ramp step (--color-accent-900) as ground, paper as text — "steel as
+// ground, type reversed to paper." "light" is the system's canonical
+// look verbatim: --color-bg ground, --color-text text, the accent ramp's
+// light steps for panel tiers.
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--void:#060709;--base:#0B0C10;--raised:#101117;--float:#15161E;--ov:#1C1D27;
---t1:#E4E7EC;--t2:#9AA3B2;--t3:#6B7688;--t4:#4A5261;--b1:rgba(255,255,255,.09);--b2:rgba(255,255,255,.05);
---gold:#C9A84C;--gold-dim:rgba(201,168,76,.14);--good:#4ADE80;
---mono:'JetBrains Mono',monospace;--ui:'Inter',system-ui,sans-serif;--serif:'Playfair Display',serif}
-/* Light theme — same structure, inverted surfaces + darkened text tiers for
-   contrast. Stamped on <html data-theme="light"> by the header toggle. */
-:root[data-theme="light"]{--void:#F6F4EF;--base:#FFFFFF;--raised:#EFEDE6;--float:#E8E5DC;--ov:#DFDBD0;
---t1:#1A1C22;--t2:#3E4551;--t3:#5C6472;--t4:#8A93A0;--b1:rgba(0,0,0,.12);--b2:rgba(0,0,0,.06);
---gold:#8A6D18;--gold-dim:rgba(138,109,24,.14);--good:#178A4E}
+:root{--void:#1d2d3d;--base:#1d2d3d;--raised:#2c455d;--float:#2c455d;--ov:#416180;
+--t1:#f2f2f3;--t2:#d4d4d7;--t3:#b7b7ba;--t4:#98989b;--b1:rgba(242,242,243,.14);--b2:rgba(242,242,243,.07);
+--gold:#94bce3;--gold-dim:rgba(148,188,227,.14);--good:#4ADE80;
+--mono:'JetBrains Mono',monospace;--ui:'Barlow',system-ui,sans-serif;--serif:'Barlow Condensed',system-ui,sans-serif}
+/* Light theme — the Industry system's own canonical palette, verbatim.
+   Stamped on <html data-theme="light"> by the header toggle. */
+:root[data-theme="light"]{--void:#f2f2f3;--base:#f2f2f3;--raised:#e9e9ea;--float:#e7e7ea;--ov:#d4d4d7;
+--t1:#1d1f20;--t2:#5d5d60;--t3:#7a7a7d;--t4:#98989b;--b1:rgba(29,31,32,.16);--b2:rgba(29,31,32,.08);
+--gold:#5980a6;--gold-dim:rgba(89,128,166,.14);--good:#178A4E}
 :root[data-theme="light"] ::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18)}
 html,body,#root{height:100%;overflow:hidden}
 body{background:var(--void);color:var(--t1);font-family:var(--ui);font-size:13px;-webkit-font-smoothing:antialiased}
-::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
-::selection{background:rgba(201,168,76,.28)}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:0}
+::selection{background:rgba(89,128,166,.28)}
 input,textarea,select,button{font-family:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+h1,h2,h3,h4,h5,h6{font-family:var(--serif);font-weight:600}
 @keyframes breathe{0%,100%{opacity:.9;transform:scale(1)}50%{opacity:.35;transform:scale(.82)}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .rise{animation:rise .2s cubic-bezier(.16,1,.3,1) both}
-.navbtn{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:7px 12px;border:none;border-radius:7px;
+.navbtn{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:7px 12px;border:none;border-radius:0;
 background:transparent;color:var(--t2);cursor:pointer;font-family:var(--mono);font-size:11.5px;text-align:left;
 letter-spacing:.02em;transition:background .13s,color .13s}
 .navbtn:hover{background:var(--raised);color:var(--t1)}
 .navbtn.on{background:var(--gold-dim);color:var(--gold)}
-.navbtn.on::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:14px;border-radius:2px;background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.navbtn.on::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:14px;border-radius:0;background:var(--gold);box-shadow:0 0 6px var(--gold)}
 /* a tab with an unattended alert (e.g. a surfaced sandbox report) breathes
    dark→light until it's opened */
 @keyframes tabflash{0%,100%{background:transparent;color:var(--t2)}50%{background:var(--gold);color:var(--void);box-shadow:0 0 10px var(--gold-dim)}}
@@ -62,8 +76,20 @@ letter-spacing:.02em;transition:background .13s,color .13s}
 .navbtn.on .glyph{opacity:1}
 .navbtn .kb{margin-left:auto;font-size:9px;color:var(--t4);opacity:0;transition:opacity .13s}
 .navbtn:hover .kb{opacity:1}
-/* a hairline of gold along the very top edge — the room has a pulse */
-.topglow{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.5),transparent);pointer-events:none;z-index:10}
+/* a hairline of accent along the very top edge — the room has a pulse */
+.topglow{position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(89,128,166,.5),transparent);pointer-events:none;z-index:10}
+/* Industry's blueprint frame: square, hairline-bordered, "+" registration
+   marks at the corners. Wraps primary cards and CTAs (see readme.md /
+   styles.css .blueprint + .corner). */
+.blueprint{position:relative;border:1px solid var(--b1);border-radius:0}
+.blueprint>.corner{position:absolute;width:11px;height:11px;color:var(--t3)}
+.blueprint>.corner::before,.blueprint>.corner::after{content:'';position:absolute;background:currentColor}
+.blueprint>.corner::before{left:5px;top:0;width:1px;height:100%}
+.blueprint>.corner::after{top:5px;left:0;width:100%;height:1px}
+.blueprint>.corner.tl{top:-6px;left:-6px}
+.blueprint>.corner.tr{top:-6px;right:-6px}
+.blueprint>.corner.bl{bottom:-6px;left:-6px}
+.blueprint>.corner.br{bottom:-6px;right:-6px}
 `
 
 // The terminal drawer: a shell under whatever panel you're in, the way an
@@ -128,7 +154,7 @@ function ListenControl() {
           alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7,
           background: wv.listenMode ? '#D0656518' : 'none',
           border: `0.5px solid ${wv.listenMode ? '#D0656577' : 'var(--b1)'}`,
-          borderRadius: 6, color: wv.listenMode ? '#D06565' : 'var(--t3)',
+          borderRadius: 0, color: wv.listenMode ? '#D06565' : 'var(--t3)',
           cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10, padding: '5px 10px',
         }}>
         <span style={{
@@ -179,7 +205,7 @@ function LoginItemControl() {
   return (
     <button onClick={toggle}
       title={state.openAtLogin ? 'Elle opens automatically when you log in — click to turn off' : 'click to open Elle automatically when you log in'}
-      style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
+      style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: state.openAtLogin ? 'var(--good)' : 'var(--t4)' }} />
       {state.openAtLogin ? 'auto-launch on' : 'auto-launch off'}
     </button>
@@ -318,7 +344,7 @@ export function App() {
           {/* ── left rail ── */}
           <aside style={{ width: 188, flexShrink: 0, display: 'flex', flexDirection: 'column', padding: '4px 12px 14px', borderRight: '0.5px solid var(--b1)' }}>
             <div style={{ padding: '2px 12px 16px' }}>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 500, color: 'var(--t1)', letterSpacing: '.01em', lineHeight: 1 }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--t1)', letterSpacing: '.01em', lineHeight: 1 }}>
                 Elle<span style={{ color: ACCENT }}>.</span>
               </div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t3)', letterSpacing: '.14em', marginTop: 7, textTransform: 'uppercase' }}>
@@ -348,12 +374,12 @@ export function App() {
             <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: '0 12px' }}>
               <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
                 title={theme === 'light' ? 'switch to dark' : 'switch to light'}
-                style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
+                style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
                 {theme === 'light' ? '◐ dark' : '◑ light'}
               </button>
               <button onClick={() => setTermOpen(v => !v)}
                 title={termOpen ? 'hide the terminal drawer (⌃`)' : 'open a shell under this panel (⌃`)'}
-                style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, background: termOpen ? 'var(--gold-dim)' : 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: termOpen ? 'var(--gold)' : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
+                style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 7, background: termOpen ? 'var(--gold-dim)' : 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: termOpen ? 'var(--gold)' : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px', letterSpacing: '.04em' }}>
                 ❯ terminal <span style={{ color: 'var(--t4)', fontSize: 9 }}>⌃`</span>
               </button>
               <ListenControl />
@@ -364,7 +390,7 @@ export function App() {
                 {getEmail() || worker.label}
               </div>
               <button onClick={() => { signOut(); setAuthed(false) }}
-                style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px' }}>
+                style={{ alignSelf: 'flex-start', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px' }}>
                 sign out
               </button>
             </div>

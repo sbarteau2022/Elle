@@ -65,7 +65,7 @@ export default function SecurityPanel({ accent }: any) {
   return (
     <div style={{ flex: 1, padding: 14, overflow: 'auto' }}>
       {note && (
-        <div style={{ marginBottom: 10, padding: 10, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 11, color: '#D06565' }}>
+        <div style={{ marginBottom: 10, padding: 10, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, fontFamily: 'var(--mono)', fontSize: 11, color: '#D06565' }}>
           {note}
         </div>
       )}
@@ -73,7 +73,7 @@ export default function SecurityPanel({ accent }: any) {
       {/* posture spread across the actors in the recent window */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
         {(['normal', 'watch', 'throttled', 'blocked'] as const).map(p => (
-          <div key={p} style={{ padding: '10px 8px', textAlign: 'center', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8 }}>
+          <div key={p} style={{ padding: '10px 8px', textAlign: 'center', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: POSTURE_COLOR[p] }}>
               {counts ? counts[p] : '…'}
             </div>
@@ -83,7 +83,7 @@ export default function SecurityPanel({ accent }: any) {
       </div>
 
       {/* doctrine tactics that have actually fired, most-hit first */}
-      <div style={{ marginBottom: 12, padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8 }}>
+      <div style={{ marginBottom: 12, padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: accent || 'var(--gold)', letterSpacing: '0.1em', marginBottom: 8 }}>
           TACTICS OBSERVED — 48 LAWS · ART OF WAR
         </div>
@@ -106,7 +106,7 @@ export default function SecurityPanel({ accent }: any) {
       </div>
 
       {/* the ledger — recent classified signals */}
-      <div style={{ padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8 }}>
+      <div style={{ padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: accent || 'var(--gold)', letterSpacing: '0.1em', marginBottom: 8 }}>
           EVENT LEDGER
         </div>

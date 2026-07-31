@@ -441,12 +441,12 @@ export default function EllePanel({ worker, accent }: any) {
           {/* sovereign lane — same mind, generation on the local model */}
           <button onClick={toggleLocal}
             title={preferLocal ? 'generation runs on the local model over the sandbox socket (falls back to cloud if the agent is offline) — click for cloud' : 'click to run generation on the local model (free) — same tools, same loop'}
-            style={{ background: preferLocal ? accent + '1f' : 'none', border: `0.5px solid ${preferLocal ? accent + '55' : 'var(--b1)'}`, borderRadius: 5, color: preferLocal ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 9px' }}>
+            style={{ background: preferLocal ? accent + '1f' : 'none', border: `0.5px solid ${preferLocal ? accent + '55' : 'var(--b1)'}`, borderRadius: 0, color: preferLocal ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 9px' }}>
             {preferLocal ? '🏠 local mind' : '☁ cloud mind'}
           </button>
           <select value={register} onChange={e => pickRegister(e.target.value)}
             title={registers.find(r => r.id === register)?.blurb || 'her prose register'}
-            style={{ background: 'var(--raised)', color: register === 'stewart' ? 'var(--t2)' : accent, border: `0.5px solid ${register === 'stewart' ? 'var(--b1)' : accent + '55'}`, borderRadius: 5, fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 6px', cursor: 'pointer', outline: 'none', maxWidth: 168 }}>
+            style={{ background: 'var(--raised)', color: register === 'stewart' ? 'var(--t2)' : accent, border: `0.5px solid ${register === 'stewart' ? 'var(--b1)' : accent + '55'}`, borderRadius: 0, fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 6px', cursor: 'pointer', outline: 'none', maxWidth: 168 }}>
             {registers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
           {presence.available && (
@@ -457,7 +457,7 @@ export default function EllePanel({ worker, accent }: any) {
           {voice.ttsSupported && (
             <button onClick={() => voice.setEnabled(!voice.enabled)}
               title={voice.enabled ? 'she reads answers aloud — click to mute' : 'click to have her read answers aloud'}
-              style={{ background: voice.enabled ? accent + '1f' : 'none', border: `0.5px solid ${voice.enabled ? accent + '55' : 'var(--b1)'}`, borderRadius: 5, color: voice.enabled ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 9px' }}>
+              style={{ background: voice.enabled ? accent + '1f' : 'none', border: `0.5px solid ${voice.enabled ? accent + '55' : 'var(--b1)'}`, borderRadius: 0, color: voice.enabled ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '3px 9px' }}>
               {voice.speaking ? '◼ speaking' : voice.enabled ? '🔊 voice on' : '🔇 voice off'}
             </button>
           )}
@@ -467,7 +467,7 @@ export default function EllePanel({ worker, accent }: any) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 22px 0' }}>
           {tools.map(([name, desc]) => (
             <span key={name} title={desc}
-              style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t2)', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 4, padding: '2.5px 7px' }}>
+              style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t2)', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '2.5px 7px' }}>
               {name}
             </span>
           ))}
@@ -600,14 +600,14 @@ export default function EllePanel({ worker, accent }: any) {
         <input ref={fileRef} type="file" hidden
           accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.rtf,.pptx,.xlsx,application/pdf,text/plain"
           onChange={e => { const f = e.target.files?.[0]; if (f) void onUpload(f); e.currentTarget.value = '' }} />
-        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--raised)', border: `0.5px solid ${wv.listenMode ? '#D0656555' : 'var(--b1)'}`, borderRadius: 10, padding: '4px 4px 4px 14px' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--raised)', border: `0.5px solid ${wv.listenMode ? '#D0656555' : 'var(--b1)'}`, borderRadius: 0, padding: '4px 4px 4px 14px' }}>
           <button onClick={() => fileRef.current?.click()} disabled={uploading} title="attach a file — PDF, DOCX, TXT (parsed to text she can read and ingest)"
-            style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: 'transparent', color: uploading ? accent : 'var(--t2)', cursor: uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
+            style={{ width: 34, height: 34, borderRadius: 0, border: `0.5px solid ${accent}55`, background: 'transparent', color: uploading ? accent : 'var(--t2)', cursor: uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
             {uploading ? '…' : '📎'}
           </button>
           <button onClick={seeMe} disabled={loading || seeing || uploading}
             title="Let Elle SEE — one photo, no live feed. She reads it like any attached image."
-            style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: 'transparent', color: seeing ? accent : 'var(--t2)', cursor: loading || seeing || uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
+            style={{ width: 34, height: 34, borderRadius: 0, border: `0.5px solid ${accent}55`, background: 'transparent', color: seeing ? accent : 'var(--t2)', cursor: loading || seeing || uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
             {seeing ? '…' : '📷'}
           </button>
           <textarea ref={taRef} value={q} rows={1}
@@ -617,17 +617,17 @@ export default function EllePanel({ worker, accent }: any) {
             style={{ flex: 1, background: 'none', border: 'none', color: 'var(--t1)', padding: '8px 0', fontSize: 13, fontFamily: 'var(--ui)', resize: 'none', outline: 'none', lineHeight: 1.6, maxHeight: 140 }} />
           {voice.sttSupported && (
             <button onClick={mic} title={voice.listening ? 'stop listening' : 'talk to her'}
-              style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${voice.listening ? '#D06565' : accent}55`, background: voice.listening ? '#D0656522' : 'transparent', color: voice.listening ? '#D06565' : 'var(--t2)', cursor: 'pointer', fontSize: 14, flexShrink: 0, animation: voice.listening ? 'orbSpeak 1s ease-in-out infinite' : 'none' }}>
+              style={{ width: 34, height: 34, borderRadius: 0, border: `0.5px solid ${voice.listening ? '#D06565' : accent}55`, background: voice.listening ? '#D0656522' : 'transparent', color: voice.listening ? '#D06565' : 'var(--t2)', cursor: 'pointer', fontSize: 14, flexShrink: 0, animation: voice.listening ? 'orbSpeak 1s ease-in-out infinite' : 'none' }}>
               {voice.listening ? '◉' : '🎙'}
             </button>
           )}
           <button onClick={hearMe} disabled={loading || hearing}
             title="Let Elle HEAR you — she analyzes the prosody of your actual voice (pitch, stress, rhythm) with PFAR, not the words"
-            style={{ height: 34, padding: '0 10px', borderRadius: 8, border: `0.5px solid ${hearing ? '#D06565' : accent}55`, background: hearing ? '#D0656522' : 'transparent', color: hearing ? '#D06565' : 'var(--t2)', cursor: loading || hearing ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap', animation: hearing ? 'orbSpeak 1s ease-in-out infinite' : 'none' }}>
+            style={{ height: 34, padding: '0 10px', borderRadius: 0, border: `0.5px solid ${hearing ? '#D06565' : accent}55`, background: hearing ? '#D0656522' : 'transparent', color: hearing ? '#D06565' : 'var(--t2)', cursor: loading || hearing ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap', animation: hearing ? 'orbSpeak 1s ease-in-out infinite' : 'none' }}>
             {hearing ? '◉ listening 6s…' : '🎧 hear me'}
           </button>
           <button onClick={() => ask()} disabled={loading || !q.trim()}
-            style={{ width: 34, height: 34, borderRadius: 8, border: `0.5px solid ${accent}55`, background: loading ? 'transparent' : accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 13, flexShrink: 0 }}>
+            style={{ width: 34, height: 34, borderRadius: 0, border: `0.5px solid ${accent}55`, background: loading ? 'transparent' : accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 13, flexShrink: 0 }}>
             {loading ? '…' : '↑'}
           </button>
         </div>

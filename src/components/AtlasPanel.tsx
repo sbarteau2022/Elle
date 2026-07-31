@@ -148,7 +148,7 @@ export default function AtlasPanel({ worker, accent }: any) {
           <span style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 19, color: 'var(--cream)' }}>The atlas.</span>
           <span style={{ ...mono(10), color: 'var(--dim)' }}>the memory graph, computed on-device · read-only</span>
           <button onClick={load} disabled={loading}
-            style={{ marginLeft: 'auto', background: 'none', border: `0.5px solid ${accent}55`, borderRadius: 5, color: accent, cursor: 'pointer', ...mono(9.5), padding: '3px 10px' }}>
+            style={{ marginLeft: 'auto', background: 'none', border: `0.5px solid ${accent}55`, borderRadius: 0, color: accent, cursor: 'pointer', ...mono(9.5), padding: '3px 10px' }}>
             {loading ? '…' : '↻ refresh'}
           </button>
         </div>
@@ -167,7 +167,7 @@ export default function AtlasPanel({ worker, accent }: any) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
             <button onClick={() => { if (playing) { setPlaying(false) } else { if (frameIdx == null) showFrame(0); setPlaying(true) } }}
               title={playing ? 'pause replay' : 'replay the graph from its first build'}
-              style={{ background: 'none', border: `0.5px solid ${accent}55`, borderRadius: 5, color: accent, cursor: 'pointer', ...mono(10), padding: '2px 9px', width: 34 }}>
+              style={{ background: 'none', border: `0.5px solid ${accent}55`, borderRadius: 0, color: accent, cursor: 'pointer', ...mono(10), padding: '2px 9px', width: 34 }}>
               {playing ? '❚❚' : '▶'}
             </button>
             <input
@@ -196,7 +196,7 @@ export default function AtlasPanel({ worker, accent }: any) {
             nodeLabel="id"
             nodeColor={() => '#F5F0E8'}
             nodeRelSize={3}
-            linkColor={(l: any) => (l.onCycle ? '#C9A84C' : 'rgba(139,26,26,0.55)')}
+            linkColor={(l: any) => (l.onCycle ? '#5980a6' : 'rgba(139,26,26,0.55)')}
             linkWidth={(l: any) => (l.onCycle ? 1.4 : 0.6)}
             linkOpacity={0.55}
             linkDirectionalParticles={(l: any) => (l.onCycle ? 2 : 0)}

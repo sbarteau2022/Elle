@@ -32,7 +32,7 @@ const ago = (t: number | null) => {
   return m < 1 ? 'now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`
 }
 
-const STATUS_COLOR: Record<string, string> = { active: '#C9A84C', proposed: '#8B94A3', paused: '#525B69', ready: '#6EA8DE', done: '#4ADE80' }
+const STATUS_COLOR: Record<string, string> = { active: '#5980a6', proposed: '#8B94A3', paused: '#525B69', ready: '#6EA8DE', done: '#4ADE80' }
 
 export default function ConductorPanel({ accent }: any) {
   const [intents, setIntents] = useState<Intent[]>([])
@@ -77,7 +77,7 @@ export default function ConductorPanel({ accent }: any) {
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {intents.length === 0 && <div style={{ padding: 16, fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t4)' }}>no intents yet — file one below and she'll pick it up on the half-hour</div>}
           {intents.map(it => (
-            <div key={it.id} style={{ padding: '10px 12px', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8 }}>
+            <div key={it.id} style={{ padding: '10px 12px', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[it.status] || 'var(--t4)', flexShrink: 0, alignSelf: 'center' }} />
                 <span style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 500 }}>{it.title}</span>
@@ -104,10 +104,10 @@ export default function ConductorPanel({ accent }: any) {
         <div style={{ padding: 12, borderTop: '0.5px solid var(--b1)', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {note && <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: '#D06565' }}>{note}</div>}
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="intent title"
-            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
           <textarea value={goal} onChange={e => setGoal(e.target.value)} rows={3}
             placeholder="the goal — concrete enough that a future run knows what DONE looks like"
-            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', resize: 'vertical', outline: 'none', lineHeight: 1.5 }} />
+            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', resize: 'vertical', outline: 'none', lineHeight: 1.5 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'stretch' }}>
             {goal.trim().length > 0 && goal.trim().length < MIN_GOAL && (
               <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>
@@ -115,7 +115,7 @@ export default function ConductorPanel({ accent }: any) {
               </span>
             )}
             <button onClick={create} disabled={busy || !title.trim() || goal.trim().length < MIN_GOAL}
-              style={{ marginLeft: 'auto', padding: '5px 14px', borderRadius: 6, border: `0.5px solid ${accent}55`,
+              style={{ marginLeft: 'auto', padding: '5px 14px', borderRadius: 0, border: `0.5px solid ${accent}55`,
                 background: accent + '22', color: accent,
                 cursor: (busy || !title.trim() || goal.trim().length < MIN_GOAL) ? 'not-allowed' : 'pointer',
                 opacity: (!title.trim() || goal.trim().length < MIN_GOAL) ? 0.5 : 1,
@@ -172,7 +172,7 @@ export default function ConductorPanel({ accent }: any) {
 function Btn({ label, color, onClick }: { label: string; color: string; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      style={{ background: 'none', border: `0.5px solid ${color}44`, borderRadius: 4, color, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9, padding: '2px 8px' }}>
+      style={{ background: 'none', border: `0.5px solid ${color}44`, borderRadius: 0, color, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9, padding: '2px 8px' }}>
       {label}
     </button>
   )

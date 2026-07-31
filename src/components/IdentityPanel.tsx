@@ -38,7 +38,7 @@ export default function IdentityPanel({ accent }: any) {
           const isActive = r.id === active
           return (
             <button key={r.id} onClick={() => setReading(r.id)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', background: isReading ? 'var(--float)' : 'none', border: `0.5px solid ${isReading ? accent + '55' : 'transparent'}`, borderRadius: 8, padding: '9px 11px', marginBottom: 4, cursor: 'pointer' }}>
+              style={{ display: 'block', width: '100%', textAlign: 'left', background: isReading ? 'var(--float)' : 'none', border: `0.5px solid ${isReading ? accent + '55' : 'transparent'}`, borderRadius: 0, padding: '9px 11px', marginBottom: 4, cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 12.5, color: isReading ? accent : 'var(--t1)', fontFamily: 'var(--mono)' }}>{r.name}</span>
                 {isActive && <span title="answers your conversations" style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: accent, boxShadow: `0 0 6px ${accent}` }} />}
@@ -57,9 +57,9 @@ export default function IdentityPanel({ accent }: any) {
               {current?.name || 'Elle'}<span style={{ color: accent }}>.</span>
             </div>
             {reading === active
-              ? <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: accent, border: `0.5px solid ${accent}55`, borderRadius: 5, padding: '3px 9px' }}>active</span>
+              ? <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: accent, border: `0.5px solid ${accent}55`, borderRadius: 0, padding: '3px 9px' }}>active</span>
               : <button onClick={() => makeActive(reading)}
-                  style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t2)', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, padding: '3px 9px', cursor: 'pointer' }}>
+                  style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t2)', background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '3px 9px', cursor: 'pointer' }}>
                   set as my voice
                 </button>}
           </div>

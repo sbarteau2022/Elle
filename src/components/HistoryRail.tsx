@@ -75,7 +75,7 @@ export default function HistoryRail({ worker, accent, currentSid, onResume, onNe
     <div style={{ width: 198, flexShrink: 0, borderRight: '0.5px solid var(--b1)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px', borderBottom: '0.5px solid var(--b1)' }}>
         <button onClick={onNew}
-          style={{ flex: 1, padding: '5px 0', borderRadius: 5, border: `0.5px solid ${accent}44`, background: accent + '14', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+          style={{ flex: 1, padding: '5px 0', borderRadius: 0, border: `0.5px solid ${accent}44`, background: accent + '14', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
           + new
         </button>
         <button onClick={load} title="refresh" style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11 }}>↻</button>
@@ -94,7 +94,7 @@ export default function HistoryRail({ worker, accent, currentSid, onResume, onNe
             <button key={s.session_id} onClick={() => onResume(s.session_id)}
               style={{
                 display: 'block', width: '100%', textAlign: 'left', marginBottom: 3, padding: '7px 9px',
-                borderRadius: 6, cursor: 'pointer',
+                borderRadius: 0, cursor: 'pointer',
                 border: `0.5px solid ${active ? accent + '55' : 'transparent'}`,
                 background: active ? accent + '12' : 'transparent',
               }}>

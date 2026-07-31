@@ -50,7 +50,7 @@ function Tab({ s, active, onSelect, onClose }: {
       title={`${s.shell} — ${s.cwd}${s.pty ? '' : ' (piped: no TTY on this machine)'}`}
       style={{
         display: 'flex', alignItems: 'center', gap: 7, padding: '4px 8px 4px 10px',
-        borderRadius: 5, cursor: 'pointer', maxWidth: 190,
+        borderRadius: 0, cursor: 'pointer', maxWidth: 190,
         background: active ? 'var(--gold-dim)' : hover ? 'var(--raised)' : 'transparent',
         color: active ? 'var(--gold)' : 'var(--t2)',
         fontFamily: 'var(--mono)', fontSize: 10.5, whiteSpace: 'nowrap',
@@ -128,14 +128,14 @@ export default function Terminals({ compact = false }: { compact?: boolean }) {
         ))}
         <button onClick={spawn} title="new shell (⌃⇧`)"
           style={{
-            background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)',
+            background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)',
             cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, padding: '2px 9px', marginLeft: 4, flexShrink: 0,
           }}>+</button>
         {active && !active.pty && (
           <span title="node-pty isn't built on this machine, so this shell is piped: commands run and print, but full-screen programs (vim, htop) and interactive prompts won't render. `npm rebuild node-pty` to get a real TTY."
             style={{
               marginLeft: 'auto', flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--gold)',
-              border: '0.5px solid var(--gold-dim)', borderRadius: 4, padding: '2px 7px', letterSpacing: '.04em',
+              border: '0.5px solid var(--gold-dim)', borderRadius: 0, padding: '2px 7px', letterSpacing: '.04em',
             }}>
             piped · no tty
           </span>

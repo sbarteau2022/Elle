@@ -67,12 +67,12 @@ function themeFromCss(): Record<string, string> {
   const v = (name: string, fallback: string) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
   return {
-    background: v('--base', '#0B0C10'),
-    foreground: v('--t1', '#E4E7EC'),
-    cursor: v('--gold', '#C9A84C'),
-    cursorAccent: v('--base', '#0B0C10'),
-    selectionBackground: 'rgba(201,168,76,.28)',
-    black: '#15161E', red: '#D06565', green: '#4ADE80', yellow: '#C9A84C',
+    background: v('--base', '#1d2d3d'),
+    foreground: v('--t1', '#f2f2f3'),
+    cursor: v('--gold', '#5980a6'),
+    cursorAccent: v('--base', '#1d2d3d'),
+    selectionBackground: 'rgba(89,128,166,.28)',
+    black: '#1d2d3d', red: '#D06565', green: '#4ADE80', yellow: '#5980a6',
     blue: '#6E9FE0', magenta: '#B98CD9', cyan: '#59C2C9', white: '#E4E7EC',
     brightBlack: '#4A5261', brightRed: '#E5484D', brightGreen: '#6EE7A0', brightYellow: '#E0C169',
     brightBlue: '#8FB8EA', brightMagenta: '#CBA6E8', brightCyan: '#7FD6DC', brightWhite: '#FFFFFF',

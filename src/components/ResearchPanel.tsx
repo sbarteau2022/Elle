@@ -85,7 +85,7 @@ export default function ResearchPanel({ accent }: any) {
             {loading ? 'loading…' : `${papers.length} findings`}
           </div>
           <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="filter by topic or tag"
-            style={{ width: '100%', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '8px 11px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+            style={{ width: '100%', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '8px 11px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
           {!loading && filtered.length === 0 && (
@@ -97,13 +97,13 @@ export default function ResearchPanel({ accent }: any) {
             const { date, topic } = splitTitle(p.title)
             return (
               <button key={p.id} onClick={() => openPaper(p.id)}
-                style={{ display: 'block', width: '100%', textAlign: 'left', background: open?.id === p.id ? 'var(--float)' : 'none', border: 'none', borderRadius: 6, padding: '8px 9px', cursor: 'pointer', color: 'var(--t1)' }}>
+                style={{ display: 'block', width: '100%', textAlign: 'left', background: open?.id === p.id ? 'var(--float)' : 'none', border: 'none', borderRadius: 0, padding: '8px 9px', cursor: 'pointer', color: 'var(--t1)' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: accent, letterSpacing: '.04em', marginBottom: 3 }}>{date ? formatDate(date) : p.series}</div>
                 <div style={{ fontSize: 12, lineHeight: 1.4 }}>{topic}</div>
                 {p.tag && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
                     {p.tag.split(',').filter(Boolean).slice(0, 4).map(t => (
-                      <span key={t} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, color: 'var(--t4)', border: '0.5px solid var(--b1)', borderRadius: 100, padding: '1px 7px' }}>{t.trim()}</span>
+                      <span key={t} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, color: 'var(--t4)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '1px 7px' }}>{t.trim()}</span>
                     ))}
                   </div>
                 )}
@@ -143,7 +143,7 @@ function Manuscript({ paper, accent }: { paper: Full; accent: string }) {
       `}</style>
       <article className="ms-page" style={{
         width: '100%', maxWidth: 680, background: 'var(--raised)', border: '0.5px solid var(--b1)',
-        borderRadius: 10, padding: '52px 58px 60px', boxShadow: '0 1px 2px rgba(0,0,0,.2), 0 16px 40px rgba(0,0,0,.25)',
+        borderRadius: 0, padding: '52px 58px 60px', boxShadow: '0 1px 2px rgba(0,0,0,.2), 0 16px 40px rgba(0,0,0,.25)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 26 }}>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: accent, letterSpacing: '.08em', textTransform: 'uppercase' }}>
@@ -151,9 +151,9 @@ function Manuscript({ paper, accent }: { paper: Full; accent: string }) {
           </div>
           <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
             <button onClick={() => printAnswer(topic, paper.full_text)}
-              style={{ background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px' }}>print / pdf</button>
+              style={{ background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px' }}>print / pdf</button>
             <button onClick={() => emailAnswer(topic, paper.full_text)}
-              style={{ background: 'none', border: '0.5px solid var(--b1)', borderRadius: 5, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px' }}>email</button>
+              style={{ background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5, padding: '4px 10px' }}>email</button>
           </div>
         </div>
 
@@ -162,7 +162,7 @@ function Manuscript({ paper, accent }: { paper: Full; accent: string }) {
         {paper.tag && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
             {paper.tag.split(',').filter(Boolean).map(t => (
-              <span key={t} style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t3)', border: '0.5px solid var(--b1)', borderRadius: 100, padding: '2px 9px' }}>{t.trim()}</span>
+              <span key={t} style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t3)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '2px 9px' }}>{t.trim()}</span>
             ))}
           </div>
         )}

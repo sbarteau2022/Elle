@@ -68,7 +68,7 @@ export default function MasterForgePanel({ accent }: any) {
           return (
             <button key={s.id} onClick={() => setSub(s.id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: '6px 6px 0 0',
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: 0,
                 borderBottom: `2px solid ${isOn ? accent : 'transparent'}`,
                 background: isOn ? 'var(--gold-dim)' : 'transparent',
                 color: isOn ? accent : 'var(--t3)',

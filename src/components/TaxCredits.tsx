@@ -29,7 +29,7 @@ export default function TaxCredits({ businessId, taxYear }: { accent: string; bu
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: '#C9A84C11', border: '0.5px solid #C9A84C55', borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--mono)', fontSize: 10.5, color: '#C9A84C', lineHeight: 1.6 }}>
+      <div style={{ background: '#5980a611', border: '0.5px solid #5980a655', borderRadius: 0, padding: '10px 14px', fontFamily: 'var(--mono)', fontSize: 10.5, color: '#5980a6', lineHeight: 1.6 }}>
         Estimates only, based on the cited rules as of the date noted per item — this supplements but does not replace a CPA. Verify before filing.
       </div>
       <Section title={`${taxYear} eligible credits & deductions`}>

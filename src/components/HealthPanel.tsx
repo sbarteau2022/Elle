@@ -30,7 +30,7 @@ export default function HealthPanel({ accent }: any) {
       {HEALTH_TARGETS.map(w => {
         const h = health[w.key]
         return (
-          <div key={w.key} style={{ marginBottom: 10, padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8 }}>
+          <div key={w.key} style={{ marginBottom: 10, padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 11 }}>{h ? (h.ok ? '🟢' : h.status === 0 ? '⚫' : '🔴') : '…'}</span>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>{w.label}</span>

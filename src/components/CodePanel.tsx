@@ -169,7 +169,7 @@ export default function CodePanel({ worker, accent }: any) {
     setCode(last); setHistory(h => h.slice(0, -1))
   }
 
-  const chipStyle: React.CSSProperties = { background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 12, padding: '4px 10px', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10, cursor: 'pointer', whiteSpace: 'nowrap' }
+  const chipStyle: React.CSSProperties = { background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '4px 10px', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 10, cursor: 'pointer', whiteSpace: 'nowrap' }
 
   return (
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
@@ -221,12 +221,12 @@ export default function CodePanel({ worker, accent }: any) {
         <div style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: '0.5px solid var(--b1)' }}>
           <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') ask() }}
             placeholder='e.g. "why does this throw on empty input — run it and see"'
-            style={{ flex: 1, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '9px 12px', fontSize: 12, fontFamily: 'var(--mono)', outline: 'none' }} />
+            style={{ flex: 1, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '9px 12px', fontSize: 12, fontFamily: 'var(--mono)', outline: 'none' }} />
           <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--mono)', fontSize: 9.5, color: code.trim() && attach ? accent : 'var(--t4)', cursor: 'pointer', userSelect: 'none' }}>
             <input type="checkbox" checked={attach} onChange={e => setAttach(e.target.checked)} style={{ accentColor: accent }} />attach
           </label>
           <button onClick={() => ask()} disabled={loading || !q.trim()}
-            style={{ padding: '6px 14px', borderRadius: 5, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
+            style={{ padding: '6px 14px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
             {loading ? '…' : 'ask ▸'}
           </button>
         </div>
@@ -236,17 +236,17 @@ export default function CodePanel({ worker, accent }: any) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ padding: '8px 12px', borderBottom: '0.5px solid var(--b1)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <select value={lang} onChange={e => setLang(e.target.value)}
-            style={{ background: 'var(--raised)', color: 'var(--t2)', border: '0.5px solid var(--b1)', borderRadius: 5, padding: '4px 8px', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+            style={{ background: 'var(--raised)', color: 'var(--t2)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '4px 8px', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
             {['typescript', 'javascript', 'python', 'sql', 'bash', 'json', 'css', 'html'].map(l => <option key={l}>{l}</option>)}
           </select>
           {lastArtifact && (
             <button onClick={applyArtifact}
-              style={{ padding: '4px 10px', borderRadius: 5, border: `0.5px solid ${accent}88`, background: accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 600 }}>
+              style={{ padding: '4px 10px', borderRadius: 0, border: `0.5px solid ${accent}88`, background: accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 600 }}>
               ← apply her code ({lastArtifact.code.split('\n').length} lines)
             </button>
           )}
           {history.length > 0 && (
-            <button onClick={undo} style={{ padding: '4px 8px', borderRadius: 5, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>↩ undo</button>
+            <button onClick={undo} style={{ padding: '4px 8px', borderRadius: 0, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>↩ undo</button>
           )}
           {/* upload a snippet → contained static security analysis */}
           <input ref={codeFileRef} type="file" hidden
@@ -254,12 +254,12 @@ export default function CodePanel({ worker, accent }: any) {
             onChange={e => { const f = e.target.files?.[0]; if (f) void onCodeFile(f); e.currentTarget.value = '' }} />
           <button onClick={() => codeFileRef.current?.click()} disabled={scanning}
             title="upload a code snippet — it is analyzed for vulnerabilities/exploits (static, never executed)"
-            style={{ padding: '4px 10px', borderRadius: 5, border: `0.5px solid ${accent}55`, background: 'transparent', color: 'var(--t2)', cursor: scanning ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+            style={{ padding: '4px 10px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: 'transparent', color: 'var(--t2)', cursor: scanning ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
             📎 upload
           </button>
           <button onClick={() => analyze(code, lang)} disabled={scanning || !code.trim()}
             title="run the cybersecurity analysis on the editor contents"
-            style={{ padding: '4px 10px', borderRadius: 5, border: `0.5px solid ${accent}55`, background: 'transparent', color: code.trim() ? accent : 'var(--t4)', cursor: scanning || !code.trim() ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+            style={{ padding: '4px 10px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: 'transparent', color: code.trim() ? accent : 'var(--t4)', cursor: scanning || !code.trim() ? 'default' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
             {scanning ? '⧗ scanning…' : '🛡 analyze'}
           </button>
           <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t4)' }}>
@@ -276,7 +276,7 @@ export default function CodePanel({ worker, accent }: any) {
         {report && (
           <div style={{ borderBottom: '0.5px solid var(--b1)', background: 'var(--raised)', padding: '8px 12px', maxHeight: 220, overflowY: 'auto', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span style={{ color: SEV_COLOR[report.risk], border: `0.5px solid ${SEV_COLOR[report.risk]}`, borderRadius: 3, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+              <span style={{ color: SEV_COLOR[report.risk], border: `0.5px solid ${SEV_COLOR[report.risk]}`, borderRadius: 0, padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '.04em' }}>
                 risk {report.risk}
               </span>
               <span style={{ color: 'var(--t3)' }}>

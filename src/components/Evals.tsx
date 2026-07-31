@@ -29,7 +29,7 @@ export default function Evals({ worker, accent }: any) {
   }
 
   const Card = ({ title, body }: { title: string; body: string }) => (
-    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: 14 }}>
+    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: 14 }}>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: accent, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }}>{body}</div>
     </div>
@@ -47,10 +47,10 @@ export default function Evals({ worker, accent }: any) {
       <Card title="quant ladder" body="Qwen2.5-7B across the quantization ladder → κ-vs-degradation curve. Real run pending on M-series hardware; this bench will drive it and chart the result against the journal's stored phase series." />
       <Card title="data source" body="Reads the live phase trajectories the worker already computes (∫κdt, dκ/dt, d²κ/dt²) via /api/optimus-journal — the same numbers the Optimus tab renders." />
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button onClick={pull} disabled={loading} style={{ padding: '7px 16px', borderRadius: 5, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11 }}>{loading ? 'probing…' : 'probe journal link ▸'}</button>
+        <button onClick={pull} disabled={loading} style={{ padding: '7px 16px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11 }}>{loading ? 'probing…' : 'probe journal link ▸'}</button>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t4)' }}>confirms the eval data path is live</span>
       </div>
-      {out && <pre style={{ background: 'var(--base)', border: '0.5px solid var(--b1)', borderRadius: 6, padding: 12, fontSize: 11.5, fontFamily: 'var(--mono)', color: 'var(--t2)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{out}</pre>}
+      {out && <pre style={{ background: 'var(--base)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: 12, fontSize: 11.5, fontFamily: 'var(--mono)', color: 'var(--t2)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{out}</pre>}
     </div>
   )
 }

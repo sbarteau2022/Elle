@@ -34,17 +34,17 @@ const ElleMark = ({ size = 24, pulse = false }: { size?: number; pulse?: boolean
   <svg width={size} height={size} viewBox="0 0 28 28" fill="none"
     style={pulse ? { animation: 'ellePulse 3s ease-in-out infinite' } : {}}>
     <rect width="28" height="28" rx="5" fill="#0f0f1a" />
-    <rect x="0.5" y="0.5" width="27" height="27" rx="4.5" stroke="#C9A84C" strokeOpacity="0.3" strokeWidth="0.5" fill="none" />
-    <rect x="7" y="7.5" width="1.5" height="13" rx="0.75" fill="#C9A84C" />
-    <rect x="7" y="7.5" width="11.5" height="1.5" rx="0.75" fill="#C9A84C" />
-    <rect x="7" y="13.25" width="8" height="1.25" rx="0.625" fill="#C9A84C" opacity="0.6" />
-    <rect x="7" y="19" width="11.5" height="1.5" rx="0.75" fill="#C9A84C" />
+    <rect x="0.5" y="0.5" width="27" height="27" rx="4.5" stroke="#5980a6" strokeOpacity="0.3" strokeWidth="0.5" fill="none" />
+    <rect x="7" y="7.5" width="1.5" height="13" rx="0.75" fill="#5980a6" />
+    <rect x="7" y="7.5" width="11.5" height="1.5" rx="0.75" fill="#5980a6" />
+    <rect x="7" y="13.25" width="8" height="1.25" rx="0.625" fill="#5980a6" opacity="0.6" />
+    <rect x="7" y="19" width="11.5" height="1.5" rx="0.75" fill="#5980a6" />
     <circle cx="21.5" cy="8.75" r="2" fill="#E4C97A" />
   </svg>
 )
 
 const Cursor = () => (
-  <span style={{ display: 'inline-block', width: 7, height: 13, background: GOLD, marginLeft: 2, verticalAlign: 'middle', animation: 'elleBlink 1.1s step-end infinite', borderRadius: 1, opacity: 0.85 }} />
+  <span style={{ display: 'inline-block', width: 7, height: 13, background: GOLD, marginLeft: 2, verticalAlign: 'middle', animation: 'elleBlink 1.1s step-end infinite', borderRadius: 0, opacity: 0.85 }} />
 )
 
 // ── Types ─────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ const ThinkingPanel = ({ thinking }: { thinking: string }) => {
       <button onClick={() => setOpen(v => !v)} style={{
         display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
         background: 'rgba(201,168,76,0.05)', border: `0.5px solid ${BORDER}`,
-        borderRadius: 4, padding: '3px 9px', color: GOLD, fontSize: 11,
+        borderRadius: 0, padding: '3px 9px', color: GOLD, fontSize: 11,
         fontFamily: MONO, letterSpacing: '0.03em',
       }}>
         <span style={{ fontSize: 8 }}>{open ? '▾' : '▸'}</span>
@@ -110,7 +110,7 @@ const ThinkingPanel = ({ thinking }: { thinking: string }) => {
       {open && (
         <div style={{
           marginTop: 6, padding: '11px 13px', background: 'rgba(201,168,76,0.03)',
-          border: `0.5px solid ${BORDER}`, borderRadius: 6, fontSize: 12.5,
+          border: `0.5px solid ${BORDER}`, borderRadius: 0, fontSize: 12.5,
           fontFamily: MONO, color: DIM, lineHeight: 1.7, whiteSpace: 'pre-wrap',
           maxHeight: 300, overflow: 'auto', animation: 'elleFade 0.14s ease both',
         }}>{thinking}</div>
@@ -126,7 +126,7 @@ const Msg = ({ msg }: { msg: Message }) => {
     <div style={{ padding: '16px 0', borderBottom: `0.5px solid ${BORDER}`, animation: 'elleFade 0.18s ease both' }}>
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{
-          width: 28, height: 28, borderRadius: 6, flexShrink: 0, marginTop: 1,
+          width: 28, height: 28, borderRadius: 0, flexShrink: 0, marginTop: 1,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: isUser ? 'rgba(245,240,232,0.04)' : 'rgba(201,168,76,0.06)',
           border: isUser ? `0.5px solid rgba(245,240,232,0.10)` : `0.5px solid ${BORDER}`,
@@ -139,7 +139,7 @@ const Msg = ({ msg }: { msg: Message }) => {
               {isUser ? 'you' : 'elle'}
             </span>
             {!isUser && msg.model && (
-              <span style={{ fontSize: 9.5, color: DIM, fontFamily: MONO, padding: '1px 6px', background: 'rgba(201,168,76,0.05)', border: `0.5px solid ${BORDER}`, borderRadius: 3 }}>
+              <span style={{ fontSize: 9.5, color: DIM, fontFamily: MONO, padding: '1px 6px', background: 'rgba(201,168,76,0.05)', border: `0.5px solid ${BORDER}`, borderRadius: 0 }}>
                 {msg.provider ? `${msg.provider} · ` : ''}{msg.model.split('/').pop()}
               </span>
             )}
@@ -178,7 +178,7 @@ const Composer = ({ onSend, loading }: { onSend: (q: string) => void; loading: b
     <div style={{ flexShrink: 0, borderTop: `0.5px solid ${BORDER}`, background: 'rgba(245,240,232,0.015)' }}>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '14px 22px 18px' }}>
         <div style={{
-          background: CARD, border: `0.5px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden',
+          background: CARD, border: `0.5px solid ${BORDER}`, borderRadius: 0, overflow: 'hidden',
           transition: 'border-color 150ms', boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
         }}
           onFocusCapture={e => (e.currentTarget.style.borderColor = 'rgba(201,168,76,0.45)')}
@@ -200,7 +200,7 @@ const Composer = ({ onSend, loading }: { onSend: (q: string) => void; loading: b
             </span>
             {loading && <div style={{ width: 11, height: 11, border: `1.5px solid ${GOLD}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'elleSpin 0.8s linear infinite' }} />}
             <button onClick={send} disabled={loading || !val.trim()} style={{
-              marginLeft: 'auto', width: 32, height: 32, borderRadius: 7,
+              marginLeft: 'auto', width: 32, height: 32, borderRadius: 0,
               background: val.trim() && !loading ? 'rgba(201,168,76,0.18)' : 'rgba(245,240,232,0.04)',
               border: `0.5px solid ${val.trim() && !loading ? GOLD : BORDER}`,
               cursor: val.trim() && !loading ? 'pointer' : 'default',
@@ -304,7 +304,7 @@ export default function ElleAtlasDev() {
   // ── Sign-in ──
   if (!token) {
     const inputStyle: React.CSSProperties = {
-      background: CARD, border: `0.5px solid ${BORDER}`, borderRadius: 6, color: CREAM,
+      background: CARD, border: `0.5px solid ${BORDER}`, borderRadius: 0, color: CREAM,
       fontFamily: MONO, fontSize: 13, padding: '10px 14px', width: 280, outline: 'none',
     }
     return (
@@ -318,7 +318,7 @@ export default function ElleAtlasDev() {
           onChange={e => setAuthPass(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLogin()} style={inputStyle} />
         {authErr && <div style={{ fontSize: 11.5, color: '#d98a8a', fontFamily: MONO }}>{authErr}</div>}
         <button onClick={doLogin} disabled={authLoading || !authEmail.trim() || !authPass.trim()} style={{
-          background: 'rgba(201,168,76,0.16)', border: `0.5px solid ${GOLD}`, borderRadius: 6,
+          background: 'rgba(201,168,76,0.16)', border: `0.5px solid ${GOLD}`, borderRadius: 0,
           color: authLoading ? DIM : '#E4C97A', fontFamily: MONO, fontSize: 12.5,
           padding: '9px 24px', cursor: 'pointer', width: 280, letterSpacing: '0.04em',
         }}>{authLoading ? 'signing in…' : 'sign in'}</button>
@@ -365,7 +365,7 @@ export default function ElleAtlasDev() {
                 ].map(s => (
                   <button key={s} onClick={() => sendMessage(s)} style={{
                     padding: '7px 13px', background: CARD, border: `0.5px solid ${BORDER}`,
-                    borderRadius: 7, color: DIM, fontSize: 12.5, fontFamily: MONO,
+                    borderRadius: 0, color: DIM, fontSize: 12.5, fontFamily: MONO,
                     cursor: 'pointer', transition: 'all 120ms',
                   }}
                     onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = '#E4C97A'; b.style.borderColor = GOLD }}
@@ -380,7 +380,7 @@ export default function ElleAtlasDev() {
 
           {loading && (
             <div style={{ padding: '16px 0', display: 'flex', gap: 12, animation: 'elleFade 0.18s ease both' }}>
-              <div style={{ width: 28, height: 28, borderRadius: 6, background: 'rgba(201,168,76,0.06)', border: `0.5px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 0, background: 'rgba(201,168,76,0.06)', border: `0.5px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <ElleMark size={20} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, paddingTop: 6 }}>
