@@ -49,12 +49,12 @@ export default function TaxTransactions({ accent, businessId, taxYear }: { accen
           <Select value={direction} onChange={setDirection} options={['income', 'expense']} />
           <Select value={category} onChange={setCategory} options={CATEGORIES} />
           <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="amount ($)" type="number"
-            style={{ width: 110, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+            style={{ width: 110, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
           <input value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} type="date"
-            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
           <Input value={description} onChange={setDescription} placeholder="description (optional)" />
           <button onClick={add} disabled={busy}
-            style={{ padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+            style={{ padding: '6px 14px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
             {busy ? '…' : 'add ▸'}
           </button>
         </div>

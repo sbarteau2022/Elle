@@ -40,7 +40,7 @@ export default function TaxContractors({ accent, businessId, taxYear }: { accent
           </label>
           <Input value={notes} onChange={setNotes} placeholder="notes (optional)" />
           <button onClick={add} disabled={busy}
-            style={{ padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+            style={{ padding: '6px 14px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
             {busy ? '…' : 'save ▸'}
           </button>
         </div>

@@ -79,10 +79,10 @@ export default function LibraryPanel({ accent }: any) {
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '0.5px solid var(--b1)' }}>
           <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') resolve() }}
             placeholder="describe it → Enter pulls the doc; type filters titles"
-            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '8px 11px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+            style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '8px 11px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <select value={series} onChange={e => { setSeries(e.target.value); browse(q.trim(), e.target.value) }}
-              style={{ flex: 1, background: 'var(--raised)', color: 'var(--t2)', border: '0.5px solid var(--b1)', borderRadius: 5, padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+              style={{ flex: 1, background: 'var(--raised)', color: 'var(--t2)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
               <option value="">all series</option>
               {seriesList.map(s => <option key={s.series} value={s.series}>{s.series} ({s.count})</option>)}
             </select>
@@ -94,14 +94,14 @@ export default function LibraryPanel({ accent }: any) {
           {loading && <div style={{ padding: 10, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t4)' }}>…</div>}
           {mode === 'papers' && papers.map(p => (
             <button key={p.id} onClick={() => openPaper(p.id)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', background: open?.id === p.id ? 'var(--float)' : 'none', border: 'none', borderRadius: 6, padding: '7px 9px', cursor: 'pointer', color: 'var(--t1)' }}>
+              style={{ display: 'block', width: '100%', textAlign: 'left', background: open?.id === p.id ? 'var(--float)' : 'none', border: 'none', borderRadius: 0, padding: '7px 9px', cursor: 'pointer', color: 'var(--t1)' }}>
               <div style={{ fontSize: 12, lineHeight: 1.4 }}>{p.title}</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', marginTop: 2 }}>{p.series}{p.word_count ? ` · ${p.word_count}w` : ''}</div>
             </button>
           ))}
           {mode === 'dream' && artifacts.map(art => (
             <button key={art.id} onClick={() => openArtifact(art.id)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', background: open?.id === art.id ? 'var(--float)' : 'none', border: 'none', borderRadius: 6, padding: '7px 9px', cursor: 'pointer', color: 'var(--t1)' }}>
+              style={{ display: 'block', width: '100%', textAlign: 'left', background: open?.id === art.id ? 'var(--float)' : 'none', border: 'none', borderRadius: 0, padding: '7px 9px', cursor: 'pointer', color: 'var(--t1)' }}>
               <div style={{ fontSize: 12, lineHeight: 1.4 }}>{art.title}</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', marginTop: 2 }}>{art.type} · {art.status} · pri {art.surface_priority}</div>
             </button>
@@ -133,7 +133,7 @@ export default function LibraryPanel({ accent }: any) {
 function Toggle({ on, onClick, accent, children }: any) {
   return (
     <button onClick={onClick}
-      style={{ padding: '5px 9px', borderRadius: 5, border: `0.5px solid ${on ? accent + '55' : 'var(--b1)'}`, background: on ? accent + '1f' : 'transparent', color: on ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5 }}>
+      style={{ padding: '5px 9px', borderRadius: 0, border: `0.5px solid ${on ? accent + '55' : 'var(--b1)'}`, background: on ? accent + '1f' : 'transparent', color: on ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5 }}>
       {children}
     </button>
   )

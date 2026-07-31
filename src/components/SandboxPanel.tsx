@@ -102,7 +102,7 @@ export default function SandboxPanel({ accent }: any) {
               : (r.code_preview || '')
             const hasOut = !!(r.stdout_preview || r.stderr_preview)
             return (
-              <div key={r.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, padding: '9px 12px' }}>
+              <div key={r.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '9px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: accent, width: 12 }}>{KIND_GLYPH[r.kind] || '·'}</span>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--t3)' }}>{r.kind}{r.language ? `·${r.language}` : ''}</span>
@@ -144,7 +144,7 @@ export default function SandboxPanel({ accent }: any) {
           {reports.length > 0 && (
             <Section title="reports she surfaced">
               {reports.map(rep => (
-                <div key={rep.id} style={{ background: 'var(--gold-dim)', border: `0.5px solid ${accent}66`, borderRadius: 8, padding: '10px 12px' }}>
+                <div key={rep.id} style={{ background: 'var(--gold-dim)', border: `0.5px solid ${accent}66`, borderRadius: 0, padding: '10px 12px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span style={{ color: accent, fontSize: 11 }}>★</span>
                     <span style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 600 }}>{rep.title}</span>
@@ -160,7 +160,7 @@ export default function SandboxPanel({ accent }: any) {
           <Section title="brought in — titled by her">
             {brought.length === 0 && <Empty>nothing cloned back yet — sandbox_clone pulls code UP, named</Empty>}
             {brought.map(c => (
-              <div key={c.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 7, padding: '8px 11px' }}>
+              <div key={c.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '8px 11px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <span style={{ color: accent, fontFamily: 'var(--mono)', fontSize: 11 }}>⇡</span>
                   <span style={{ fontSize: 11.5, color: 'var(--t1)', fontWeight: 500 }}>{c.title || c.target}</span>

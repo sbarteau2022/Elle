@@ -71,7 +71,7 @@ export default function MirrorPanel({ worker, accent }: any) {
           <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 19, color: 'var(--t1)' }}>The mirror.</span>
           <span style={{ ...mono(10), color: 'var(--t3)' }}>bets · flinches · tripwires · drops · metabolism · sleep · grown tools</span>
           <button onClick={load} disabled={loading}
-            style={{ marginLeft: 'auto', background: 'none', border: `0.5px solid ${accent}55`, borderRadius: 5, color: accent, cursor: 'pointer', ...mono(9.5), padding: '3px 10px' }}>
+            style={{ marginLeft: 'auto', background: 'none', border: `0.5px solid ${accent}55`, borderRadius: 0, color: accent, cursor: 'pointer', ...mono(9.5), padding: '3px 10px' }}>
             {loading ? '…' : '↻ refresh'}
           </button>
         </div>
@@ -87,8 +87,8 @@ export default function MirrorPanel({ worker, accent }: any) {
                   <div key={b.bucket} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ ...mono(9), color: 'var(--t3)', width: 62, flexShrink: 0 }}>{b.bucket}</span>
                     <div style={{ flex: 1 }}>
-                      <div title={`stated ${Math.round(b.stated * 100)}%`} style={{ height: 4, width: `${b.stated * 100}%`, background: 'var(--b1)', borderRadius: 2, marginBottom: 2 }} />
-                      <div title={`observed ${Math.round(b.observed * 100)}%`} style={{ height: 4, width: `${Math.max(b.observed * 100, 1)}%`, background: accent, borderRadius: 2, opacity: 0.85 }} />
+                      <div title={`stated ${Math.round(b.stated * 100)}%`} style={{ height: 4, width: `${b.stated * 100}%`, background: 'var(--b1)', borderRadius: 0, marginBottom: 2 }} />
+                      <div title={`observed ${Math.round(b.observed * 100)}%`} style={{ height: 4, width: `${Math.max(b.observed * 100, 1)}%`, background: accent, borderRadius: 0, opacity: 0.85 }} />
                     </div>
                     <span style={{ ...mono(9), color: b.observed < b.stated - 0.12 ? '#D06565' : 'var(--t3)', width: 100, flexShrink: 0 }}>
                       {Math.round(b.stated * 100)}% said · {Math.round(b.observed * 100)}% true · n={b.n}

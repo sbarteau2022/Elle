@@ -54,7 +54,7 @@ const ago = (t: number | null) => {
 
 // Fallback only — the live map arrives with the column payload.
 const FALLBACK_COLORS: Record<string, string> = {
-  pondering: '#8B94A3', queued: '#C9A84C', scoping: '#7FB4D8', spec: '#B08FD8',
+  pondering: '#8B94A3', queued: '#5980a6', scoping: '#7FB4D8', spec: '#B08FD8',
   building: '#5CC8C2', testing: '#E0A45C', held: '#4ADE80', killed: '#D06565',
 }
 
@@ -88,7 +88,7 @@ function PfarClaims({ pfar, accent }: { pfar: Record<string, any>; accent: strin
   const rh = pfar.rhetoric?.rhetoric || pfar.rhetoric || null
   const sp = pfar.spectrum?.spectrum || pfar.spectrum || null
   const chip = (k: string, v: unknown) => (
-    <span key={k} style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t2)', background: 'var(--float)', border: '0.5px solid var(--b2)', borderRadius: 5, padding: '3px 8px' }}>
+    <span key={k} style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t2)', background: 'var(--float)', border: '0.5px solid var(--b2)', borderRadius: 0, padding: '3px 8px' }}>
       <span style={{ color: 'var(--t4)' }}>{k} </span>{String(v).slice(0, 60)}
     </span>
   )
@@ -212,13 +212,13 @@ export default function IdeasPanel({ accent }: any) {
           const ilog = logs.filter(l => l.idea_id === it.id)
           const next = nextAction(it)
           return (
-            <div key={it.id} style={{ border: `0.5px solid ${isOpen ? c + '66' : 'var(--b1)'}`, borderRadius: 8, background: 'var(--raised)', overflow: 'hidden' }}>
+            <div key={it.id} style={{ border: `0.5px solid ${isOpen ? c + '66' : 'var(--b1)'}`, borderRadius: 0, background: 'var(--raised)', overflow: 'hidden' }}>
               {/* the title bar — click expands / contracts */}
               <button onClick={() => setOpen(isOpen ? null : it.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flexShrink: 0, boxShadow: it.status === 'queued' ? `0 0 8px ${c}` : 'none' }} />
                 <span style={{ fontSize: 12.5, color: 'var(--t1)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</span>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: c, border: `0.5px solid ${c}55`, borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>{it.status}</span>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: c, border: `0.5px solid ${c}55`, borderRadius: 0, padding: '2px 7px', flexShrink: 0 }}>{it.status}</span>
                 {it.extend_count > 0 && <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', flexShrink: 0 }}>ext {it.extend_count}/{maxExtends}</span>}
                 <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', flexShrink: 0 }}>
                   {it.source === 'elle' ? 'hers · ' : ''}{ago(it.updated_at)} · {isOpen ? '▾' : '▸'}
@@ -297,7 +297,7 @@ export default function IdeasPanel({ accent }: any) {
                   <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
                     {next && (
                       <button onClick={() => act(next.op, it.id)} disabled={busy}
-                        style={{ padding: '4px 12px', borderRadius: 6, border: `0.5px solid ${c}55`, background: c + '22', color: c, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+                        style={{ padding: '4px 12px', borderRadius: 0, border: `0.5px solid ${c}55`, background: c + '22', color: c, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
                         {next.label}
                       </button>
                     )}
@@ -306,7 +306,7 @@ export default function IdeasPanel({ accent }: any) {
                     {it.forge_spec && it.forge_spec.goals && it.forge_spec.goals.length > 0 &&
                       it.status !== 'held' && it.status !== 'killed' && (
                       <button onClick={() => { shipIdeaToForge(it.id, it.title); emit({ kind: 'nav', panel: 'forge', sub: 'forge' }) }} disabled={busy}
-                        style={{ padding: '4px 12px', borderRadius: 6, border: '0.5px solid #5CC8C277', background: '#5CC8C222', color: '#5CC8C2', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+                        style={{ padding: '4px 12px', borderRadius: 0, border: '0.5px solid #5CC8C277', background: '#5CC8C222', color: '#5CC8C2', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
                         ⚒ ship to the sandbox — forge it live ▸
                       </button>
                     )}
@@ -318,18 +318,18 @@ export default function IdeasPanel({ accent }: any) {
                     {it.status === 'testing' && (
                       <>
                         <button onClick={() => act('verdict', it.id, { outcome: 'held' })} disabled={busy}
-                          style={{ padding: '4px 12px', borderRadius: 6, border: '0.5px solid #4ADE8055', background: '#4ADE8022', color: '#4ADE80', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+                          style={{ padding: '4px 12px', borderRadius: 0, border: '0.5px solid #4ADE8055', background: '#4ADE8022', color: '#4ADE80', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
                           it holds — write it
                         </button>
                         <button onClick={() => act('verdict', it.id, { outcome: 'killed' })} disabled={busy}
-                          style={{ padding: '4px 12px', borderRadius: 6, border: '0.5px solid #D0656555', background: '#D0656522', color: '#D06565', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
+                          style={{ padding: '4px 12px', borderRadius: 0, border: '0.5px solid #D0656555', background: '#D0656522', color: '#D06565', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10 }}>
                           it broke — kill it
                         </button>
                       </>
                     )}
                     {it.status !== 'killed' && it.status !== 'held' && it.status !== 'testing' && (
                       <button onClick={() => act('kill', it.id)} disabled={busy}
-                        style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5 }}>
+                        style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 0, border: '0.5px solid var(--b1)', background: 'transparent', color: 'var(--t4)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 9.5 }}>
                         kill
                       </button>
                     )}
@@ -344,17 +344,17 @@ export default function IdeasPanel({ accent }: any) {
       {/* file a new idea */}
       <div style={{ padding: 12, borderTop: '0.5px solid var(--b1)', display: 'flex', gap: 8, maxWidth: 860 }}>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="idea title"
-          style={{ width: 220, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+          style={{ width: 220, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
         <input value={summary} onChange={e => setSummary(e.target.value)} placeholder="one sentence — what it is and why it's neat"
-          style={{ flex: 1, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none' }} />
+          style={{ flex: 1, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none' }} />
         <button onClick={add} disabled={busy || !title.trim() || summary.trim().length < 12}
-          style={{ padding: '5px 14px', borderRadius: 6, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent,
+          style={{ padding: '5px 14px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent,
             cursor: (busy || !title.trim() || summary.trim().length < 12) ? 'not-allowed' : 'pointer',
             opacity: (!title.trim() || summary.trim().length < 12) ? 0.5 : 1, fontFamily: 'var(--mono)', fontSize: 10.5 }}>
           {busy ? '…' : 'file idea ▸'}
         </button>
         <button onClick={ideate} disabled={busy} title="the 70B proposes novel tools grounded in her codebase + goals"
-          style={{ padding: '5px 14px', borderRadius: 6, border: '0.5px solid #B08FD855', background: '#B08FD822', color: '#B08FD8',
+          style={{ padding: '5px 14px', borderRadius: 0, border: '0.5px solid #B08FD855', background: '#B08FD822', color: '#B08FD8',
             cursor: busy ? 'wait' : 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5, whiteSpace: 'nowrap' }}>
           ✦ ideate (70B)
         </button>

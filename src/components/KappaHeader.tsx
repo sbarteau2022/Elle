@@ -104,7 +104,7 @@ export default function KappaHeader({ dyn, mem, hold, fast }: { dyn: KappaDynami
     const live = mem.ranks
     const pill: CSSProperties = {
       fontSize: 9, letterSpacing: '.04em', textTransform: 'uppercase',
-      padding: '1px 5px', borderRadius: 3,
+      padding: '1px 5px', borderRadius: 0,
       color: live ? 'var(--good, #4ADE80)' : '#D9A441',
       border: `0.5px solid ${live ? 'var(--good, #4ADE80)' : '#D9A441'}`,
       opacity: 0.85,

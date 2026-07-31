@@ -45,10 +45,10 @@ const post = async (body: any) => {
 
 const mono = 'var(--mono)'
 const label = (color = 'var(--t4)'): React.CSSProperties => ({ fontFamily: mono, fontSize: 9, color, letterSpacing: '.14em', textTransform: 'uppercase' })
-const field: React.CSSProperties = { width: '100%', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '8px 11px', fontSize: 12, fontFamily: 'var(--ui)', outline: 'none', boxSizing: 'border-box' }
+const field: React.CSSProperties = { width: '100%', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '8px 11px', fontSize: 12, fontFamily: 'var(--ui)', outline: 'none', boxSizing: 'border-box' }
 const btn = (accent: string, on = true): React.CSSProperties => ({
-  background: on ? accent : 'var(--raised)', color: on ? '#0B0C10' : 'var(--t3)',
-  border: '0.5px solid var(--b1)', borderRadius: 6, padding: '7px 13px', fontFamily: mono,
+  background: on ? accent : 'var(--raised)', color: on ? 'var(--base)' : 'var(--t3)',
+  border: '0.5px solid var(--b1)', borderRadius: 0, padding: '7px 13px', fontFamily: mono,
   fontSize: 10.5, letterSpacing: '.06em', cursor: on ? 'pointer' : 'default', textTransform: 'uppercase',
 })
 
@@ -56,7 +56,7 @@ function ScoreBar({ score, accent }: { score: number; accent: string }) {
   const color = score >= 80 ? '#6FCF97' : score >= 55 ? accent : '#D06565'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ flex: 1, height: 5, background: 'var(--ov)', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 5, background: 'var(--ov)', borderRadius: 0, overflow: 'hidden' }}>
         <div style={{ width: `${score}%`, height: '100%', background: color }} />
       </div>
       <span style={{ fontFamily: mono, fontSize: 11, color, minWidth: 28, textAlign: 'right' }}>{score}</span>
@@ -66,7 +66,7 @@ function ScoreBar({ score, accent }: { score: number; accent: string }) {
 
 function ContinuityCard({ c, accent }: { c: Continuity; accent: string }) {
   return (
-    <div style={{ marginTop: 10, padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8 }}>
+    <div style={{ marginTop: 10, padding: 12, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={label()}>brand continuity</span>
         <span style={{ ...label(c.verdict === 'on-brand' ? '#6FCF97' : c.verdict === 'off-brand' ? '#D06565' : accent) }}>{c.verdict}</span>
@@ -92,7 +92,7 @@ function ContinuityCard({ c, accent }: { c: Continuity; accent: string }) {
   )
 }
 
-export default function FlockPanel({ accent = '#C9A84C' }: { accent?: string }) {
+export default function FlockPanel({ accent = '#5980a6' }: { accent?: string }) {
   const [status, setStatus] = useState<Status | null>(null)
   const [brands, setBrands] = useState<Brand[]>([])
   const [active, setActive] = useState<Brand | null>(null)
@@ -144,10 +144,10 @@ export default function FlockPanel({ accent = '#C9A84C' }: { accent?: string }) 
           </div>
           {status && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-              <span title="image generation backend" style={{ ...label(status.sovereign_image_configured ? '#6FCF97' : accent), border: '0.5px solid var(--b1)', borderRadius: 4, padding: '2px 6px' }}>
+              <span title="image generation backend" style={{ ...label(status.sovereign_image_configured ? '#6FCF97' : accent), border: '0.5px solid var(--b1)', borderRadius: 0, padding: '2px 6px' }}>
                 img: {status.sovereign_image_configured ? 'sovereign' : status.image_provider}
               </span>
-              <span title="text-to-video provider" style={{ ...label(status.video_configured ? '#6FCF97' : 'var(--t4)'), border: '0.5px solid var(--b1)', borderRadius: 4, padding: '2px 6px' }}>
+              <span title="text-to-video provider" style={{ ...label(status.video_configured ? '#6FCF97' : 'var(--t4)'), border: '0.5px solid var(--b1)', borderRadius: 0, padding: '2px 6px' }}>
                 video: {status.video_configured ? 'ready' : 'stub'}
               </span>
             </div>
@@ -156,7 +156,7 @@ export default function FlockPanel({ accent = '#C9A84C' }: { accent?: string }) 
         <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
           {brands.map(b => (
             <button key={b.id} onClick={() => setActive(b)}
-              style={{ display: 'block', width: '100%', textAlign: 'left', background: active?.id === b.id ? 'var(--raised)' : 'none', border: '0.5px solid ' + (active?.id === b.id ? accent : 'transparent'), borderRadius: 7, padding: '9px 11px', marginBottom: 4, cursor: 'pointer' }}>
+              style={{ display: 'block', width: '100%', textAlign: 'left', background: active?.id === b.id ? 'var(--raised)' : 'none', border: '0.5px solid ' + (active?.id === b.id ? accent : 'transparent'), borderRadius: 0, padding: '9px 11px', marginBottom: 4, cursor: 'pointer' }}>
               <div style={{ color: 'var(--t1)', fontSize: 13, fontWeight: 500 }}>{b.name}</div>
               {b.voice && <div style={{ color: 'var(--t3)', fontSize: 10.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.voice}</div>}
             </button>
@@ -170,13 +170,13 @@ export default function FlockPanel({ accent = '#C9A84C' }: { accent?: string }) 
         <div style={{ display: 'flex', gap: 4, padding: '10px 14px', borderBottom: '0.5px solid var(--b1)', alignItems: 'center' }}>
           {(['studio', 'image', 'flock', 'assets'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
-              style={{ background: tab === t ? 'var(--raised)' : 'none', color: tab === t ? 'var(--t1)' : 'var(--t3)', border: '0.5px solid ' + (tab === t ? 'var(--b1)' : 'transparent'), borderRadius: 6, padding: '6px 13px', fontFamily: mono, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer' }}>{t}</button>
+              style={{ background: tab === t ? 'var(--raised)' : 'none', color: tab === t ? 'var(--t1)' : 'var(--t3)', border: '0.5px solid ' + (tab === t ? 'var(--b1)' : 'transparent'), borderRadius: 0, padding: '6px 13px', fontFamily: mono, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', cursor: 'pointer' }}>{t}</button>
           ))}
           <div style={{ flex: 1 }} />
           {active && <button onClick={() => setEditing(active)} style={{ ...btn(accent, false), padding: '5px 11px' }}>edit kit</button>}
         </div>
 
-        {error && <div style={{ margin: '10px 14px 0', padding: '8px 11px', background: '#D0656522', border: '0.5px solid #D0656555', borderRadius: 6, color: '#E39898', fontSize: 11.5, fontFamily: mono }}>{error}</div>}
+        {error && <div style={{ margin: '10px 14px 0', padding: '8px 11px', background: '#D0656522', border: '0.5px solid #D0656555', borderRadius: 0, color: '#E39898', fontSize: 11.5, fontFamily: mono }}>{error}</div>}
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
           {!active ? (
@@ -225,15 +225,15 @@ function Studio({ brand, accent, busy, run, setImageSeed }: any) {
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {concepts.map((c, i) => (
-          <div key={i} style={{ padding: 14, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 9 }}>
+          <div key={i} style={{ padding: 14, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
             <div style={{ color: 'var(--t1)', fontSize: 14, fontWeight: 600 }}>{c.hook}</div>
             <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 4 }}>{c.angle}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-              <span style={{ ...label(accent), border: '0.5px solid var(--b1)', borderRadius: 4, padding: '2px 6px' }}>{c.format}</span>
+              <span style={{ ...label(accent), border: '0.5px solid var(--b1)', borderRadius: 0, padding: '2px 6px' }}>{c.format}</span>
             </div>
             <div style={{ color: 'var(--t3)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>{c.rationale}</div>
             {caption[i] && (
-              <div style={{ marginTop: 10, padding: 10, background: 'var(--base)', border: '0.5px solid var(--b1)', borderRadius: 7 }}>
+              <div style={{ marginTop: 10, padding: 10, background: 'var(--base)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
                 <div style={{ color: 'var(--t1)', fontSize: 12.5, whiteSpace: 'pre-wrap' }}>{caption[i].caption}</div>
                 {!!caption[i].hashtags?.length && <div style={{ color: accent, fontSize: 11.5, marginTop: 6 }}>{caption[i].hashtags.map(h => '#' + h.replace(/^#/, '')).join(' ')}</div>}
               </div>
@@ -285,7 +285,7 @@ function ImageStudio({ brand, accent, busy, run, seed }: any) {
       <div style={{ flex: '1 1 320px' }}>
         {asset?.url ? (
           <div>
-            <img src={WORKER + asset.url} alt="" style={{ width: '100%', maxWidth: 512, borderRadius: 10, border: '0.5px solid var(--b1)' }} />
+            <img src={WORKER + asset.url} alt="" style={{ width: '100%', maxWidth: 512, borderRadius: 0, border: '0.5px solid var(--b1)' }} />
             <div style={{ ...label(), marginTop: 8 }}>{asset.provider} · {asset.model}</div>
           </div>
         ) : <div style={{ color: 'var(--t4)', fontFamily: mono, fontSize: 12 }}>Generated imagery appears here.</div>}
@@ -322,7 +322,7 @@ function Flock({ brand, accent, busy, run, platforms }: any) {
         <span style={label()}>the flock — {channels.length} channel{channels.length === 1 ? '' : 's'}</span>
         <div style={{ margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {channels.map(c => (
-            <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6 }}>
+            <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
               <span style={{ color: 'var(--t1)', fontSize: 12 }}>{c.platform}{c.handle ? ` · @${c.handle}` : ''}</span>
               <span style={label(c.status === 'connected' ? '#6FCF97' : 'var(--t4)')}>{c.status}</span>
             </div>
@@ -343,7 +343,7 @@ function Flock({ brand, accent, busy, run, platforms }: any) {
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', margin: '8px 0' }}>
             {channels.map(c => (
               <button key={c.id} onClick={() => setPicked(s => s.includes(c.id) ? s.filter(x => x !== c.id) : [...s, c.id])}
-                style={{ ...label(picked.includes(c.id) ? '#0B0C10' : 'var(--t3)'), background: picked.includes(c.id) ? accent : 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}>{c.platform}</button>
+                style={{ ...label(picked.includes(c.id) ? 'var(--base)' : 'var(--t3)'), background: picked.includes(c.id) ? accent : 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '4px 8px', cursor: 'pointer' }}>{c.platform}</button>
             ))}
           </div>
           <button disabled={!!busy || !caption.trim()} onClick={createPost} style={btn(accent, !busy && !!caption.trim())}>create draft</button>
@@ -354,7 +354,7 @@ function Flock({ brand, accent, busy, run, platforms }: any) {
         <span style={label()}>posts</span>
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {posts.map(p => (
-            <div key={p.id} style={{ padding: 11, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8 }}>
+            <div key={p.id} style={{ padding: 11, background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--t1)', fontSize: 12.5, fontWeight: 500 }}>{p.title || '(untitled)'}</span>
                 <span style={label(p.status.startsWith('published') ? '#6FCF97' : 'var(--t4)')}>{p.status}</span>
@@ -390,7 +390,7 @@ function Assets({ brand, accent }: any) {
       <span style={label()}>{assets.length} asset{assets.length === 1 ? '' : 's'}</span>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginTop: 10 }}>
         {assets.map(a => (
-          <div key={a.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 8, overflow: 'hidden' }}>
+          <div key={a.id} style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, overflow: 'hidden' }}>
             {a.url ? <img src={WORKER + a.url} alt="" style={{ width: '100%', display: 'block' }} />
               : <div style={{ padding: 20, textAlign: 'center', color: 'var(--t4)', fontFamily: mono, fontSize: 10 }}>{a.kind} · {a.status}</div>}
             <div style={{ padding: 8 }}>
@@ -425,7 +425,7 @@ function BrandEditor({ editing, setEditing, accent, onSave, busy }: any) {
         <F k="voice" ph="e.g. warm, precise, a little playful" />
         <F k="audience" ph="who it speaks to" />
         <F k="visual_style" ph="e.g. soft natural light, film grain, minimal" area />
-        <F k="palette" ph="#C9A84C, #0B0C10  (comma-separated hex)" />
+        <F k="palette" ph="#5980a6, #0B0C10  (comma-separated hex)" />
         <F k="fonts" ph="e.g. Playfair Display / Inter" />
         <F k="keywords" ph="comma-separated brand keywords" />
         <F k="taboos" ph="what to never do (becomes the negative prompt)" area />

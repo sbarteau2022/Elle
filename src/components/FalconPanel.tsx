@@ -39,7 +39,7 @@ type RunResult = {
 
 const TIER1_LABELS = ['MARKET REALITY', 'FINANCIAL ARCHITECTURE', 'NETWORK MAP', 'PRIOR CHAIN', 'SCALAR STRUCTURE', 'DOCUMENTED IMPACT']
 const TIER2_LABELS = ['DOMINANT SUPPRESSION', 'RESISTANCE ROMANCE', 'BILATERAL SUPPRESSION', 'TEMPORAL COMPRESSION', 'REFLEXIVE', 'EMERGENCE SIGNAL', 'PRODUCT FORM', 'UX PRINCIPLE', 'TRANSMISSION VECTOR']
-const TIER1_COLOR = '#C9A84C'   // gold — Material Ground
+const TIER1_COLOR = '#5980a6'   // gold — Material Ground
 const TIER2_COLOR = '#7FA8D8'   // blue — Observer Reading
 const VALIDATION_COLOR = '#D4795A' // amber-red — the adversarial check
 const RUPTURE_COLOR = '#E8C878' // bright gold — the earned collapse
@@ -241,10 +241,10 @@ export default function FalconPanel({ accent }: { accent: string }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {archive.map(row => (
                 <button key={row.id} onClick={() => openArchived(row.id)}
-                  style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '0.5px solid var(--b1)', borderRadius: 8, background: 'var(--raised)', cursor: 'pointer' }}>
+                  style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: '0.5px solid var(--b1)', borderRadius: 0, background: 'var(--raised)', cursor: 'pointer' }}>
                   <span style={{ fontSize: 12, color: 'var(--t1)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.direction}</span>
                   {row.discomfort_index != null && (
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: RUPTURE_COLOR, border: `0.5px solid ${RUPTURE_COLOR}55`, borderRadius: 4, padding: '2px 7px' }}>DI {row.discomfort_index}/10</span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: RUPTURE_COLOR, border: `0.5px solid ${RUPTURE_COLOR}55`, borderRadius: 0, padding: '2px 7px' }}>DI {row.discomfort_index}/10</span>
                   )}
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)' }}>{new Date(row.created_at).toLocaleDateString()}</span>
                 </button>
@@ -266,7 +266,7 @@ export default function FalconPanel({ accent }: { accent: string }) {
                     <div key={s.key} title={s.label || `axis ${s.n}`}
                       onClick={() => phase === 'complete' && setActiveKey(s.key)}
                       style={{
-                        height: 26, border: `1px solid ${activeKey === s.key ? accent : 'var(--b1)'}`, borderRadius: 3,
+                        height: 26, border: `1px solid ${activeKey === s.key ? accent : 'var(--b1)'}`, borderRadius: 0,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
                         cursor: phase === 'complete' ? 'pointer' : 'default',
                       }}>
@@ -287,7 +287,7 @@ export default function FalconPanel({ accent }: { accent: string }) {
             <div style={{ display: 'grid', gridTemplateColumns: phase === 'complete' ? '1fr 1fr' : '1fr', gap: 14, alignItems: 'start', maxWidth: 1100 }}>
               {/* left — input */}
               <div>
-                <div style={{ border: '0.5px solid var(--b1)', borderRadius: 8, background: 'var(--raised)' }}>
+                <div style={{ border: '0.5px solid var(--b1)', borderRadius: 0, background: 'var(--raised)' }}>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.15em', color: 'var(--t4)', padding: '10px 12px 4px', display: 'block', textTransform: 'uppercase' }}>
                     Point the ship
                   </span>
@@ -326,7 +326,7 @@ export default function FalconPanel({ accent }: { accent: string }) {
                         style={{
                           padding: '5px 4px', fontFamily: 'var(--mono)', fontSize: 9, letterSpacing: '.04em',
                           background: 'transparent', border: `0.5px solid ${activeKey === s.key ? s.color : 'var(--b1)'}`,
-                          color: activeKey === s.key ? s.color : 'var(--t3)', cursor: 'pointer', borderRadius: 5, textAlign: 'center',
+                          color: activeKey === s.key ? s.color : 'var(--t3)', cursor: 'pointer', borderRadius: 0, textAlign: 'center',
                         }}>
                         {s.n}. {s.label.split(' ')[0]}
                       </button>
@@ -335,7 +335,7 @@ export default function FalconPanel({ accent }: { accent: string }) {
                 )}
 
                 {/* architecture note */}
-                <div style={{ marginTop: 14, padding: '10px 12px', border: '0.5px solid var(--b2)', borderRadius: 8 }}>
+                <div style={{ marginTop: 14, padding: '10px 12px', border: '0.5px solid var(--b2)', borderRadius: 0 }}>
                   <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 6 }}>Engine architecture</div>
                   {[
                     ['Tier 1 — Material Ground', 'Axes 1-6, simultaneous. Who controls what, what flows where, the economics of independence.'],
@@ -352,7 +352,7 @@ export default function FalconPanel({ accent }: { accent: string }) {
 
               {/* right — detail viewer */}
               {phase === 'complete' && (
-                <div className="falcon-rise" style={{ border: '0.5px solid var(--b1)', borderRadius: 8, minHeight: 220 }}>
+                <div className="falcon-rise" style={{ border: '0.5px solid var(--b1)', borderRadius: 0, minHeight: 220 }}>
                   <div style={{ borderBottom: '0.5px solid var(--b1)', padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     {active ? (
                       <>
@@ -398,7 +398,7 @@ export default function FalconPanel({ accent }: { accent: string }) {
 
             {/* the Rupture panel */}
             {phase === 'complete' && result?.rupture && !result.rupture.error && (
-              <div className="falcon-rise" style={{ border: `0.5px solid ${RUPTURE_COLOR}44`, borderRadius: 10, marginTop: 16, maxWidth: 1100 }}>
+              <div className="falcon-rise" style={{ border: `0.5px solid ${RUPTURE_COLOR}44`, borderRadius: 0, marginTop: 16, maxWidth: 1100 }}>
                 <div style={{ borderBottom: '0.5px solid var(--b1)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.2em', color: RUPTURE_COLOR, textTransform: 'uppercase' }}>Axis 16 — The Rupture</span>
                   {typeof result.rupture.discomfort_index === 'number' && (
@@ -418,7 +418,7 @@ export default function FalconPanel({ accent }: { accent: string }) {
                     )}
                   </div>
                   {result.rupture.first_thing_to_build && (
-                    <div style={{ border: `0.5px solid ${RUPTURE_COLOR}33`, borderRadius: 8, padding: '10px 14px', marginTop: 6 }}>
+                    <div style={{ border: `0.5px solid ${RUPTURE_COLOR}33`, borderRadius: 0, padding: '10px 14px', marginTop: 6 }}>
                       <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: RUPTURE_COLOR, letterSpacing: '.12em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>First thing to build</span>
                       <span style={{ fontSize: 12.5, color: 'var(--t1)' }}>{result.rupture.first_thing_to_build}</span>
                     </div>
@@ -442,22 +442,22 @@ export default function FalconPanel({ accent }: { accent: string }) {
 
             {/* outcome tracking — the training signal */}
             {phase === 'complete' && result?.analysis_id && result?.rupture && !result.rupture.error && (
-              <div style={{ border: '0.5px solid var(--b1)', borderRadius: 10, marginTop: 12, maxWidth: 1100, padding: '12px 14px' }}>
+              <div style={{ border: '0.5px solid var(--b1)', borderRadius: 0, marginTop: 12, maxWidth: 1100, padding: '12px 14px' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--t3)', letterSpacing: '.1em', marginBottom: 8, textTransform: 'uppercase' }}>
                   Outcome — what actually got built {outcomeSaved && <span style={{ color: '#4ADE80' }}>· saved</span>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <textarea value={outcome.what_was_built} onChange={e => setOutcome(o => ({ ...o, what_was_built: e.target.value }))}
                     placeholder="what was actually built" rows={2}
-                    style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none', resize: 'vertical' }} />
+                    style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none', resize: 'vertical' }} />
                   <textarea value={outcome.comparison_to_rupture} onChange={e => setOutcome(o => ({ ...o, comparison_to_rupture: e.target.value }))}
                     placeholder="how it compares to the named Rupture — where it matched, where it diverged" rows={2}
-                    style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none', resize: 'vertical' }} />
+                    style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none', resize: 'vertical' }} />
                   <textarea value={outcome.founder_notes} onChange={e => setOutcome(o => ({ ...o, founder_notes: e.target.value }))}
                     placeholder="founder notes" rows={2}
-                    style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none', resize: 'vertical' }} />
+                    style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--ui)', outline: 'none', resize: 'vertical' }} />
                   <button onClick={saveOutcome} disabled={!outcome.what_was_built.trim()}
-                    style={{ alignSelf: 'flex-start', padding: '6px 14px', borderRadius: 6, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: outcome.what_was_built.trim() ? 'pointer' : 'not-allowed', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+                    style={{ alignSelf: 'flex-start', padding: '6px 14px', borderRadius: 0, border: `0.5px solid ${accent}55`, background: accent + '22', color: accent, cursor: outcome.what_was_built.trim() ? 'pointer' : 'not-allowed', fontFamily: 'var(--mono)', fontSize: 10.5 }}>
                     log outcome ▸
                   </button>
                 </div>

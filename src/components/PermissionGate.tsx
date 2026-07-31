@@ -29,7 +29,7 @@ export default function PermissionGate({ accent, kind = 'microphone', onAllow, o
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(4,5,8,.72)', backdropFilter: 'blur(3px)' }}>
       <div className="rise" role="dialog" aria-modal="true" aria-label={`${kind} permission`}
-        style={{ width: 400, maxWidth: 'calc(100vw - 48px)', background: 'var(--float)', border: '0.5px solid var(--b1)', borderRadius: 12, padding: '26px 28px', boxShadow: '0 18px 60px rgba(0,0,0,.5)' }}>
+        style={{ width: 400, maxWidth: 'calc(100vw - 48px)', background: 'var(--float)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '26px 28px', boxShadow: '0 18px 60px rgba(0,0,0,.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <span style={{ fontSize: 20 }}>{c.icon}</span>
           <span style={{ fontFamily: 'var(--serif)', fontSize: 18, color: 'var(--t1)' }}>
@@ -44,11 +44,11 @@ export default function PermissionGate({ accent, kind = 'microphone', onAllow, o
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onDeny}
-            style={{ background: 'none', border: '0.5px solid var(--b1)', borderRadius: 7, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, padding: '8px 16px' }}>
+            style={{ background: 'none', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, padding: '8px 16px' }}>
             not now
           </button>
           <button onClick={onAllow} autoFocus
-            style={{ background: accent + '22', border: `0.5px solid ${accent}66`, borderRadius: 7, color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, padding: '8px 16px' }}>
+            style={{ background: accent + '22', border: `0.5px solid ${accent}66`, borderRadius: 0, color: accent, cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 11, padding: '8px 16px' }}>
             allow the {kind}
           </button>
         </div>

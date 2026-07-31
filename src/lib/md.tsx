@@ -17,7 +17,7 @@ function inline(text: string, keyBase: string): React.ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index))
     if (m[2] != null) out.push(<strong key={`${keyBase}b${k++}`}>{m[2]}</strong>)
     else if (m[3] != null) out.push(<em key={`${keyBase}i${k++}`}>{m[3]}</em>)
-    else if (m[4] != null) out.push(<code key={`${keyBase}c${k++}`} style={{ background: 'rgba(255,255,255,.07)', padding: '1px 5px', borderRadius: 4, fontSize: '0.92em', fontFamily: 'var(--mono, monospace)' }}>{m[4]}</code>)
+    else if (m[4] != null) out.push(<code key={`${keyBase}c${k++}`} style={{ background: 'rgba(255,255,255,.07)', padding: '1px 5px', borderRadius: 0, fontSize: '0.92em', fontFamily: 'var(--mono, monospace)' }}>{m[4]}</code>)
     else if (m[5] != null) out.push(<a key={`${keyBase}a${k++}`} href={m[6]} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecorationColor: 'rgba(255,255,255,.35)' }}>{m[5]}</a>)
     last = m.index + m[0].length
   }
@@ -56,7 +56,7 @@ export function Md({ text }: { text: string }): React.ReactElement {
       const buf: string[] = []; i++
       while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++])
       i++
-      blocks.push(<pre key={key++} style={{ background: 'rgba(0,0,0,.35)', border: '0.5px solid rgba(255,255,255,.08)', borderRadius: 8, padding: '10px 12px', overflow: 'auto', fontSize: '0.92em', fontFamily: 'var(--mono, monospace)', lineHeight: 1.55, margin: '8px 0' }}>{buf.join('\n')}</pre>)
+      blocks.push(<pre key={key++} style={{ background: 'rgba(0,0,0,.35)', border: '0.5px solid rgba(255,255,255,.08)', borderRadius: 0, padding: '10px 12px', overflow: 'auto', fontSize: '0.92em', fontFamily: 'var(--mono, monospace)', lineHeight: 1.55, margin: '8px 0' }}>{buf.join('\n')}</pre>)
       continue
     }
     // headings — her volume knob

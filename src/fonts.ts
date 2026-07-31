@@ -4,15 +4,23 @@
 // fonts.googleapis.com. @fontsource bundles the woff2 files into the
 // app's own build, so nothing is fetched from outside at runtime.
 // Weights mirror the original Google Fonts requests exactly.
+//
+// Workbench chrome runs on the Industry design system's type pair —
+// Barlow Condensed for headings/labels (var(--serif) in App.tsx, despite
+// the name — kept to avoid touching every call site) and Barlow for body
+// UI (var(--ui)). JetBrains Mono stays for the terminal/code/data
+// readouts, which are genuinely monospace content, not brand chrome.
 // ============================================================
 
-// Workbench UI — App.tsx (var(--mono) / var(--ui))
+// Workbench UI — App.tsx (var(--mono) / var(--ui) / var(--serif))
 import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/500.css';
 import '@fontsource/jetbrains-mono/600.css';
-import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
-import '@fontsource/inter/600.css';
+import '@fontsource/barlow/400.css';
+import '@fontsource/barlow/500.css';
+import '@fontsource/barlow/700.css';
+import '@fontsource/barlow-condensed/400.css';
+import '@fontsource/barlow-condensed/600.css';
 
 // Optimus panel — OptimusPanel.tsx
 import '@fontsource/playfair-display/500.css';

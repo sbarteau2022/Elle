@@ -80,7 +80,7 @@ export default function TaxPanel({ accent }: any) {
             <button key={t} onClick={() => setTab(t)}
               style={{
                 background: tab === t ? accent + '22' : 'none', border: `0.5px solid ${tab === t ? accent + '55' : 'var(--b1)'}`,
-                borderRadius: 6, color: tab === t ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5, padding: '4px 10px',
+                borderRadius: 0, color: tab === t ? accent : 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--mono)', fontSize: 10.5, padding: '4px 10px',
               }}>
               {TAB_LABEL[t]}
             </button>
@@ -108,7 +108,7 @@ export const Empty = ({ children }: any) => <div style={{ fontFamily: 'var(--mon
 export function Btn({ label, color, onClick, disabled }: { label: string; color: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      style={{ background: 'none', border: `0.5px solid ${color}44`, borderRadius: 4, color, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, fontFamily: 'var(--mono)', fontSize: 9, padding: '2px 8px' }}>
+      style={{ background: 'none', border: `0.5px solid ${color}44`, borderRadius: 0, color, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, fontFamily: 'var(--mono)', fontSize: 9, padding: '2px 8px' }}>
       {label}
     </button>
   )
@@ -117,7 +117,7 @@ export function Btn({ label, color, onClick, disabled }: { label: string; color:
 export function Select({ value, onChange, options, labels }: { value: string; onChange: (v: string) => void; options: string[]; labels?: Record<string, string> }) {
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)}
-      style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)' }}>
+      style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '5px 8px', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t1)' }}>
       {options.map((o) => <option key={o} value={o}>{labels?.[o] || o}</option>)}
     </select>
   )
@@ -126,13 +126,13 @@ export function Select({ value, onChange, options, labels }: { value: string; on
 export function Input({ value, onChange, placeholder, type }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
   return (
     <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type || 'text'}
-      style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 6, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
+      style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, color: 'var(--t1)', padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--mono)', outline: 'none' }} />
   )
 }
 
 export function Tile({ label, value, color, accent }: any) {
   return (
-    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 10, padding: '12px 14px' }}>
+    <div style={{ background: 'var(--raised)', border: '0.5px solid var(--b1)', borderRadius: 0, padding: '12px 14px' }}>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t3)', letterSpacing: '.1em', textTransform: 'uppercase' }}>{label}</div>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 19, color: color || accent, marginTop: 6 }}>{value}</div>
     </div>
