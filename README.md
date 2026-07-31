@@ -62,6 +62,16 @@ registers every panel below via `registerPanel()`, and `App.tsx` only ever
 reads `listPanels()`/`listSections()` back out (`src/plugins/registry.ts`).
 A third-party panel would plug in the same way, no change to `App.tsx`.
 
+At 20 registered panels, the rail earns its own UX: a **filter box** above
+the nav narrows the list by label as you type (Enter jumps straight to a
+sole match, Escape clears), and each of the three groups **collapses**
+independently — click the group header, state persists in `localStorage`
+(`elle_rail_collapsed`). A group with a filter match forces itself open even
+if you'd collapsed it, so filtering never hides the result. The nav column
+scrolls on its own now too, so the group headers and the pinned
+theme/terminal/sign-out block at the bottom never get pushed off-screen by
+tab count.
+
 **mind**
 - **elle** — the unified conversation. Every turn runs the full-scope router
   (`/api/elle-router`): the tool catalog below, and she picks the tool *and*
@@ -157,6 +167,20 @@ A third-party panel would plug in the same way, no change to `App.tsx`.
     this machine via the `sovereignDuplex` provider) and the **cloud** (the
     heavy engines + meta-observer). An append-only ledger (`/api/duplex`)
     either side `say`s or `observe`s on; this tab tails it live.
+- **toolkit** — her bucket of skills and the MCP connector shelf, as two
+  sub-tabs (`ToolkitPanel.tsx`, same one-rail-slot-for-related-surfaces
+  pattern as *forge*): neither `skill_list`/`skill_read`/`skill_write` nor
+  `mcp_library`/`mcp_add`/`mcp_tools` has a dedicated REST door (they're
+  router tools, like `trade_execute` or `forge_write`), so this panel reaches
+  them the same way the elle chat panel does — an imperative ask to
+  `/api/elle-router`, with the named tool's raw observation pulled out of the
+  returned trace (`src/lib/toolCall.ts`), on a scratch session id that's kept
+  separate from your actual conversation thread.
+  - *skills* (`SkillsPanel.tsx`) — the index (`skill_list`), read one by name
+    (`skill_read`), and a form to teach her a new one (`skill_write`).
+  - *mcp* (`McpPanel.tsx`) — the curated connector shelf (`mcp_library`),
+    what's mounted right now (`mcp_tools`), and a form to mount one by name
+    (`mcp_add`).
 - **falcon** — the workbench face of the worker's `falcon.ts`: point it at a
   direction (a market, a problem, a domain, an idea) and it fires 16 axes
   across three tiers (Material Ground → Observer Reading → Validation, then
@@ -386,6 +410,8 @@ token:
 | forge → forge | `POST /api/elle-forge` (SSE) |
 | forge → sandbox | `POST /api/elle-sandbox-runs` · `/api/elle-sandbox` |
 | forge → duplex | `POST /api/duplex` |
+| toolkit → skills | `POST /api/elle-router` (asks for `skill_list`/`skill_read`/`skill_write`, no dedicated door) |
+| toolkit → mcp | `POST /api/elle-router` (asks for `mcp_library`/`mcp_tools`/`mcp_add`, no dedicated door) |
 | falcon | `POST /api/falcon` |
 | diagnose | `POST /api/diagnose` |
 | health | `GET /health` (×3 workers) |
@@ -462,6 +488,10 @@ Elle/
 | `src/components/ForgePanel.tsx` | live tool-forging stream (SSE) |
 | `src/components/SandboxPanel.tsx` | connect-back sandbox run log |
 | `src/components/DuplexPanel.tsx` | sovereign/cloud duplex ledger |
+| `src/components/ToolkitPanel.tsx` | the toolkit tab's sub-tab shell (skills/mcp) |
+| `src/components/SkillsPanel.tsx` | skill library — index, read, teach (`skill_list`/`skill_read`/`skill_write` via the router) |
+| `src/components/McpPanel.tsx` | MCP connector shelf — browse, mounted, mount (`mcp_library`/`mcp_tools`/`mcp_add` via the router) |
+| `src/lib/toolCall.ts` | bridges a panel to one router tool: ask, pull that tool's raw observation out of the trace |
 | `src/components/FalconPanel.tsx` | the 16-axis analysis engine |
 | `src/components/FlockPanel.tsx` | Flock — social-media studio: brand kits, on-brand content + Brand Guardian, image gen/edit, multi-channel fan-out (`/api/flock`) |
 | `src/components/Terminal.tsx` | terminal chrome — tab strip + xterm mount (drawer and panel share it) |

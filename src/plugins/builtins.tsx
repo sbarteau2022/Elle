@@ -24,6 +24,7 @@ import FlockPanel from '../components/FlockPanel'
 import AtlasPanel from '../components/AtlasPanel'
 import SecurityPanel, { securityHasBlocked } from '../components/SecurityPanel'
 import TerminalPanel from '../components/TerminalPanel'
+import ToolkitPanel from '../components/ToolkitPanel'
 import { registerPanel } from './registry'
 
 registerPanel({
@@ -82,6 +83,10 @@ registerPanel({
   id: 'forge', glyph: '⚒', label: 'forge', section: 'work', order: 8.5,
   render: ({ accent }) => <MasterForgePanel accent={accent} />,
   alert: forgeHasAlert,
+})
+registerPanel({
+  id: 'toolkit', glyph: '⚙', label: 'toolkit', section: 'work', order: 8.7,
+  render: ({ accent }) => <ToolkitPanel accent={accent} />,
 })
 registerPanel({
   id: 'falcon', glyph: '⌖', label: 'falcon', section: 'work', order: 8.9,
