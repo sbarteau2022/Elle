@@ -5,6 +5,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const agent = require('./sandbox-agent.cjs');
+const lh = require('./lane-handshake.cjs');
+const rb = require('./rosen-bridge.cjs');
 
 test('config: builds poll/submit URLs from an https worker origin, trailing slash trimmed', () => {
   const cfg = agent.config({ key: 'a b&c', workerUrl: 'https://example.workers.dev/' });
@@ -116,4 +118,83 @@ test('walkFiles: a single file target returns just that file', () => {
 
 test('walkFiles: a missing path throws rather than silently returning nothing', () => {
   assert.throws(() => agent.walkFiles('/no/such/path/at/all'), /no such path/);
+});
+
+// ── PQC v2: the hybrid lane handshake, this agent's initiator half ──────────
+
+test('laptopWantsV2: follows the worker advertisement, honors the v1 rollback lever', () => {
+  const prev = process.env.ELLE_LANE_PROTOCOL;
+  try {
+    delete process.env.ELLE_LANE_PROTOCOL;
+    assert.equal(agent.laptopWantsV2({ supported: [1, 2] }), true);
+    assert.equal(agent.laptopWantsV2({ supported: [1] }), false);   // worker v2 off
+    assert.equal(agent.laptopWantsV2(null), false);
+    process.env.ELLE_LANE_PROTOCOL = 'v1';
+    assert.equal(agent.laptopWantsV2({ supported: [1, 2] }), false); // forced v1 even if offered
+  } finally {
+    if (prev === undefined) delete process.env.ELLE_LANE_PROTOCOL; else process.env.ELLE_LANE_PROTOCOL = prev;
+  }
+});
+
+test('planHandshake: established at the worker epoch ⇒ no handshake', () => {
+  const plan = agent.planHandshake({ v2: true, epoch: 3 }, { epoch: 3 }, { epoch: 3 }, 3);
+  assert.equal(plan.handshake, false);
+  assert.equal(plan.epoch, 3);
+});
+
+test('planHandshake: first contact (worker has no roots) ⇒ handshake at epoch 1', () => {
+  const plan = agent.planHandshake({ v2: false, epoch: 0 }, null, null, 0);
+  assert.equal(plan.handshake, true);
+  assert.equal(plan.epoch, 1);
+});
+
+test('planHandshake: out of sync ⇒ a strictly-newer epoch than anyone has seen', () => {
+  // worker advertises epoch 5, our counter is 4, a stale root sits at 5 → next is 6
+  const plan = agent.planHandshake({ v2: true, epoch: 5 }, { epoch: 5 }, { epoch: 4 }, 4);
+  assert.equal(plan.handshake, true);
+  assert.equal(plan.epoch, 6);
+});
+
+test('performHandshake: the initiator derives the SAME roots as the (ported) worker responder, and a v2 channel round-trips', async () => {
+  const preshared = crypto.getRandomValues(new Uint8Array(32));
+  const lane = 'primary', epoch = 7;
+  const workerRoots = {}; // what the responder derived, keyed by channel id
+
+  // `post` stands in for POST /api/sandbox-bus/handshake: the worker responder,
+  // whose role rosen-bridge's sibling lane-handshake.cjs also ports.
+  const post = async (hellos) => {
+    assert.equal(hellos.length, 2);
+    return Promise.all(hellos.map(async (hello) => {
+      const pub = lh.decodeHelloPub(hello);
+      const { ciphertext, rootLane } = await lh.laneHandshakeAccept(preshared, hello.lane, hello.epoch, pub);
+      workerRoots[hello.lane] = rootLane;
+      return lh.encodeAccept(ciphertext);
+    }));
+  };
+
+  const roots = await agent.performHandshake(preshared, lane, epoch, post);
+
+  for (const d of ['to_local', 'to_cloud']) {
+    const laptopRoot = roots[d];
+    const workerRoot = workerRoots[`${lane}:${d}`];
+    assert.ok(laptopRoot && workerRoot, `both sides produced a root for ${d}`);
+    assert.equal(Buffer.from(laptopRoot).toString('hex'), Buffer.from(workerRoot).toString('hex'),
+      `laptop and worker agree on root_lane for ${d}`);
+
+    // the agreed root drives a working v2 lane channel across the two sides
+    const chWorker = await lh.laneChannelV2(workerRoot);
+    const chLaptop = await lh.laneChannelV2(laptopRoot);
+    const job = { kind: 'exec', code: 'print(7)' };
+    const sealed = await rb.sealForLane(chWorker, rb.laneChannelStart(chWorker), job);
+    const opened = await rb.openFromLane(chLaptop, rb.laneChannelStart(chLaptop), sealed.wire, 8);
+    assert.deepEqual(opened.payload, job);
+  }
+});
+
+test('performHandshake: a wrong-length ACCEPT batch is rejected, not silently used', async () => {
+  const preshared = crypto.getRandomValues(new Uint8Array(32));
+  await assert.rejects(
+    () => agent.performHandshake(preshared, 'primary', 1, async () => [{ v: 2 }]), // only one accept for two hellos
+    /expected 2 accepts/,
+  );
 });

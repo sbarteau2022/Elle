@@ -17,10 +17,13 @@
 // This mirrors pqc-hybrid.ts's 'vetted' profile (the two audited legs). The
 // experimental QC-MDPC leg is worker-only and not part of the lane handshake.
 //
-// SCOPE: the reviewed crypto core. It does NOT change sandbox-poller.cjs or the
-// live bus — the laptop still speaks v1 (rosen-bridge.cjs) on the wire. Wiring
-// v2 into the poller (epoch state, the /handshake round) is a separate pass, as
-// on the worker side.
+// SCOPE: the reviewed crypto core. It is now WIRED LIVE — sandbox-agent.cjs is
+// the initiator: it runs this handshake per (lane, direction) against the
+// worker's /api/sandbox-bus/handshake when the poll advertises v2 support,
+// persists the agreed root_lane under .bus-state/, and seals/opens that
+// direction under laneChannelV2(root_lane). Still flag-gated end to end (the
+// worker's ELLE_LANE_PROTOCOL=v2 is the switch; the laptop follows the poll's
+// advertisement, with ELLE_LANE_PROTOCOL=v1 here as a rollback lever).
 // ============================================================
 
 const { ml_kem768 } = require('@noble/post-quantum/ml-kem.js');
