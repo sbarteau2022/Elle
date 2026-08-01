@@ -34,6 +34,19 @@
 // SANDBOX_AGENT_KEY) the agent stays idle and never polls. When connected it
 // grants real, un-prompted execution by design: "she just uses it."
 //
+// PQC v2 (the hybrid lane handshake, this side's INITIATOR half): the poll
+// response now carries a `protocol: { supported, v2, epoch }` advertisement. When
+// the worker advertises v2 support (its own ELLE_LANE_PROTOCOL=v2 — the single
+// switch that arms the whole thing), this agent runs the X25519+ML-KEM handshake
+// per (lane, direction) against /api/sandbox-bus/handshake, derives the same
+// forward-secret root_lane the worker stored (proven byte-identical by the shared
+// KAT), persists it under .bus-state/, and seals/opens that direction under
+// laneChannelV2(root_lane) instead of the pasted secret. It follows the worker's
+// advertisement automatically; set ELLE_LANE_PROTOCOL=v1 here to force the v1
+// pre-shared path even when the worker offers v2 (a laptop-side rollback lever —
+// coordinate it with flipping the worker off, or the two ends desync). See
+// elle-worker's docs/PQC_ROSEN_BRIDGE_DESIGN.md §4.5.
+//
 // Config (env, all optional except the key):
 //   ELLE_SANDBOX_KEY    shared secret; MUST match the worker. No key ⇒ idle.
 //   ELLE_WORKER_URL     worker origin (https). Falls back to
@@ -41,6 +54,8 @@
 //   ELLE_SANDBOX_ROOT   default working directory for jobs (created if missing).
 //   ELLE_SANDBOX_LANES  comma-separated lane names to poll (default 'primary').
 //   ELLE_SANDBOX_POLL_MS  poll interval per lane, ms (default 5000, min 2000).
+//   ELLE_LANE_PROTOCOL  set to 'v1' to force the pre-shared path (rollback lever);
+//                       otherwise the agent follows the worker's v2 advertisement.
 // ============================================================
 
 const { spawn } = require('child_process');
@@ -49,6 +64,7 @@ const os = require('os');
 const path = require('path');
 const box = require('./sandbox-box.cjs');
 const rb = require('./rosen-bridge.cjs');
+const lh = require('./lane-handshake.cjs');
 
 const DEFAULT_WORKER = 'https://elle-worker.sbarteau2022.workers.dev';
 const DEFAULT_POLL_MS = 5_000;
@@ -59,7 +75,9 @@ const CLONE_MAX_BUNDLE = 5 * 1024 * 1024;
 const CLONE_SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.cache', 'coverage']);
 const POLL_TIMEOUT_MS = 20_000;
 const SUBMIT_TIMEOUT_MS = 20_000;
+const HANDSHAKE_TIMEOUT_MS = 20_000;
 const OPEN_WINDOW = 32; // matches hyperbolic-sync's default forward-only search window
+const DIRECTIONS = ['to_local', 'to_cloud']; // the two per-lane channels we key
 
 function log(...a) { try { console.log('[sandbox-agent]', ...a); } catch { /* noop */ } }
 function slug(s) { return String(s).replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'lane'; }
@@ -69,11 +87,12 @@ function config(opts) {
   const origin = ((opts && opts.workerUrl) || process.env.ELLE_WORKER_URL || process.env.VITE_ELLE_WORKER_URL || DEFAULT_WORKER).replace(/\/+$/, '');
   const pollUrl = `${origin}/api/sandbox-bus/poll`;
   const submitUrl = `${origin}/api/sandbox-bus/submit`;
+  const handshakeUrl = `${origin}/api/sandbox-bus/handshake`;
   const workRoot = (opts && opts.root) || process.env.ELLE_SANDBOX_ROOT || path.join(userDataDir(), 'sandbox-workspace');
   const lanes = String((opts && opts.lanes) || process.env.ELLE_SANDBOX_LANES || 'primary')
     .split(',').map((s) => s.trim()).filter(Boolean);
   const pollIntervalMs = Math.max(2_000, Number(process.env.ELLE_SANDBOX_POLL_MS) || DEFAULT_POLL_MS);
-  return { key, origin, pollUrl, submitUrl, workRoot, lanes: lanes.length ? lanes : ['primary'], pollIntervalMs };
+  return { key, origin, pollUrl, submitUrl, handshakeUrl, workRoot, lanes: lanes.length ? lanes : ['primary'], pollIntervalMs };
 }
 
 function userDataDir() {
@@ -114,6 +133,121 @@ async function getChannel(rootSecret, lane, direction) {
   const k = `${lane}:${direction}`;
   if (!channelCache.has(k)) channelCache.set(k, await rb.laneChannel(rootSecret, k));
   return channelCache.get(k);
+}
+
+// ── PQC v2: handshake roots + epoch, persisted next to the tick state ───────
+// A v2 root file holds the forward-secret root_lane (b64) the handshake agreed
+// for one (lane, direction) at a given epoch. The epoch counter is a per-lane
+// monotonic high-water mark so a fresh handshake always picks a strictly-newer
+// epoch than the worker will accept (it refuses a stale/replayed one).
+function loadRoot(lane, direction) {
+  try {
+    const o = JSON.parse(fs.readFileSync(stateFile(lane, `${direction}-root`), 'utf8'));
+    if (o && typeof o.epoch === 'number' && typeof o.root === 'string') return { epoch: o.epoch, root: o.root };
+  } catch { /* none */ }
+  return null;
+}
+function saveRoot(lane, direction, epoch, rootBytes) {
+  try { ensureRoot(); fs.writeFileSync(stateFile(lane, `${direction}-root`), JSON.stringify({ epoch, root: rb.b64(rootBytes) })); }
+  catch (e) { log(`could not persist v2 root for ${lane}/${direction}:`, e.message); }
+}
+function clearLocalState(lane, key) {
+  try { fs.rmSync(stateFile(lane, key), { force: true }); } catch { /* ignore */ }
+}
+function loadEpochCounter(lane) {
+  try { return Number(JSON.parse(fs.readFileSync(stateFile(lane, 'epoch'), 'utf8')).epoch) || 0; } catch { return 0; }
+}
+function saveEpochCounter(lane, epoch) {
+  try { ensureRoot(); fs.writeFileSync(stateFile(lane, 'epoch'), JSON.stringify({ epoch })); } catch { /* ignore */ }
+}
+
+// Do we speak v2 this tick? Follow the worker's advertisement, unless the
+// operator forced v1 here as a rollback lever. Pure.
+function laptopWantsV2(protocol) {
+  if ((process.env.ELLE_LANE_PROTOCOL || '').toLowerCase() === 'v1') return false;
+  return !!protocol && Array.isArray(protocol.supported) && protocol.supported.includes(2);
+}
+
+// Given the worker's advertised protocol, our stored roots, and our epoch
+// counter, decide whether to (re)handshake and at what epoch. Pure — no I/O.
+// Already established at the worker's active epoch ⇒ nothing to do; otherwise
+// pick an epoch strictly above everything anyone has seen so the worker accepts it.
+function planHandshake(protocol, rootLocal, rootCloud, counter) {
+  const wEpoch = Number(protocol && protocol.epoch) || 0;
+  const established = !!(protocol && protocol.v2) && rootLocal && rootCloud &&
+    rootLocal.epoch === wEpoch && rootCloud.epoch === wEpoch && wEpoch > 0;
+  if (established) return { handshake: false, epoch: wEpoch };
+  const epoch = Math.max(counter, wEpoch, (rootLocal && rootLocal.epoch) || 0, (rootCloud && rootCloud.epoch) || 0) + 1;
+  return { handshake: true, epoch };
+}
+
+// The crypto round, transport-injected so it is unit-testable without a network:
+// generate a hybrid keypair per direction, send the HELLOs via `post`, and finish
+// each ACCEPT into a root_lane. Returns { to_local, to_cloud } as Uint8Arrays.
+async function performHandshake(preshared, lane, epoch, post) {
+  const clients = DIRECTIONS.map(() => lh.laneHandshakeClientKeys());
+  const hellos = DIRECTIONS.map((d, i) => lh.encodeHello(`${lane}:${d}`, epoch, clients[i].publicKey));
+  const accepts = await post(hellos);
+  if (!Array.isArray(accepts) || accepts.length !== DIRECTIONS.length) {
+    throw new Error(`handshake: expected ${DIRECTIONS.length} accepts, got ${accepts && accepts.length}`);
+  }
+  const roots = {};
+  for (let i = 0; i < DIRECTIONS.length; i++) {
+    roots[DIRECTIONS[i]] = await lh.laneHandshakeClientFinish(
+      preshared, `${lane}:${DIRECTIONS[i]}`, epoch, clients[i], lh.decodeAcceptCt(accepts[i]),
+    );
+  }
+  return roots;
+}
+
+// Reconcile the lane's v2 state against the worker's advertisement: run a
+// handshake when out of sync, persist the agreed roots, and reset that lane's
+// forward-only tick state (a new epoch is a new geodesic — both ends restart at
+// tick 0, exactly as the worker's engineHandshake does).
+async function ensureHandshake(cfg, rootSecret, lane, protocol) {
+  const plan = planHandshake(protocol, loadRoot(lane, 'to_local'), loadRoot(lane, 'to_cloud'), loadEpochCounter(lane));
+  if (!plan.handshake) return;
+  let roots;
+  try {
+    roots = await performHandshake(rootSecret, lane, plan.epoch, async (hellos) => {
+      const r = await fetch(cfg.handshakeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-sandbox-key': cfg.key },
+        body: JSON.stringify({ hellos }),
+        signal: AbortSignal.timeout(HANDSHAKE_TIMEOUT_MS),
+      });
+      if (!r.ok) throw new Error(`handshake HTTP ${r.status}`);
+      return ((await r.json()) || {}).accepts || [];
+    });
+  } catch (e) {
+    // Still climb the counter so the next attempt uses a fresh (higher) epoch —
+    // this self-heals past any stale worker epoch instead of retrying a rejected one.
+    saveEpochCounter(lane, plan.epoch);
+    log(`lane "${lane}" v2 handshake (epoch ${plan.epoch}) failed:`, e && e.message ? e.message : e);
+    return;
+  }
+  for (const d of DIRECTIONS) {
+    saveRoot(lane, d, plan.epoch, roots[d]);
+    channelCache.delete(`${lane}:${d}:v2:${plan.epoch}`);
+  }
+  clearLocalState(lane, 'to_local-receiver');
+  clearLocalState(lane, 'to_cloud-sender');
+  saveEpochCounter(lane, plan.epoch);
+  log(`lane "${lane}" v2 established at epoch ${plan.epoch} (hybrid X25519+ML-KEM lane roots)`);
+}
+
+// Which channel seals/opens this (lane, direction) right now: the v2 geodesic if
+// we hold a root for it and v2 is in play, else the v1 pre-shared geodesic.
+async function resolveChannel(rootSecret, lane, direction, useV2) {
+  if (useV2) {
+    const r = loadRoot(lane, direction);
+    if (r && r.root) {
+      const k = `${lane}:${direction}:v2:${r.epoch}`;
+      if (!channelCache.has(k)) channelCache.set(k, await lh.laneChannelV2(rb.unb64(r.root)));
+      return channelCache.get(k);
+    }
+  }
+  return getChannel(rootSecret, lane, direction);
 }
 
 // ── the job executors — pure result, no transport awareness ─
@@ -342,42 +476,53 @@ async function pollLane(cfg, rootSecret, lane) {
   if (!res.ok) throw new Error(`poll HTTP ${res.status}`);
   const data = await res.json();
   const jobs = (data && data.jobs) || [];
-  if (!jobs.length) return;
+  // Version negotiation rides the poll (worker default: { supported: [1] }).
+  const protocol = (data && data.protocol) || { supported: [1], v2: false, epoch: 0 };
+  const useV2 = laptopWantsV2(protocol);
 
-  const inCh = await getChannel(rootSecret, lane, 'to_local');
-  let receiver = loadLocalState(lane, 'to_local-receiver') || rb.laneChannelStart(inCh);
-  const submitItems = [];
+  // Process this batch under whatever roots we already hold (v2 if established,
+  // else v1) — the jobs were sealed by the worker under its current state.
+  if (jobs.length) {
+    const inCh = await resolveChannel(rootSecret, lane, 'to_local', useV2);
+    let receiver = loadLocalState(lane, 'to_local-receiver') || rb.laneChannelStart(inCh);
+    const submitItems = [];
 
-  for (const job of jobs) {
-    let opened;
-    try {
-      opened = await rb.openFromLane(inCh, receiver, rb.unb64(job.wire), OPEN_WINDOW);
-    } catch (e) {
-      // A forged, corrupted, or out-of-window job never advances state and
-      // never gets a result submitted — the cloud side just times it out.
-      log(`lane "${lane}" job ${job.id} failed to authenticate:`, e.message);
-      continue;
+    for (const job of jobs) {
+      let opened;
+      try {
+        opened = await rb.openFromLane(inCh, receiver, rb.unb64(job.wire), OPEN_WINDOW);
+      } catch (e) {
+        // A forged, corrupted, or out-of-window job never advances state and
+        // never gets a result submitted — the cloud side just times it out.
+        log(`lane "${lane}" job ${job.id} failed to authenticate:`, e.message);
+        continue;
+      }
+      receiver = opened.next;
+      saveLocalState(lane, 'to_local-receiver', receiver);
+
+      const result = await executeJob(job.kind, opened.payload);
+      const outCh = await resolveChannel(rootSecret, lane, 'to_cloud', useV2);
+      const sender = loadLocalState(lane, 'to_cloud-sender') || rb.laneChannelStart(outCh);
+      const sealedOut = await rb.sealForLane(outCh, sender, result);
+      saveLocalState(lane, 'to_cloud-sender', sealedOut.next);
+      submitItems.push({ kind: 'result', wire: rb.b64(sealedOut.wire), replyTo: job.id });
     }
-    receiver = opened.next;
-    saveLocalState(lane, 'to_local-receiver', receiver);
 
-    const result = await executeJob(job.kind, opened.payload);
-    const outCh = await getChannel(rootSecret, lane, 'to_cloud');
-    const sender = loadLocalState(lane, 'to_cloud-sender') || rb.laneChannelStart(outCh);
-    const sealedOut = await rb.sealForLane(outCh, sender, result);
-    saveLocalState(lane, 'to_cloud-sender', sealedOut.next);
-    submitItems.push({ kind: 'result', wire: rb.b64(sealedOut.wire), replyTo: job.id });
+    if (submitItems.length) {
+      const r = await fetch(cfg.submitUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-sandbox-key': cfg.key },
+        body: JSON.stringify({ lane, items: submitItems }),
+        signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
+      });
+      if (!r.ok) log(`lane "${lane}" submit HTTP ${r.status}`);
+    }
   }
 
-  if (submitItems.length) {
-    const r = await fetch(cfg.submitUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-sandbox-key': cfg.key },
-      body: JSON.stringify({ lane, items: submitItems }),
-      signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
-    });
-    if (!r.ok) log(`lane "${lane}" submit HTTP ${r.status}`);
-  }
+  // Reconcile the v2 handshake for FUTURE ticks — after this batch, so the epoch
+  // cutover is clean (the next poll's jobs seal under the freshly agreed root).
+  // Runs even when there were no jobs, so first contact still establishes v2.
+  if (useV2) await ensureHandshake(cfg, rootSecret, lane, protocol);
 }
 
 async function tick(cfg) {
@@ -402,6 +547,12 @@ module.exports = {
   config,
   commandFor,
   walkFiles,
+  // PQC v2 negotiation/handshake — pure decision logic + the transport-injected
+  // crypto round (see sandbox-agent.test.cjs for the end-to-end proof against
+  // the ported worker responder).
+  laptopWantsV2,
+  planHandshake,
+  performHandshake,
   // Exposed so local-react-agent.cjs can reuse the SAME exec-in-the-box and
   // Ollama-call primitives a worker-dispatched job already uses, instead of
   // duplicating the fail-closed Docker check / output capping / stripThinking
