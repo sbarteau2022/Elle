@@ -13,6 +13,16 @@
 // derivation, no loop). Small gold particles travel the cyclic edges as a
 // literal animation of "this is where recall runs around."
 //
+// RESONANCE: a snapshot MAY carry a `resonance` block — candidate wormhole
+// pairs scored by a learned embedding model on-device (the only place deep
+// learning touches the atlas; inference only, provenance recorded). The
+// learned model proposes, the deterministic gate in src/lib/resonance.ts
+// disposes: endpoints re-verified, hop distance recomputed by BFS from the
+// snapshot's own edges, score checked against the three published nulls.
+// Confirmed proposals render as faint dashed violet arcs behind a toggle
+// that defaults OFF — they are claims about the graph, not part of it, and
+// nothing here (or anywhere) writes them in.
+//
 // REPLAY: every published snapshot persists server-side, and the device's
 // temporal embedding keeps coordinates coherent across builds — so scrubbing
 // the timeline (GET /api/atlas/history + /api/atlas/at) shows memories
@@ -23,6 +33,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import ForceGraph3D from 'react-force-graph-3d'
 import { getToken } from '../lib/elle'
+import { gateResonance, type ResonanceBlock } from '../lib/resonance'
 
 interface AtlasSnapshot {
   version: string
@@ -38,6 +49,7 @@ interface AtlasSnapshot {
     cycle_edges: string[]
   }
   product: { mix: { hyperbolic: number; toroidal: number } }
+  resonance?: ResonanceBlock
 }
 
 const mono = (size = 10): React.CSSProperties => ({ fontFamily: "'Space Mono', monospace", fontSize: size })
@@ -59,6 +71,7 @@ export default function AtlasPanel({ worker, accent }: any) {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [frameIdx, setFrameIdx] = useState<number | null>(null)   // index into history; null = live
   const [playing, setPlaying] = useState(false)
+  const [showResonance, setShowResonance] = useState(false) // proposals stay hidden until asked for
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
   const fgRef = useRef<any>(null)
@@ -118,6 +131,13 @@ export default function AtlasPanel({ worker, accent }: any) {
 
   const data = frame ?? latest   // what the scene and the stats row render
 
+  // The gate runs per frame, from that frame's own edges — a replayed
+  // snapshot gates exactly as it did live.
+  const resonance = useMemo(() => {
+    if (!data?.resonance) return null
+    return gateResonance(data.resonance, data.nodes, data.edges, data.hyper.points)
+  }, [data])
+
   const graphData = useMemo(() => {
     if (!data) return { nodes: [] as any[], links: [] as any[] }
     const cycleEdges = new Set(data.structure.cycle_edges)
@@ -130,9 +150,16 @@ export default function AtlasPanel({ worker, accent }: any) {
     const nodeSet = new Set(nodes.map((n) => n.id))
     const links = data.edges
       .filter((e) => nodeSet.has(e.src) && nodeSet.has(e.dst))
-      .map((e) => ({ source: e.src, target: e.dst, kind: e.kind, weight: e.weight, onCycle: cycleEdges.has(edgeKeyOf(e.src, e.dst)) }))
+      .map((e) => ({ source: e.src, target: e.dst, kind: e.kind, weight: e.weight, onCycle: cycleEdges.has(edgeKeyOf(e.src, e.dst)), proposed: false }))
+    if (showResonance && resonance) {
+      for (const p of resonance.confirmed) {
+        if (nodeSet.has(p.src) && nodeSet.has(p.dst)) {
+          links.push({ source: p.src, target: p.dst, kind: 'resonance', weight: p.score, onCycle: false, proposed: true })
+        }
+      }
+    }
     return { nodes, links }
-  }, [data])
+  }, [data, showResonance, resonance])
 
   // A slow, literal animation — the graph turns on its own, gold particles
   // travel the cyclic edges. Re-armed whenever a fresh graph mounts.
@@ -160,6 +187,15 @@ export default function AtlasPanel({ worker, accent }: any) {
             <span>cycle rank b₁={data.structure.invariants.cycle_rank}</span>
             <span>mix ℍ {Math.round(data.product.mix.hyperbolic * 100)}% · 𝕋 {Math.round(data.product.mix.toroidal * 100)}%</span>
             {data.hyper.drift && <span>drift {data.hyper.drift.mean.toFixed(4)} ({data.hyper.drift.moved} moved)</span>}
+            {resonance && (
+              <span title={`learned proposes, geometry disposes — scorer: ${data.resonance!.scorer.model} (inference only)`}>
+                resonance · {resonance.confirmed.length}/{resonance.gated.length} pass the gate
+                <button onClick={() => setShowResonance((s) => !s)}
+                  style={{ background: 'none', border: `0.5px solid ${showResonance ? '#8f7bb8' : 'var(--border)'}`, borderRadius: 0, color: showResonance ? '#8f7bb8' : 'var(--dim)', cursor: 'pointer', ...mono(9), padding: '1px 7px', marginLeft: 7 }}>
+                  {showResonance ? 'shown' : 'hidden'}
+                </button>
+              </span>
+            )}
             <span>{new Date(data.created_at).toLocaleString()}</span>
           </div>
         )}
@@ -196,9 +232,10 @@ export default function AtlasPanel({ worker, accent }: any) {
             nodeLabel="id"
             nodeColor={() => '#F5F0E8'}
             nodeRelSize={3}
-            linkColor={(l: any) => (l.onCycle ? '#5980a6' : 'rgba(139,26,26,0.55)')}
-            linkWidth={(l: any) => (l.onCycle ? 1.4 : 0.6)}
+            linkColor={(l: any) => (l.proposed ? '#8f7bb8' : l.onCycle ? '#5980a6' : 'rgba(139,26,26,0.55)')}
+            linkWidth={(l: any) => (l.proposed ? 0.8 : l.onCycle ? 1.4 : 0.6)}
             linkOpacity={0.55}
+            {...({ linkLineDash: (l: any) => (l.proposed ? [2, 3] : null) } as any) /* supported at runtime; absent from the lib's .d.ts */}
             linkDirectionalParticles={(l: any) => (l.onCycle ? 2 : 0)}
             linkDirectionalParticleWidth={1.6}
             linkDirectionalParticleColor={() => '#E4C97A'}
