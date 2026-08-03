@@ -44,8 +44,27 @@ function isTableSep(line: string): boolean {
 const BLOCK_START = /^(#{1,3}\s|```|>|\s*[-*]\s+|\s*\d+\.\s+|\s*---+\s*$)/
 function stopsParagraph(line: string): boolean { return BLOCK_START.test(line) || isTableRow(line) }
 
+// A handful of tools (tax_*, mcp_tools, sandbox_status, atlas…) hand back a
+// raw JSON payload as their observation, and the router sometimes answers
+// with one verbatim rather than prose. Un-fenced, that used to fall into the
+// paragraph branch below and get run through the **bold**/*italic*/`code`
+// inliner — which doesn't know JSON syntax, so a stray `_id` or a `"key"`
+// with underscores/asterisks in it came out with random spans bolded or
+// dropped mid-object: "broken JSON in the chat." Detected here before any
+// other parsing so it renders as what it is — a formatted, monospace block —
+// instead of being run through prose rules it was never written for.
+export function asPrettyJson(text: string): string | null {
+  const t = text.trim()
+  if (!((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']')))) return null
+  try { return JSON.stringify(JSON.parse(t), null, 2) } catch { return null }
+}
+
 // ── block-level renderer ─────────────────────────────────────
 export function Md({ text }: { text: string }): React.ReactElement {
+  const pretty = asPrettyJson(String(text || ''))
+  if (pretty != null) {
+    return <pre style={{ background: 'rgba(0,0,0,.35)', border: '0.5px solid rgba(255,255,255,.08)', borderRadius: 0, padding: '10px 12px', overflow: 'auto', fontSize: '0.92em', fontFamily: 'var(--mono, monospace)', lineHeight: 1.55, margin: '8px 0' }}>{pretty}</pre>
+  }
   const lines = String(text || '').split('\n')
   const blocks: React.ReactNode[] = []
   let i = 0, key = 0
@@ -125,6 +144,8 @@ function inlineHtml(text: string): string {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>')
 }
 export function mdToHtml(text: string): string {
+  const pretty = asPrettyJson(String(text || ''))
+  if (pretty != null) return `<pre>${esc(pretty)}</pre>`
   const lines = String(text || '').split('\n')
   const out: string[] = []
   let i = 0

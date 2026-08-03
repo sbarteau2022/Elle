@@ -13,7 +13,7 @@ import VoiceOrb from './VoiceOrb'
 import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { useWorkbenchCamera } from '../lib/CameraContext'
 import { on, requestOpenPaper } from '../lib/commands'
-import { Md, printAnswer, emailAnswer } from '../lib/md'
+import { Md, printAnswer, emailAnswer, asPrettyJson } from '../lib/md'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
 import { getTier } from '../lib/elle'
 import HistoryRail, { fetchTranscript } from './HistoryRail'
@@ -30,10 +30,13 @@ const sid = () => {
   return s
 }
 
-// Inventory mirrors the router's system-prompt tool set (worker/src/router.ts).
-// The real full-scope catalog, grouped as the worker renders it (router.ts
-// TOOL_LINES). Keep this list in step with the worker — every chip here is a
-// tool the router can actually dispatch.
+// Inventory mirrors the router's system-prompt tool set (worker/src/router.ts,
+// TOOL_TREE — the exact 16 categories and order the worker itself renders the
+// catalog in). Keep this list in step with the worker: every chip here is a
+// tool the router can actually dispatch, and nothing it can dispatch is
+// missing — the two have drifted before (61 shown against 110 real), so this
+// list exists to be diffed against TOOL_TREE/TOOL_LINES on every worker
+// change, not just written once.
 const TOOLS: [string, string][] = [
   // mind & memory
   ['search_corpus', 'published corpus + papers · semantic'],
@@ -42,9 +45,12 @@ const TOOLS: [string, string][] = [
   ['read_sql', 'SELECT-only over every D1 table'],
   ['recall_memory', 'semantic search of prior sessions'],
   ['remember', 'deliberate long-term memory · write'],
+  ['notebook_write', 'her own notebook · lighter than remember'],
   ['self_state', 'her own phase · one-call introspection'],
-  ['scratchpad_write', 'short-TTL working memory · write'],
+  ['memory_stats', 'live memory footprint · rows, tiers, index'],
   ['scratchpad_read', 'short-TTL working memory · read'],
+  ['scratchpad_write', 'short-TTL working memory · write'],
+  ['page_read', 'page-fault handler for big observations'],
   // world
   ['web_search', 'live web · grounded'],
   ['deep_research', 'multi-round web investigation · one cited dossier'],
@@ -52,23 +58,14 @@ const TOOLS: [string, string][] = [
   ['calc', 'exact deterministic arithmetic'],
   ['diagnose', 'root-cause a stack/build error'],
   ['code_engine', 'analyze·generate·debug·refactor code'],
-  // real execution
+  // real execution (the connect-back sandbox)
   ['run_code', 'ACTUALLY execute · python/js/ts'],
   ['run_shell', 'shell in the sandbox'],
-  // reasoning about herself
-  ['constraint_analyzer', 'find the one binding constraint'],
-  ['pfar', 'rip structure from a stream · spectrum·prosody·rhetoric'],
-  ['predict', 'bet ledger vs herself · calibration curve'],
-  ['devil', 'adversary on retainer · breaks a draft'],
-  ['council', 'three engines in parallel · disagreement map'],
-  ['scar', 'flinches · recorded injuries that warn'],
-  ['dead_drop', 'context-triggered mail to future self'],
-  ['watch', 'tripwires on the world · fires intents'],
-  ['metabolism', 'interoception · provider health + latency'],
-  ['tool_forge', 'grow her own tools · sandboxed'],
-  ['fork_replay', 'counterfactual replay of a past run'],
-  ['consolidate', 'sleep pass · digest the day now'],
-  ['page_read', 'page-fault handler for big observations'],
+  ['sandbox_status', 'is the sandbox path open right now'],
+  ['sandbox_clone', 'pull a code copy into the cloud cache'],
+  ['sandbox_report', 'surface a sandbox finding to the console'],
+  ['delegate_local', 'hand a whole goal to her local peer agent'],
+  ['sandbox_lane', 'name + run independent execution lanes'],
   // her codebase & the forge
   ['repo_read', 'her own source · any file'],
   ['repo_search', 'code search her repos'],
@@ -82,37 +79,99 @@ const TOOLS: [string, string][] = [
   // skills
   ['skill_list', 'her skill library index'],
   ['skill_read', 'load a distilled procedure'],
+  ['skill_route', 'which skill best fits a task · scored'],
   ['skill_write', 'author/refine a skill'],
   // mcp
   ['mcp_library', 'the connector shelf · mount by name'],
   ['mcp_add', 'mount an MCP server by name or URL'],
   ['mcp_tools', 'mounted external tool servers'],
   ['mcp_call', 'call any MCP tool · HF pre-mounted'],
-  // autonomy
-  ['intent', 'file standing work for the conductor'],
-  ['review_runs', 'read her own autonomous runs'],
-  ['provenance', 'replay a run · trace where an answer came from'],
-  // journal
-  ['journal_read', 'journal · semantic'],
-  ['journal_thread', 'manuscript + phase series'],
-  ['journal_write', 'Optimus entry · κ computed'],
-  ['journal_annotate', 'marginalia on a paragraph'],
   // hospitality (native rapid2ai-db)
   ['rapid_report', 'hospitality intel · narrated'],
   ['rapid_costs', 'invoice lines · per-unit'],
   ['rapid_variance', 'price variance by SKU'],
   ['rapid_pos', 'POS daily close · 14d'],
   ['rapid_menu', 'menu performance · 30d'],
+  // small business tax suite
+  ['tax_business_create', 'register a business · write'],
+  ['tax_business_list', 'businesses for the signed-in user'],
+  ['tax_unit_add', 'add a location/unit to a business · write'],
+  ['tax_unit_list', 'units for one business'],
+  ['tax_owner_set', 'set ownership split · pass-through · write'],
+  ['tax_owner_list', 'ownership split for one business'],
+  ['tax_facts_update', 'save onboarding facts · any subset · write'],
+  ['tax_facts_status', 'which onboarding fact-groups are missing'],
+  ['tax_transaction_add', 'log one income/expense line · write'],
+  ['tax_transaction_list', 'transactions for one business'],
+  ['tax_report', 'plain-English P&L for a tax year'],
+  ['tax_1099_contractor_add', 'add/update a 1099 contractor · write'],
+  ['tax_1099_contractor_list', 'contractors · YTD paid, 1099 threshold'],
+  ['tax_estimate_quarterly', 'deterministic quarterly estimated-tax calc'],
+  ['tax_schedule_c_prep', 'Schedule C line summary · numbers only'],
+  ['tax_credits_finder', 'cited credit/deduction eligibility engine'],
+  ['tax_deadline_next', 'next quarterly estimated-tax deadline'],
+  ['tax_reminder_ack', 'ack a delivered deadline reminder · write'],
+  ['payroll_connection_status', 'which payroll providers are connected'],
+  ['payroll_sync', 'pull latest payroll data from a provider'],
+  ['payroll_wage_summary', 'total wages paid for a tax year'],
+  // autonomy & standing work
+  ['idea', 'to-explore cache + the live forge lane'],
+  ['intent', 'file standing work for the conductor'],
+  ['review_runs', 'read her own autonomous runs'],
+  ['duplex', 'sovereign/cloud private line · read, say, observe'],
+  ['self_schedule', 'a timed note to her future self · write'],
+  ['watch', 'tripwires on the world · fires intents'],
+  ['dead_drop', 'context-triggered mail to future self'],
+  // provenance & self-audit
+  ['provenance', 'replay a run · trace where an answer came from'],
+  ['constraint_analyzer', 'find the one binding constraint'],
+  ['fork_replay', 'counterfactual replay of a past run'],
+  ['metabolism', 'interoception · provider health + latency'],
+  ['validate_kappa', 'pre-registered κ validation · ROC-AUC'],
+  // signal & geometry engines
+  ['pfar', 'rip structure from a stream · spectrum·prosody·rhetoric'],
+  ['pami', 'phase-augmented multifractal memory indexing'],
+  ['vfar', 'PFAR twin, pointed at images'],
+  ['hyper', 'hyperbolic graph map · Poincaré ball'],
+  ['torus', 'toroidal graph map · phase, not depth'],
+  ['recall_ab', 'live A/B of the cycle-boost recall experiment'],
+  ['structure', 'the graph shape itself · invariants'],
+  ['product', 'fuses hyper + torus · where they disagree'],
+  ['atlas', 'the memory graph, read-only · 3D snapshot'],
+  // journal
+  ['journal_read', 'journal · semantic'],
+  ['journal_thread', 'manuscript + phase series'],
+  ['journal_write', 'Optimus entry · κ computed'],
+  ['journal_annotate', 'marginalia on a paragraph'],
+  // education (course sessions)
+  ['edu_enroll', 'enroll in a course · write'],
+  ['edu_brief', 'session brief + facilitator stance'],
+  ['edu_log', 'record a working session on a unit · write'],
+  ['edu_seal', 'seal a reading onto the credential chain · write'],
+  ['edu_complete', 'request unit completion · engine-gated'],
+  ['edu_status', 'learner standing · evidence, hours, chain'],
+  // judgment on retainer
+  ['predict', 'bet ledger vs herself · calibration curve'],
+  ['devil', 'adversary on retainer · breaks a draft'],
+  ['council', 'three engines in parallel · disagreement map'],
+  ['scar', 'flinches · recorded injuries that warn'],
+  ['consolidate', 'sleep pass · digest the day now'],
+  ['tool_forge', 'grow her own tools · sandboxed'],
+  ['advisor', 'consult a stronger reviewer model'],
+  // reach
+  ['reach_out', 'push notification to a phone'],
   // writes / sensitive
   ['ingest_paper', 'add to corpus · 2-check gate'],
   ['trigger_dream', 'run one libre/dream cycle'],
   ['trade_execute', 'Alpaca · buy/sell/short/cover/close, equities + options'],
 ]
 
-// Tools a cofounder's restricted scope refuses (mirrors the worker's SHIP_DENY):
-// the code-shipping path. Hidden from his chip list so "N tools she can reach"
-// is accurate for whoever is signed in.
-const SHIP_DENY = new Set(['forge_open', 'forge_write', 'forge_pr', 'run_shell'])
+// Tools a cofounder's restricted scope refuses (mirrors the worker's
+// SHIP_DENY): the code-shipping path, plus delegate_local (it executes
+// run_shell/run_code natively on the laptop, same restriction for the same
+// reason). Hidden from his chip list so "N tools she can reach" is accurate
+// for whoever is signed in.
+const SHIP_DENY = new Set(['forge_open', 'forge_write', 'forge_pr', 'run_shell', 'delegate_local'])
 const visibleTools = (): [string, string][] =>
   getTier() === 'cofounder' ? TOOLS.filter(([n]) => !SHIP_DENY.has(n)) : TOOLS
 
@@ -125,6 +184,11 @@ const visibleTools = (): [string, string][] =>
 const CORPUS_REF_RE = /\[(.+?) · id ([^\]]+)\]/g
 
 function renderResultText(text: string, accent: string) {
+  // A raw JSON observation (tax_*, mcp_tools, sandbox_status, atlas…) should
+  // render as formatted JSON, not get scanned for "[title · id X]" corpus
+  // refs and dumped as a single dense line — see asPrettyJson in lib/md.tsx.
+  const pretty = asPrettyJson(text)
+  if (pretty != null) return [pretty]
   const parts: Array<JSX.Element | string> = []
   let lastIndex = 0
   let match: RegExpExecArray | null
