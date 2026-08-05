@@ -340,7 +340,7 @@ function runExecJob(job) {
 // ── llm: the sovereign inference lane ────────────────────────
 const { stripThinking } = require('./sovereign-duplex.cjs');
 const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
-const DEFAULT_LOCAL_MODEL = 'qwen3.5:4b';
+const DEFAULT_LOCAL_MODEL = 'qwen3.8:27b';
 const LLM_MAX_CONTENT = 32_000;
 
 async function runLlmJob(job) {
