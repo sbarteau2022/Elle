@@ -198,3 +198,29 @@ test('performHandshake: a wrong-length ACCEPT batch is rejected, not silently us
     /expected 2 accepts/,
   );
 });
+
+test('llmJobOptions: bare job from an older worker yields the exact old shape', () => {
+  const o = agent.llmJobOptions({ max_tokens: 2048 }, {});
+  assert.deepEqual(o, { num_predict: 2048 });
+});
+
+test('llmJobOptions: num_predict clamps exactly as before', () => {
+  assert.equal(agent.llmJobOptions({ max_tokens: 10 }, {}).num_predict, 128);
+  assert.equal(agent.llmJobOptions({ max_tokens: 999999 }, {}).num_predict, 8192);
+  assert.equal(agent.llmJobOptions({}, {}).num_predict, 2048);
+});
+
+test('llmJobOptions: a finite temperature rides through, including a deliberate 0; junk does not', () => {
+  assert.equal(agent.llmJobOptions({ temperature: 0.9 }, {}).temperature, 0.9);
+  assert.equal(agent.llmJobOptions({ temperature: 0 }, {}).temperature, 0);
+  assert.ok(!('temperature' in agent.llmJobOptions({ temperature: NaN }, {})));
+  assert.ok(!('temperature' in agent.llmJobOptions({ temperature: 'hot' }, {})));
+});
+
+test('llmJobOptions: ELLE_LOCAL_NUM_CTX sets the window; unset or junk leaves the server default', () => {
+  assert.equal(agent.llmJobOptions({}, { ELLE_LOCAL_NUM_CTX: '32768' }).num_ctx, 32768);
+  assert.equal(agent.llmJobOptions({}, { ELLE_LOCAL_NUM_CTX: '4096.9' }).num_ctx, 4096);
+  assert.ok(!('num_ctx' in agent.llmJobOptions({}, {})));
+  assert.ok(!('num_ctx' in agent.llmJobOptions({}, { ELLE_LOCAL_NUM_CTX: 'lots' })));
+  assert.ok(!('num_ctx' in agent.llmJobOptions({}, { ELLE_LOCAL_NUM_CTX: '-1' })));
+});
