@@ -1,4 +1,4 @@
-# Elle · Workbench
+ # Elle · Workbench
 
 **The admin console for Elle.** A React + Vite renderer that ships two ways
 from one codebase — an Electron desktop app with native OS integrations, and
