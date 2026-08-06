@@ -343,6 +343,21 @@ const DEFAULT_OLLAMA = 'http://127.0.0.1:11434';
 const DEFAULT_LOCAL_MODEL = 'qwen3.5:4b';
 const LLM_MAX_CONTENT = 32_000;
 
+// Pure: the Ollama options for one llm job. num_predict is clamped exactly as
+// before. temperature rides through only when the worker sent a real finite
+// number (an older worker never sends the field). num_ctx comes from
+// ELLE_LOCAL_NUM_CTX — Elle's system prompt carries the whole tool catalog,
+// and without an explicit window the Ollama server default silently truncates
+// it, which presents as "the local model ignores its tools."
+function llmJobOptions(job, envObj) {
+  const o = { num_predict: Math.min(Math.max((job && job.max_tokens) || 2048, 128), 8192) };
+  const t = job && job.temperature;
+  if (typeof t === 'number' && Number.isFinite(t)) o.temperature = t;
+  const ctx = Number(envObj && envObj.ELLE_LOCAL_NUM_CTX);
+  if (Number.isFinite(ctx) && ctx > 0) o.num_ctx = Math.floor(ctx);
+  return o;
+}
+
 async function runLlmJob(job) {
   const base = (process.env.ELLE_OLLAMA_URL || DEFAULT_OLLAMA).replace(/\/+$/, '');
   const model = process.env.ELLE_LOCAL_MODEL || DEFAULT_LOCAL_MODEL;
@@ -357,7 +372,7 @@ async function runLlmJob(job) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model, messages: chat, stream: false, think: false,
-        options: { num_predict: Math.min(Math.max(job.max_tokens || 2048, 128), 8192) },
+        options: llmJobOptions(job, process.env),
       }),
       signal: AbortSignal.timeout(timeout),
     });
@@ -560,6 +575,7 @@ module.exports = {
   // module-level `root`, same as every other job kind above).
   runExecJob,
   runLlmJob,
+  llmJobOptions,
   start(opts) {
     const cfg = config(opts);
     if (!cfg.key) { log('idle — ELLE_SANDBOX_KEY not set; not polling'); return; }
