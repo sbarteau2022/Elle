@@ -37,9 +37,23 @@
 // OR-security property a bug here costs availability, not confidentiality.
 // ============================================================
 
-const { ml_kem768 } = require('@noble/post-quantum/ml-kem.js');
-const { x25519 } = require('@noble/curves/ed25519.js');
 const { shake256 } = require('@noble/hashes/sha3.js');
+
+// @noble/post-quantum and @noble/curves ship "type": "module" only (no CJS
+// build/condition). A standalone Node 22+ can require() an ESM module
+// synchronously, but Electron's bundled Node does not support that yet and
+// throws ERR_REQUIRE_ESM — hence dynamic import(), cached after first load,
+// so every caller below just awaits the same promise.
+let _nobleLoad;
+function loadNoble() {
+  if (!_nobleLoad) {
+    _nobleLoad = Promise.all([
+      import('@noble/post-quantum/ml-kem.js'),
+      import('@noble/curves/ed25519.js'),
+    ]).then(([mlkem, curves]) => ({ ml_kem768: mlkem.ml_kem768, x25519: curves.x25519 }));
+  }
+  return _nobleLoad;
+}
 
 // ── QC-MDPC parameters (must match src/pqc-qcmdpc.ts exactly) ───────────────
 const QCMDPC_R = 4801;   // prime
@@ -300,7 +314,8 @@ async function combine(secrets, info) {
   return new Uint8Array(bits);
 }
 
-function pqcHybridKeygen(profile = 'vetted') {
+async function pqcHybridKeygen(profile = 'vetted') {
+  const { ml_kem768, x25519 } = await loadNoble();
   const kem = ml_kem768.keygen();
   const xsk = x25519.utils.randomSecretKey();
   const xpk = x25519.getPublicKey(xsk);
@@ -315,6 +330,7 @@ function pqcHybridKeygen(profile = 'vetted') {
 }
 
 async function pqcHybridEncaps(pk) {
+  const { ml_kem768, x25519 } = await loadNoble();
   const kem = ml_kem768.encapsulate(pk.mlkem);
   const esk = x25519.utils.randomSecretKey();
   const epk = x25519.getPublicKey(esk);
@@ -335,6 +351,7 @@ async function pqcHybridEncaps(pk) {
 
 async function pqcHybridDecaps(sk, pk, ct) {
   if (ct.profile !== sk.profile) throw new Error('pqc-hybrid: profile mismatch');
+  const { ml_kem768, x25519 } = await loadNoble();
   const ssKem = ml_kem768.decapsulate(ct.mlkem, sk.mlkem);
   const ssX = x25519.getSharedSecret(sk.x25519, ct.epk);
   const legs = [ssKem, ssX];

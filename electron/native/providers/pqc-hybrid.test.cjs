@@ -54,7 +54,7 @@ test('a corrupted worker vector does NOT silently produce the right secret', asy
 
 test('round-trips locally on both profiles', async () => {
   for (const profile of ['vetted', 'experimental']) {
-    const { publicKey, secretKey } = p.pqcHybridKeygen(profile);
+    const { publicKey, secretKey } = await p.pqcHybridKeygen(profile);
     const { ciphertext, sharedSecret } = await p.pqcHybridEncaps(publicKey);
     const out = await p.pqcHybridDecaps(secretKey, publicKey, ciphertext);
     assert.ok(eq(out, sharedSecret), `${profile} round-trip failed`);
@@ -63,7 +63,7 @@ test('round-trips locally on both profiles', async () => {
 });
 
 test('uses a fresh ephemeral per encapsulation (forward secrecy shape)', async () => {
-  const { publicKey } = p.pqcHybridKeygen('vetted');
+  const { publicKey } = await p.pqcHybridKeygen('vetted');
   const a = await p.pqcHybridEncaps(publicKey);
   const b = await p.pqcHybridEncaps(publicKey);
   assert.ok(!eq(a.ciphertext.epk, b.ciphertext.epk));
@@ -71,8 +71,8 @@ test('uses a fresh ephemeral per encapsulation (forward secrecy shape)', async (
 });
 
 test('refuses a profile mismatch', async () => {
-  const v = p.pqcHybridKeygen('vetted');
-  const x = p.pqcHybridKeygen('experimental');
+  const v = await p.pqcHybridKeygen('vetted');
+  const x = await p.pqcHybridKeygen('experimental');
   const { ciphertext } = await p.pqcHybridEncaps(x.publicKey);
   await assert.rejects(() => p.pqcHybridDecaps(v.secretKey, v.publicKey, ciphertext), /profile mismatch/);
 });

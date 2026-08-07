@@ -185,7 +185,7 @@ function planHandshake(protocol, rootLocal, rootCloud, counter) {
 // generate a hybrid keypair per direction, send the HELLOs via `post`, and finish
 // each ACCEPT into a root_lane. Returns { to_local, to_cloud } as Uint8Arrays.
 async function performHandshake(preshared, lane, epoch, post) {
-  const clients = DIRECTIONS.map(() => lh.laneHandshakeClientKeys());
+  const clients = await Promise.all(DIRECTIONS.map(() => lh.laneHandshakeClientKeys()));
   const hellos = DIRECTIONS.map((d, i) => lh.encodeHello(`${lane}:${d}`, epoch, clients[i].publicKey));
   const accepts = await post(hellos);
   if (!Array.isArray(accepts) || accepts.length !== DIRECTIONS.length) {
