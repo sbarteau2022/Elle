@@ -26,7 +26,7 @@ test('deriveLaneRoot reproduces the canonical cross-runtime vector', async () =>
 
 test('the two-role hybrid handshake agrees on one root_lane', async () => {
   const preshared = crypto.getRandomValues(new Uint8Array(32));
-  const client = lh.laneHandshakeClientKeys();
+  const client = await lh.laneHandshakeClientKeys();
   const { ciphertext, rootLane: workerRoot } = await lh.laneHandshakeAccept(preshared, 'beta:to_cloud', 3, client.publicKey);
   const clientRoot = await lh.laneHandshakeClientFinish(preshared, 'beta:to_cloud', 3, client, ciphertext);
   assert.equal(hex(workerRoot), hex(clientRoot));
@@ -34,7 +34,7 @@ test('the two-role hybrid handshake agrees on one root_lane', async () => {
 
 test('the ACCEPT carries a real ML-KEM ciphertext + fresh X25519 ephemeral', async () => {
   const preshared = crypto.getRandomValues(new Uint8Array(32));
-  const client = lh.laneHandshakeClientKeys();
+  const client = await lh.laneHandshakeClientKeys();
   const { ciphertext } = await lh.laneHandshakeAccept(preshared, 'l', 1, client.publicKey);
   assert.ok(ciphertext.mlkem.length > 1000); // ML-KEM-768 ciphertext ≈ 1088 bytes
   assert.equal(ciphertext.epk.length, 32);
@@ -42,7 +42,7 @@ test('the ACCEPT carries a real ML-KEM ciphertext + fresh X25519 ephemeral', asy
 
 test('the derived root drives a working v2 lane channel (seal -> open)', async () => {
   const preshared = crypto.getRandomValues(new Uint8Array(32));
-  const client = lh.laneHandshakeClientKeys();
+  const client = await lh.laneHandshakeClientKeys();
   const { ciphertext, rootLane } = await lh.laneHandshakeAccept(preshared, 'alpha:to_local', 9, client.publicKey);
   const peerRoot = await lh.laneHandshakeClientFinish(preshared, 'alpha:to_local', 9, client, ciphertext);
   const chSend = await lh.laneChannelV2(rootLane);
@@ -54,7 +54,7 @@ test('the derived root drives a working v2 lane channel (seal -> open)', async (
 });
 
 test('a different pre-shared secret yields a different root_lane', async () => {
-  const client = lh.laneHandshakeClientKeys();
+  const client = await lh.laneHandshakeClientKeys();
   const p1 = crypto.getRandomValues(new Uint8Array(32));
   const p2 = crypto.getRandomValues(new Uint8Array(32));
   const { ciphertext, rootLane: r1 } = await lh.laneHandshakeAccept(p1, 'l', 1, client.publicKey);
@@ -64,7 +64,7 @@ test('a different pre-shared secret yields a different root_lane', async () => {
 
 test('a tampered ACCEPT ciphertext cannot reproduce the root', async () => {
   const preshared = crypto.getRandomValues(new Uint8Array(32));
-  const client = lh.laneHandshakeClientKeys();
+  const client = await lh.laneHandshakeClientKeys();
   const { ciphertext, rootLane } = await lh.laneHandshakeAccept(preshared, 'l', 1, client.publicKey);
   const tampered = { ...ciphertext, mlkem: Uint8Array.from(ciphertext.mlkem) };
   tampered.mlkem[0] ^= 1;
@@ -74,7 +74,7 @@ test('a tampered ACCEPT ciphertext cannot reproduce the root', async () => {
 
 test('HELLO / ACCEPT wire bodies round-trip through (de)serialization', async () => {
   const preshared = crypto.getRandomValues(new Uint8Array(32));
-  const client = lh.laneHandshakeClientKeys();
+  const client = await lh.laneHandshakeClientKeys();
   const hello = lh.decodeHelloPub(lh.encodeHello('alpha:to_local', 5, client.publicKey));
   assert.equal(hex(hello.mlkem), hex(client.publicKey.mlkem));
   const { ciphertext, rootLane } = await lh.laneHandshakeAccept(preshared, 'l', 2, hello);
