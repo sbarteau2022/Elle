@@ -13,7 +13,7 @@ import VoiceOrb from './VoiceOrb'
 import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { useWorkbenchCamera } from '../lib/CameraContext'
 import { on, requestOpenPaper } from '../lib/commands'
-import { Md, printAnswer, emailAnswer, asPrettyJson } from '../lib/md'
+import { Md, Artifact, printAnswer, emailAnswer, asPrettyJson } from '../lib/md'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
 import { getTier } from '../lib/elle'
 import HistoryRail, { fetchTranscript } from './HistoryRail'
@@ -209,7 +209,11 @@ function renderResultText(text: string, accent: string) {
   return parts
 }
 
-type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean; finalThought?: string }
+// artifacts: what the run left behind — images/media her tools stored in R2
+// (RouterResult.artifacts, elle-worker/src/artifacts.ts). Present only when the
+// run actually made something.
+type Artifact = { path: string; kind?: string; tool?: string }
+type Turn = { q: string; answer: string; trace: any[]; open: boolean; pending: boolean; finalThought?: string; artifacts?: Artifact[] }
 
 export default function EllePanel({ worker, accent }: any) {
   const [q, setQ] = useState('')
@@ -409,7 +413,7 @@ export default function EllePanel({ worker, accent }: any) {
           void refreshMem()
           const answer = done.answer || '(no answer)'
           setTurns(t => t.map((x, i) => i === idx
-            ? { ...x, answer, trace: done.trace || steps, finalThought: done.final_thought || '', pending: false } : x))
+            ? { ...x, answer, trace: done.trace || steps, finalThought: done.final_thought || '', artifacts: done.artifacts || [], pending: false } : x))
           if (voice.enabled) voice.speak(answer)   // she reads it back
         } else {
           setTurns(t => t.map((x, i) => i === idx ? { ...x, answer: '(the stream ended without an answer)', pending: false } : x))
@@ -427,7 +431,7 @@ export default function EllePanel({ worker, accent }: any) {
       void refreshMem()
       const answer = d.answer || '(no answer)'
       setTurns(t => t.map((x, i) => i === idx
-        ? { ...x, answer, trace: d.trace || [], finalThought: d.final_thought || '', pending: false } : x))
+        ? { ...x, answer, trace: d.trace || [], finalThought: d.final_thought || '', artifacts: d.artifacts || [], pending: false } : x))
       if (voice.enabled && !d.error) voice.speak(answer)   // she reads it back
     } catch (e: any) {
       setNote('Error: ' + (e.message || e))
@@ -567,6 +571,25 @@ export default function EllePanel({ worker, accent }: any) {
                       : 'thinking…')
                   : <Md text={t.answer} />}
               </div>
+              {/* what the run left behind. She is told to place a picture in the
+                  prose herself (a path on its own line renders as the image),
+                  so anything already sitting in the answer is skipped here —
+                  this rail is the safety net for artifacts a tool made and she
+                  didn't mention, which would otherwise be invisible. */}
+              {!t.pending && (() => {
+                const loose = (t.artifacts || []).filter(a => a.path && !t.answer.includes(a.path))
+                if (!loose.length) return null
+                return (
+                  <div style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t4)', letterSpacing: '.12em' }}>
+                      {loose.length === 1 ? 'MADE THIS TURN' : `MADE THIS TURN · ${loose.length}`}
+                    </div>
+                    {loose.map(a => (
+                      <Artifact key={a.path} path={a.path} caption={a.tool ? `${a.tool} · ${a.path}` : a.path} />
+                    ))}
+                  </div>
+                )
+              })()}
               {/* export rail — print/PDF via the browser dialog, email via mailto, copy */}
               {!t.pending && t.answer && (
                 <div style={{ paddingLeft: 18, display: 'flex', gap: 12 }}>

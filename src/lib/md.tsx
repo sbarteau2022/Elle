@@ -1,28 +1,104 @@
 // ============================================================
 // md.tsx — Elle's markdown, rendered safe.
 // Tiny by design: headings, bold/italic, inline code, fenced code,
-// lists, blockquotes, hr, links. Builds React elements — no
+// lists, blockquotes, hr, links, images. Builds React elements — no
 // dangerouslySetInnerHTML anywhere, so her expressiveness can't
 // become an injection surface. mdToHtml mirrors the same grammar
 // for the print/PDF window (all text escaped first).
 // ============================================================
 import React from 'react'
+import { WORKER } from './elle'
 
-// ── inline: **bold** *italic* `code` [text](url) ─────────────
+// ── artifacts: the pictures she makes ────────────────────────
+// vfar generate/resynth and Flock media store bytes in R2 and hand back a
+// worker-absolute path. The worker returns those paths on RouterResult.
+// artifacts, and she is also told (mind.ts SURFACE_MARKDOWN) to put one on a
+// line of its own when it belongs in the prose — this is the half that turns
+// such a line into the picture.
+//
+// DELIBERATELY NARROW: only paths this worker actually serves become <img>.
+// Her answer is model output that can carry web-search results and other
+// people's text, so an <img src> taken from it is an outbound request someone
+// else could aim — the classic tracking pixel. Restricting the grammar to
+// /vfar/ and /flock/asset/ means the only thing that can render is something
+// her own tools stored. An external image URL degrades to a plain link, which
+// the reader can follow deliberately.
+//
+// Mirrors elle-worker/src/artifacts.ts and each route's 404 guard in its
+// index.ts. The two repos deploy separately, so the grammar is duplicated on
+// purpose — keep them in step.
+const ARTIFACT_RE = /^(?:\/vfar\/[0-9a-f]{32}\.(?:png|jpg)|\/flock\/asset\/[0-9a-f]{32}\.(?:png|jpg|jpeg|mp4))$/
+export function isArtifactPath(path: string): boolean { return ARTIFACT_RE.test(path) }
+export function artifactUrl(path: string): string { return WORKER + path }
+export function isVideoArtifact(path: string): boolean { return path.endsWith('.mp4') }
+
+// A whole line that is exactly one artifact — either bare, as she is told to
+// write it, or in markdown image syntax. Returns the path plus any alt text.
+function imageLine(line: string): { path: string; alt: string } | null {
+  const s = line.trim()
+  if (isArtifactPath(s)) return { path: s, alt: '' }
+  const m = s.match(/^!\[([^\]]*)\]\(([^\s)]+)\)$/)
+  if (m && isArtifactPath(m[2])) return { path: m[2], alt: m[1] }
+  return null
+}
+
+// ── inline: ![alt](img) **bold** *italic* `code` [text](url) ──
+// The image alternative comes FIRST so "![a](u)" is never chewed by the link
+// rule into a stray "!" plus a link.
 function inline(text: string, keyBase: string): React.ReactNode[] {
   const out: React.ReactNode[] = []
-  const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
+  const re = /(!\[([^\]]*)\]\(([^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
   let last = 0, m: RegExpExecArray | null, k = 0
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index))
-    if (m[2] != null) out.push(<strong key={`${keyBase}b${k++}`}>{m[2]}</strong>)
-    else if (m[3] != null) out.push(<em key={`${keyBase}i${k++}`}>{m[3]}</em>)
-    else if (m[4] != null) out.push(<code key={`${keyBase}c${k++}`} style={{ background: 'rgba(255,255,255,.07)', padding: '1px 5px', borderRadius: 0, fontSize: '0.92em', fontFamily: 'var(--mono, monospace)' }}>{m[4]}</code>)
-    else if (m[5] != null) out.push(<a key={`${keyBase}a${k++}`} href={m[6]} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecorationColor: 'rgba(255,255,255,.35)' }}>{m[5]}</a>)
+    if (m[3] != null) {
+      // An image mid-sentence. Only her own stored artifacts actually load;
+      // anything else keeps its alt text (as a link when it's a real URL) so
+      // the sentence still reads and nothing is fetched on her say-so.
+      const [alt, src] = [m[2], m[3]]
+      if (isArtifactPath(src)) out.push(<Artifact key={`${keyBase}m${k++}`} path={src} alt={alt} />)
+      else if (/^https?:\/\//.test(src)) out.push(<a key={`${keyBase}m${k++}`} href={src} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecorationColor: 'rgba(255,255,255,.35)' }}>{alt || src}</a>)
+      else out.push(alt)
+    }
+    else if (m[4] != null) out.push(<strong key={`${keyBase}b${k++}`}>{m[4]}</strong>)
+    else if (m[5] != null) out.push(<em key={`${keyBase}i${k++}`}>{m[5]}</em>)
+    else if (m[6] != null) out.push(<code key={`${keyBase}c${k++}`} style={{ background: 'rgba(255,255,255,.07)', padding: '1px 5px', borderRadius: 0, fontSize: '0.92em', fontFamily: 'var(--mono, monospace)' }}>{m[6]}</code>)
+    else if (m[7] != null) out.push(<a key={`${keyBase}a${k++}`} href={m[8]} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecorationColor: 'rgba(255,255,255,.35)' }}>{m[7]}</a>)
     last = m.index + m[0].length
   }
   if (last < text.length) out.push(text.slice(last))
   return out
+}
+
+// ── one rendered artifact — the picture, on the page ─────────
+// Plate-on-a-page treatment to match the editorial column: the image sits on
+// its own, the alt text becomes a caption when there is one, and a failed load
+// falls back to the path rather than an empty box, so a broken artifact is
+// legible instead of invisible. mp4 artifacts get a player.
+export function Artifact({ path, alt = '', caption }: { path: string; alt?: string; caption?: string }): React.ReactElement {
+  const [failed, setFailed] = React.useState(false)
+  const url = artifactUrl(path)
+  const label = caption || alt
+  if (failed) {
+    return (
+      <span style={{ display: 'block', margin: '10px 0', padding: '10px 12px', border: '0.5px solid rgba(255,255,255,.14)', color: 'var(--t3, #8a8f98)', fontFamily: 'var(--mono, monospace)', fontSize: '0.85em' }}>
+        artifact unavailable · {path}
+      </span>
+    )
+  }
+  return (
+    <span style={{ display: 'block', margin: '12px 0' }}>
+      {isVideoArtifact(path)
+        ? <video src={url} controls style={{ maxWidth: '100%', display: 'block', border: '0.5px solid rgba(255,255,255,.12)' }} onError={() => setFailed(true)} />
+        : <a href={url} target="_blank" rel="noreferrer" title="open full size">
+            <img src={url} alt={alt || 'artifact'} loading="lazy" onError={() => setFailed(true)}
+              style={{ maxWidth: '100%', display: 'block', border: '0.5px solid rgba(255,255,255,.12)' }} />
+          </a>}
+      {label && (
+        <span style={{ display: 'block', marginTop: 5, fontFamily: 'var(--mono, monospace)', fontSize: '0.78em', color: 'var(--t3, #8a8f98)', letterSpacing: '.03em' }}>{label}</span>
+      )}
+    </span>
+  )
 }
 
 // ── tables — GFM pipe syntax ──────────────────────────────────
@@ -42,7 +118,9 @@ function isTableSep(line: string): boolean {
 // including a table row, so a table right after prose (no blank line
 // between them) still gets detected instead of swallowed as text.
 const BLOCK_START = /^(#{1,3}\s|```|>|\s*[-*]\s+|\s*\d+\.\s+|\s*---+\s*$)/
-function stopsParagraph(line: string): boolean { return BLOCK_START.test(line) || isTableRow(line) }
+// An artifact on its own line opens a block too — otherwise a picture written
+// directly under a sentence gets swallowed into that paragraph as a bare path.
+function stopsParagraph(line: string): boolean { return BLOCK_START.test(line) || isTableRow(line) || imageLine(line) != null }
 
 // A handful of tools (tax_*, mcp_tools, sandbox_status, atlas…) hand back a
 // raw JSON payload as their observation, and the router sometimes answers
@@ -87,6 +165,9 @@ export function Md({ text }: { text: string }): React.ReactElement {
       i++; continue
     }
     if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) { blocks.push(<hr key={key++} style={{ border: 'none', borderTop: '0.5px solid rgba(255,255,255,.14)', margin: '12px 0' }} />); i++; continue }
+    // an artifact alone on its line — the picture itself, where she put it
+    const img = imageLine(line)
+    if (img) { blocks.push(<Artifact key={key++} path={img.path} alt={img.alt} />); i++; continue }
     // blockquote
     if (/^>\s?/.test(line)) {
       const buf: string[] = []
@@ -138,6 +219,15 @@ export function Md({ text }: { text: string }): React.ReactElement {
 function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
 function inlineHtml(text: string): string {
   return esc(text)
+    // Images first, same as the React inliner — and same restriction: only her
+    // own stored artifacts resolve to a real <img>, everything else keeps its
+    // alt text. esc() ran first, so the path here is already inert.
+    .replace(/!\[([^\]]*)\]\(([^\s)]+)\)/g, (whole, alt: string, src: string) => {
+      if (!isArtifactPath(src)) return alt || whole
+      return isVideoArtifact(src)
+        ? `<a href="${artifactUrl(src)}">${alt || 'video artifact'}</a>`
+        : `<img src="${artifactUrl(src)}" alt="${alt}"/>`
+    })
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -155,6 +245,16 @@ export function mdToHtml(text: string): string {
     const h = line.match(/^(#{1,3})\s+(.*)/)
     if (h) { out.push(`<h${h[1].length}>${inlineHtml(h[2])}</h${h[1].length}>`); i++; continue }
     if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) { out.push('<hr/>'); i++; continue }
+    const img = imageLine(line)
+    if (img) {
+      // On paper a video is not a picture — link it instead of emitting an
+      // <img> that would render as a broken image in the print window.
+      const body = isVideoArtifact(img.path)
+        ? `<a href="${artifactUrl(img.path)}">${esc(img.alt) || 'video artifact'}</a>`
+        : `<img src="${artifactUrl(img.path)}" alt="${esc(img.alt) || 'artifact'}"/>`
+      out.push(`<figure>${body}${img.alt ? `<figcaption>${esc(img.alt)}</figcaption>` : ''}</figure>`)
+      i++; continue
+    }
     if (/^>\s?/.test(line)) { const buf: string[] = []; while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(inlineHtml(lines[i++].replace(/^>\s?/, ''))); out.push(`<blockquote>${buf.join('<br/>')}</blockquote>`); continue }
     if (/^\s*[-*]\s+/.test(line) || /^\s*\d+\.\s+/.test(line)) {
       const ordered = /^\s*\d+\.\s+/.test(line); const items: string[] = []
@@ -193,7 +293,9 @@ export function printAnswer(title: string, mdText: string): void {
   table{border-collapse:collapse;width:100%;margin:14px 0;font-size:12.5px}
   th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e3e5e8}
   thead th{border-bottom:2px solid #16181d}
-  a{color:#16181d} @media print{body{margin:12mm auto} table{page-break-inside:auto} tr{page-break-inside:avoid}}
+  figure{margin:16px 0} img{max-width:100%;height:auto;display:block;border:1px solid #e3e5e8}
+  figcaption{font:11px/1.5 ui-monospace,monospace;color:#8a8f98;margin-top:6px}
+  a{color:#16181d} @media print{body{margin:12mm auto} table{page-break-inside:auto} tr{page-break-inside:avoid} figure{page-break-inside:avoid}}
 </style></head><body>
 <div class="meta">Elle · ${esc(new Date().toLocaleString())} · use your browser's Print dialog → "Save as PDF" to keep a copy</div>
 ${mdToHtml(mdText)}
