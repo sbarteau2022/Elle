@@ -3,9 +3,9 @@
 // thread reads like a manuscript, not a messenger.
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { LiveStep } from '../api';
+import type { Artifact as ArtifactRef, LiveStep } from '../api';
 import { colors, fonts, space } from '../theme';
-import { Md } from '../lib/md';
+import { Artifact, Md } from '../lib/md';
 import { ToolFold } from './ToolFold';
 
 export interface ThreadTurn {
@@ -15,6 +15,7 @@ export interface ThreadTurn {
   kappa?: number | null;
   created_at?: string;
   steps?: LiveStep[];
+  artifacts?: ArtifactRef[];
   live?: boolean; // still streaming
 }
 
@@ -30,6 +31,14 @@ export function TurnBubble({ turn }: { turn: ThreadTurn }) {
     <View style={styles.elleWrap}>
       {turn.steps?.length ? <ToolFold steps={turn.steps} live={turn.live} /> : null}
       {turn.content ? <Md text={turn.content} /> : (turn.live ? <Text style={styles.elleText}>…</Text> : null)}
+      {/* What the run made and her prose didn't place. She is told to put a
+          picture in the answer herself (a path on its own line renders as the
+          image), so anything already there is skipped — this rail only catches
+          artifacts a tool made and she never mentioned, which would otherwise
+          be invisible. */}
+      {(turn.artifacts ?? [])
+        .filter(a => a.path && !turn.content.includes(a.path))
+        .map(a => <Artifact key={a.path} path={a.path} caption={a.tool ? `${a.tool} · ${a.path}` : a.path} />)}
       {typeof turn.kappa === 'number' ? (
         <Text style={styles.kappa}>κ {turn.kappa.toFixed(3)}</Text>
       ) : null}

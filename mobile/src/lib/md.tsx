@@ -10,22 +10,32 @@
 // so this can't become an injection surface either.
 // ============================================================
 import React from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View, type TextStyle } from 'react-native';
+import { Image, Linking, ScrollView, StyleSheet, Text, View, type TextStyle } from 'react-native';
 import { colors, fonts, space } from '../theme';
+import { artifactUrl, imageLine, isArtifactPath, isVideoArtifact } from './artifacts';
 
 // ── inline: **bold** *italic* `code` [text](url) ─────────────
 function inline(text: string, keyBase: string, baseStyle?: TextStyle): React.ReactNode[] {
   const out: React.ReactNode[] = [];
-  const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
+  const re = /(!\[([^\]]*)\]\(([^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
   let last = 0, m: RegExpExecArray | null, k = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(<Text key={`${keyBase}t${k++}`} style={baseStyle}>{text.slice(last, m.index)}</Text>);
-    if (m[2] != null) out.push(<Text key={`${keyBase}b${k++}`} style={[baseStyle, styles.bold]}>{m[2]}</Text>);
-    else if (m[3] != null) out.push(<Text key={`${keyBase}i${k++}`} style={[baseStyle, styles.italic]}>{m[3]}</Text>);
-    else if (m[4] != null) out.push(<Text key={`${keyBase}c${k++}`} style={styles.code}>{m[4]}</Text>);
-    else if (m[5] != null) {
-      const url = m[6];
-      out.push(<Text key={`${keyBase}a${k++}`} style={styles.link} onPress={() => { void Linking.openURL(url); }}>{m[5]}</Text>);
+    if (m[3] != null) {
+      // An image mid-sentence. Only her own stored artifacts load; anything
+      // else keeps its alt text (tappable when it is a real URL) so the
+      // sentence still reads and nothing is fetched on her say-so.
+      const alt = m[2], src = m[3];
+      if (isArtifactPath(src)) out.push(<Artifact key={`${keyBase}m${k++}`} path={src} alt={alt} />);
+      else if (/^https?:\/\//.test(src)) out.push(<Text key={`${keyBase}m${k++}`} style={styles.link} onPress={() => { void Linking.openURL(src); }}>{alt || src}</Text>);
+      else out.push(<Text key={`${keyBase}m${k++}`} style={baseStyle}>{alt}</Text>);
+    }
+    else if (m[4] != null) out.push(<Text key={`${keyBase}b${k++}`} style={[baseStyle, styles.bold]}>{m[4]}</Text>);
+    else if (m[5] != null) out.push(<Text key={`${keyBase}i${k++}`} style={[baseStyle, styles.italic]}>{m[5]}</Text>);
+    else if (m[6] != null) out.push(<Text key={`${keyBase}c${k++}`} style={styles.code}>{m[6]}</Text>);
+    else if (m[7] != null) {
+      const url = m[8];
+      out.push(<Text key={`${keyBase}a${k++}`} style={styles.link} onPress={() => { void Linking.openURL(url); }}>{m[7]}</Text>);
     }
     last = m.index + m[0].length;
   }
@@ -45,7 +55,65 @@ function isTableSep(line: string): boolean {
   return /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/.test(line) && line.includes('-');
 }
 const BLOCK_START = /^(#{1,3}\s|```|>|\s*[-*]\s+|\s*\d+\.\s+|\s*---+\s*$)/;
-function stopsParagraph(line: string): boolean { return BLOCK_START.test(line) || isTableRow(line); }
+// An artifact on its own line opens a block too — otherwise a picture written
+// directly under a sentence is swallowed into that paragraph as a bare path.
+function stopsParagraph(line: string): boolean { return BLOCK_START.test(line) || isTableRow(line) || imageLine(line) != null; }
+
+// ── one rendered artifact — the picture, on the phone ────────
+// React Native has no intrinsic image sizing: an <Image> with no height is
+// zero pixels tall, so the real work here is measuring. Image.getSize gives
+// the natural aspect ratio, which we hold while the width flexes to the
+// column — the picture keeps its shape on any screen without a layout jump.
+// Until it resolves nothing is reserved, so prose never jumps around it.
+//
+// Video is NOT played inline: expo-av/expo-video is not a dependency of this
+// app, and adding a player is a bigger decision than this change. An mp4
+// artifact is offered as a link out instead, which is honest about what the
+// phone will do with it.
+export function Artifact({ path, alt, caption }: { path: string; alt?: string; caption?: string }): React.ReactElement {
+  const url = artifactUrl(path);
+  const [ratio, setRatio] = React.useState<number | null>(null);
+  const [failed, setFailed] = React.useState(false);
+  const label = caption || alt || '';
+
+  React.useEffect(() => {
+    let alive = true;
+    if (isVideoArtifact(path)) return;
+    Image.getSize(url, (w, h) => { if (alive && h > 0) setRatio(w / h); }, () => { if (alive) setFailed(true); });
+    return () => { alive = false; };
+  }, [url, path]);
+
+  if (failed) {
+    return (
+      <View style={styles.artifactFallback}>
+        <Text style={styles.artifactFallbackText}>artifact unavailable · {path}</Text>
+      </View>
+    );
+  }
+  if (isVideoArtifact(path)) {
+    return (
+      <View style={styles.artifactBlock}>
+        <Text style={styles.link} onPress={() => { void Linking.openURL(url); }}>
+          {label || 'video artifact'} — open
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.artifactBlock}>
+      {ratio != null && (
+        <Image
+          source={{ uri: url }}
+          style={[styles.artifactImage, { aspectRatio: ratio }]}
+          resizeMode="contain"
+          accessibilityLabel={alt || 'artifact'}
+          onError={() => setFailed(true)}
+        />
+      )}
+      {label !== '' && <Text style={styles.artifactCaption}>{label}</Text>}
+    </View>
+  );
+}
 
 // ── block-level renderer ──────────────────────────────────────
 export function Md({ text }: { text: string }): React.ReactElement {
@@ -75,6 +143,9 @@ export function Md({ text }: { text: string }): React.ReactElement {
       i++; continue;
     }
     if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) { blocks.push(<View key={key++} style={styles.hr} />); i++; continue; }
+    // an artifact alone on its line — the picture itself, where she put it
+    const img = imageLine(line);
+    if (img) { blocks.push(<Artifact key={key++} path={img.path} alt={img.alt} />); i++; continue; }
     // blockquote
     if (/^>\s?/.test(line)) {
       const buf: string[] = [];
@@ -153,6 +224,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245,240,232,0.08)', paddingHorizontal: 4, borderRadius: 3,
   },
   link: { color: colors.gold, textDecorationLine: 'underline' },
+  artifactBlock: { marginVertical: space(2) },
+  artifactImage: { width: '100%', borderRadius: 6, borderWidth: 1, borderColor: colors.hairline },
+  artifactCaption: { fontFamily: fonts.mono, fontSize: 11, color: colors.mist, marginTop: space(1.5) },
+  artifactFallback: {
+    marginVertical: space(2), padding: space(2.5),
+    borderWidth: 1, borderColor: colors.hairline, borderRadius: 6,
+  },
+  artifactFallbackText: { fontFamily: fonts.mono, fontSize: 11, color: colors.mist },
   h1: { fontFamily: fonts.display, fontSize: 22, color: colors.cream, marginTop: space(3), marginBottom: space(1) },
   h2: { fontFamily: fonts.display, fontSize: 19, color: colors.cream, marginTop: space(3), marginBottom: space(1) },
   h3: { fontFamily: fonts.bodyMedium, fontSize: 17, color: colors.cream, marginTop: space(2), marginBottom: space(1) },

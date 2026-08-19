@@ -685,10 +685,10 @@ export default function EllePanel({ worker, accent }: any) {
           </div>
         )}
         <input ref={fileRef} type="file" hidden
-          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.rtf,.pptx,.xlsx,application/pdf,text/plain"
+          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.rtf,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.gif,application/pdf,text/plain,image/*"
           onChange={e => { const f = e.target.files?.[0]; if (f) void onUpload(f); e.currentTarget.value = '' }} />
         <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--raised)', border: `0.5px solid ${wv.listenMode ? '#D0656555' : 'var(--b1)'}`, borderRadius: 0, padding: '4px 4px 4px 14px' }}>
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} title="attach a file — PDF, DOCX, TXT (parsed to text she can read and ingest)"
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} title="attach a file — PDF, DOCX, TXT, or an image (parsed server-side to text she can read and ingest)"
             style={{ width: 34, height: 34, borderRadius: 0, border: `0.5px solid ${accent}55`, background: 'transparent', color: uploading ? accent : 'var(--t2)', cursor: uploading ? 'default' : 'pointer', fontSize: 15, flexShrink: 0, alignSelf: 'flex-end' }}>
             {uploading ? '…' : '📎'}
           </button>

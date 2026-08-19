@@ -89,6 +89,10 @@ export function Thread() {
         id: localId(), role: 'assistant', content: result.content,
         kappa: result.kappa_dynamics?.kappa ?? null,
         created_at: new Date().toISOString(), steps: liveSteps,
+        // Live only: cacheTurns (and the thread history the worker replays)
+        // carry text, so a rehydrated turn shows whatever pictures her prose
+        // placed, not the catch-all rail.
+        artifacts: result.artifacts,
       };
       setKappa(result.kappa_dynamics ?? null);
       setTurns(t => t.map(x => (x.id === pendingId ? elleTurn : x)));
