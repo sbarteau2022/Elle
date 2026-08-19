@@ -10,9 +10,11 @@
 
 import { fetch as streamingFetch } from 'expo/fetch';
 import { createSseParser } from './sse';
+import { WORKER_URL } from './origin';
 
-export const WORKER_URL =
-  process.env.EXPO_PUBLIC_ELLE_WORKER_URL || 'https://elle-worker.sbarteau2022.workers.dev';
+// Re-exported so the many `import { WORKER_URL } from './api'` call sites are
+// untouched; the constant itself lives in ./origin so pure code can reach it.
+export { WORKER_URL };
 
 // ── shapes (mirrors of the worker) ───────────────────────────────────────────
 
@@ -32,12 +34,22 @@ export interface LiveStep {
 
 export interface KappaDynamics { kappa?: number; velocity?: number | null; accel?: number | null; jerk?: number | null }
 
+// What a run left behind — images/media her tools stored in R2. Present only
+// when the run actually made something (elle-worker stream.ts omits the key
+// otherwise), which is why it is optional here.
+export interface Artifact {
+  path: string;
+  kind?: 'image' | 'video';
+  tool?: string;
+}
+
 export interface ConversationDone {
   content: string;
   response: string;
   session_id: string;
   steps: number;
   kappa_dynamics: KappaDynamics | null;
+  artifacts?: Artifact[];
 }
 
 export interface Arrival {
@@ -114,7 +126,10 @@ export async function sendStreaming(
   const res = await streamingFetch(`${WORKER_URL}/api/elle-conversation`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ query, session_id: doorSession(userId), stream: true, source: 'door' }),
+    // surface: this app renders her answer through src/lib/md.tsx — headings,
+    // tables, fenced code, and now images. The door is shared with callers
+    // that render plain text, so it only tells her what the caller declares.
+    body: JSON.stringify({ query, session_id: doorSession(userId), stream: true, source: 'door', surface: 'markdown' }),
   });
   if (!res.ok || !res.body) throw new ApiError(`stream HTTP ${res.status}`, res.status);
 
@@ -143,7 +158,7 @@ export async function sendStreaming(
 }
 
 export const send = (token: string, userId: string, query: string) =>
-  call<ConversationDone>('/api/elle-conversation', { token, body: { query, session_id: doorSession(userId), source: 'door' } });
+  call<ConversationDone>('/api/elle-conversation', { token, body: { query, session_id: doorSession(userId), source: 'door', surface: 'markdown' } });
 
 export const thread = (token: string, opts: { before?: string; limit?: number } = {}) => {
   const qs = new URLSearchParams();

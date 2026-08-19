@@ -7,40 +7,13 @@
 // for the print/PDF window (all text escaped first).
 // ============================================================
 import React from 'react'
-import { WORKER } from './elle'
+import { artifactUrl, imageLine, isArtifactPath, isVideoArtifact } from './artifacts'
 
-// ── artifacts: the pictures she makes ────────────────────────
-// vfar generate/resynth and Flock media store bytes in R2 and hand back a
-// worker-absolute path. The worker returns those paths on RouterResult.
-// artifacts, and she is also told (mind.ts SURFACE_MARKDOWN) to put one on a
-// line of its own when it belongs in the prose — this is the half that turns
-// such a line into the picture.
-//
-// DELIBERATELY NARROW: only paths this worker actually serves become <img>.
-// Her answer is model output that can carry web-search results and other
-// people's text, so an <img src> taken from it is an outbound request someone
-// else could aim — the classic tracking pixel. Restricting the grammar to
-// /vfar/ and /flock/asset/ means the only thing that can render is something
-// her own tools stored. An external image URL degrades to a plain link, which
-// the reader can follow deliberately.
-//
-// Mirrors elle-worker/src/artifacts.ts and each route's 404 guard in its
-// index.ts. The two repos deploy separately, so the grammar is duplicated on
-// purpose — keep them in step.
-const ARTIFACT_RE = /^(?:\/vfar\/[0-9a-f]{32}\.(?:png|jpg)|\/flock\/asset\/[0-9a-f]{32}\.(?:png|jpg|jpeg|mp4))$/
-export function isArtifactPath(path: string): boolean { return ARTIFACT_RE.test(path) }
-export function artifactUrl(path: string): string { return WORKER + path }
-export function isVideoArtifact(path: string): boolean { return path.endsWith('.mp4') }
-
-// A whole line that is exactly one artifact — either bare, as she is told to
-// write it, or in markdown image syntax. Returns the path plus any alt text.
-function imageLine(line: string): { path: string; alt: string } | null {
-  const s = line.trim()
-  if (isArtifactPath(s)) return { path: s, alt: '' }
-  const m = s.match(/^!\[([^\]]*)\]\(([^\s)]+)\)$/)
-  if (m && isArtifactPath(m[2])) return { path: m[2], alt: m[1] }
-  return null
-}
+// The artifact grammar — which strings may become a picture — lives in
+// ./artifacts.ts, alongside the note on why it is deliberately narrow and the
+// three bundles that must keep it in step. Re-exported so existing importers
+// of these helpers from './md' keep working.
+export { artifactUrl, isArtifactPath, isVideoArtifact } from './artifacts'
 
 // ── inline: ![alt](img) **bold** *italic* `code` [text](url) ──
 // The image alternative comes FIRST so "![a](u)" is never chewed by the link
