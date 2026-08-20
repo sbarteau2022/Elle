@@ -14,6 +14,7 @@ import { useWorkbenchVoice } from '../lib/VoiceContext'
 import { useWorkbenchCamera } from '../lib/CameraContext'
 import { on, requestOpenPaper } from '../lib/commands'
 import { Md, Artifact, printAnswer, emailAnswer, asPrettyJson } from '../lib/md'
+import { rasterize, type Pixels } from '../lib/raster'
 import { fetchRegisters, getRegister, setRegister, FALLBACK_REGISTERS, type Register } from '../lib/registers'
 import { getTier } from '../lib/elle'
 import HistoryRail, { fetchTranscript } from './HistoryRail'
@@ -233,24 +234,67 @@ export default function EllePanel({ worker, accent }: any) {
   // valve's 34-turn memory can miss entirely. Same threshold, via λ=ρ.
   const fastValve = useRef(createHoldingValve(0.10))
   const [fastHold, setFastHold] = useState<HoldingState | null>(null)
-  const [attachment, setAttachment] = useState<{ name: string; text: string; chars: number; truncated?: boolean } | null>(null)
+  // An attachment used to be text and nothing else. An IMAGE now also carries:
+  // `stored`, the worker-side /intake/ path her vision tool can open; `pixels`,
+  // measured here on this machine so vfar rip has something to read; and
+  // `preview`, a local object URL so you can see what you attached before you
+  // send it. The bytes for the preview never leave the browser.
+  type Attachment = {
+    name: string; text: string; chars: number; truncated?: boolean
+    kind?: 'image' | 'document'
+    stored?: string
+    preview?: string
+    pixels?: Pixels | null
+  }
+  const [attachment, setAttachment] = useState<Attachment | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Upload → parse (worker toMarkdown) → hold the text as an attachment for the
-  // next turn. On send it rides in as context so Elle can read it and, on your
+  // Upload → parse (worker toMarkdown) → hold it as an attachment for the next
+  // turn. On send the text rides in as context so Elle can read it and, on your
   // instruction, ingest_paper it (chunk→embed→vectorize). PDF/DOCX/TXT/… all work.
+  //
+  // For an IMAGE two more things happen. The worker keeps the bytes in its
+  // private intake store and hands back the path, so her vision tool can open
+  // the real picture instead of a description of it. And we rasterize here —
+  // her eyes are on THIS machine, because the worker deliberately carries no
+  // image codec (see lib/raster.ts): the picture is measured locally and only
+  // numbers go up, the same way the mic sends pitch instead of audio.
   const onUpload = async (file: File) => {
     setUploading(true); setNote('')
+    // Release the previous preview before replacing it — an object URL pins its
+    // blob in memory until revoked.
+    setAttachment(a => { if (a?.preview) URL.revokeObjectURL(a.preview); return a })
     try {
       const fd = new FormData(); fd.append('file', file)
       const r = await fetch(worker.url + '/api/elle-upload', { method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
-      setAttachment({ name: d.name, text: d.text, chars: d.chars, truncated: d.truncated })
+      const isImage = d.kind === 'image' || /^image\//.test(file.type)
+      // Measuring is best-effort: a picture she cannot see is a turn without a
+      // rip in it, never a failed send.
+      const pixels = isImage ? await rasterize(file) : null
+      setAttachment({
+        name: d.name, text: d.text || '', chars: d.chars || 0, truncated: d.truncated,
+        kind: isImage ? 'image' : 'document',
+        stored: d.stored,
+        preview: isImage ? URL.createObjectURL(file) : undefined,
+        pixels,
+      })
     } catch (e: any) { setNote(`upload failed: ${e.message || e}`) } finally { setUploading(false) }
   }
+
+  // Drop an attachment and its preview together — the URL outlives the state
+  // otherwise, and the blob with it.
+  const clearAttachment = () => setAttachment(a => { if (a?.preview) URL.revokeObjectURL(a.preview); return null })
+
+  // ...and release it if the panel goes away while an attachment is still
+  // held. A ref, not the state itself: an unmount cleanup cannot read state,
+  // and setState during teardown is a no-op that would leak the blob silently.
+  const previewRef = useRef<string | undefined>(undefined)
+  previewRef.current = attachment?.preview
+  useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current) }, [])
 
   // Poll the durable κ memory state (public GET). Reflects the bending-trace
   // substrate + the seam gate; while gated it reports provisional/ranks=false.
@@ -343,19 +387,42 @@ export default function EllePanel({ worker, accent }: any) {
     const CTX_CAP = 50000
     const att = attachment
     let sentQ = question
-    if (att) {
+    if (att?.kind === 'image') {
+      // An image is not a document. Its toMarkdown text is a lossy shadow, so
+      // it rides as a note rather than as the content — and what actually
+      // matters is the intake path, which lets her OPEN the real picture. The
+      // rip of it arrives separately, injected server-side from image_pixels.
+      const seen = att.text.trim() ? `\n\nA first machine pass over it read: ${att.text.slice(0, 2000)}` : ''
+      const holds = att.stored ? `\nIt is stored at ${att.stored} — vfar{mode:'describe',image_path:'${att.stored}'} to read what is actually depicted.` : ''
+      sentQ = `[The person attached an IMAGE: ${att.name}]${holds}${seen}\n\n---\n${question || 'I attached this image — look at it and tell me what you see.'}`
+    } else if (att) {
       const bodyText = att.text.slice(0, CTX_CAP)
       const trunc = att.text.length > CTX_CAP ? `\n…[inlined ${CTX_CAP} of ${att.chars} chars — ask me to ingest it for the full document]` : ''
       sentQ = `[Attached file: ${att.name} · ${att.chars} chars]\n\n${bodyText}${trunc}\n\n---\n${question || 'I attached this file — read it.'}`
     }
-    const shownQ = extra?.label || (att ? `📎 ${att.name}${question ? ' — ' + question : ''}` : question)
-    setAttachment(null)
+    const shownQ = extra?.label || (att ? `${att.kind === 'image' ? '🖼' : '📎'} ${att.name}${question ? ' — ' + question : ''}` : question)
+    // Hand the turn its own copy: state is cleared below, but the request and
+    // the rendered turn both still need what was attached.
+    const sentAtt = att
+    clearAttachment()
     setTurns(t => [...t, { q: shownQ, answer: '', trace: [], open: false, pending: true }])
     try {
       const r = await fetch(worker.url + '/api/elle-router', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
-        body: JSON.stringify({ q: sentQ, session_id: session, voice: register, prefer: preferLocal ? 'local' : undefined, voice_prosody: extra?.voice_prosody, stream: true }),
+        // image_pixels are HER EYES: measured on this machine (lib/raster.ts)
+        // because the worker carries no image codec. The worker rips them and
+        // opens the turn with the reading — the same shape voice_prosody uses
+        // for the ear. Omitted when there is no image or it could not be read.
+        body: JSON.stringify({
+          q: sentQ, session_id: session, voice: register,
+          prefer: preferLocal ? 'local' : undefined,
+          voice_prosody: extra?.voice_prosody,
+          image_pixels: sentAtt?.pixels
+            ? { ...sentAtt.pixels, name: sentAtt.name, stored: sentAtt.stored }
+            : undefined,
+          stream: true,
+        }),
       })
       // LIVE MODE: the worker streams the loop as SSE frames — each step's
       // thought + tool the moment she commits to it, each observation as it
@@ -670,15 +737,33 @@ export default function EllePanel({ worker, accent }: any) {
             {interim}…
           </div>
         )}
-        {/* attachment chip — a parsed file waiting to ride the next turn */}
+        {/* attachment chip — what is waiting to ride the next turn. An image
+            shows itself (locally, from the file you picked — those bytes never
+            leave the browser for this) and reports whether her eyes could
+            actually measure it, because a silent failure there is a turn where
+            she simply cannot see and nothing says why. */}
         {(attachment || uploading) && (
           <div style={{ maxWidth: 760, margin: '0 auto 6px', padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--t2)' }}>
             {uploading ? <span style={{ color: 'var(--t3)' }}>📎 parsing…</span> : (
               <>
-                <span title={attachment!.truncated ? 'large file — inlined text is capped for the turn' : ''}>
-                  📎 {attachment!.name} · {attachment!.chars.toLocaleString()} chars{attachment!.truncated ? ' (capped)' : ''}
-                </span>
-                <button onClick={() => setAttachment(null)} title="remove attachment"
+                {attachment!.preview && (
+                  <img src={attachment!.preview} alt=""
+                    style={{ width: 34, height: 34, objectFit: 'cover', border: `0.5px solid ${accent}55`, flexShrink: 0 }} />
+                )}
+                {attachment!.kind === 'image' ? (
+                  <span title={attachment!.stored ? `stored for her vision tool at ${attachment!.stored}` : 'not stored — she can see its shape but cannot open the full picture'}>
+                    🖼 {attachment!.name}
+                    {attachment!.pixels
+                      ? ` · seen ${attachment!.pixels.width}×${attachment!.pixels.height}`
+                      : ' · could not read the pixels'}
+                    {attachment!.stored ? '' : ' · not stored'}
+                  </span>
+                ) : (
+                  <span title={attachment!.truncated ? 'large file — inlined text is capped for the turn' : ''}>
+                    📎 {attachment!.name} · {attachment!.chars.toLocaleString()} chars{attachment!.truncated ? ' (capped)' : ''}
+                  </span>
+                )}
+                <button onClick={clearAttachment} title="remove attachment"
                   style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontSize: 12, padding: 0 }}>✕</button>
               </>
             )}
